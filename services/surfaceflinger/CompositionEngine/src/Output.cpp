@@ -1403,7 +1403,8 @@ std::optional<base::unique_fd> Output::composeSurfaces(
             std::any_of(clientCompositionLayers.begin(), clientCompositionLayers.end(),
                         [outputDataspace =
                                  clientCompositionDisplay.outputDataspace](const auto& layer) {
-                            return layer.sourceDataspace != outputDataspace;
+                            return layer.sourceDataspace != ui::Dataspace::UNKNOWN
+                                    && layer.sourceDataspace != outputDataspace;
                         });
     if (expensiveRenderingExpected) {
         setExpensiveRenderingExpected(true);
