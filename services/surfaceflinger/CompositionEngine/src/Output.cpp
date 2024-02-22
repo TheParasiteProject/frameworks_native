@@ -31,6 +31,7 @@
 #include <compositionengine/impl/OutputLayer.h>
 #include <compositionengine/impl/OutputLayerCompositionState.h>
 #include <compositionengine/impl/planner/Planner.h>
+#include <cutils/properties.h>
 #include <ftl/algorithm.h>
 #include <ftl/future.h>
 #include <ftl/optional.h>
@@ -1444,7 +1445,9 @@ std::optional<base::unique_fd> Output::composeSurfaces(
     // or complex GPU shaders and it's expensive. We boost the GPU frequency so that
     // GPU composition can finish in time. We must reset GPU frequency afterwards,
     // because high frequency consumes extra battery.
-    const bool expensiveBlurs = mLayerRequestingBackgroundBlur != nullptr;
+    const bool expensiveBlurs =
+            property_get_bool("ro.sf.blurs_are_expensive", false) &&
+                mLayerRequestingBackgroundBlur != nullptr;
     const bool expensiveRenderingExpected = expensiveBlurs ||
             std::any_of(clientCompositionLayers.begin(), clientCompositionLayers.end(),
                         [outputDataspace =
