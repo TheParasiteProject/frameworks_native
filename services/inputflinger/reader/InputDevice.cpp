@@ -326,6 +326,7 @@ std::list<NotifyArgs> InputDevice::configureInternal(nsecs_t when,
             mAssociatedDisplayPort = std::nullopt;
             mAssociatedDisplayUniqueIdByPort = std::nullopt;
             mAssociatedViewport = std::nullopt;
+            mAssociatedDisplayUniqueIdByDescriptor = std::nullopt;
             // Find the display port that corresponds to the current input device descriptor
             const std::string& inputDeviceDescriptor = mIdentifier.descriptor;
             if (!inputDeviceDescriptor.empty()) {
