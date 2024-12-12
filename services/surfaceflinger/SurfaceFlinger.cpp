@@ -1317,10 +1317,11 @@ status_t SurfaceFlinger::getDisplayStats(const sp<IBinder>& displayToken,
 void SurfaceFlinger::setDesiredMode(display::DisplayModeRequest&& desiredMode) {
     const auto mode = desiredMode.mode;
     const auto displayId = mode.modePtr->getPhysicalDisplayId();
+    const auto desiredDisplay = FTL_FAKE_GUARD(mStateLock, getDisplayDeviceLocked(displayId));
 
     SFTRACE_NAME(ftl::Concat(__func__, ' ', displayId.value).c_str());
 
-    if (mDeferRefreshRateWhenOff && display->getPowerMode() == hal::PowerMode::OFF) {
+    if (mDeferRefreshRateWhenOff && desiredDisplay && desiredDisplay->getPowerMode() == hal::PowerMode::OFF) {
         ALOGI("%s: deferring because display is powered off", __func__);
         mLastActiveMode = mode;
         return;
