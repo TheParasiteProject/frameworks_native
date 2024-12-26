@@ -1320,6 +1320,12 @@ void SurfaceFlinger::setDesiredMode(display::DisplayModeRequest&& desiredMode) {
 
     SFTRACE_NAME(ftl::Concat(__func__, ' ', displayId.value).c_str());
 
+    const auto display = getDisplayDeviceLocked(displayId);
+    if (!display) {
+        ALOGW("%s: display is no longer valid", __func__);
+        return;
+    }
+
     if (mDeferRefreshRateWhenOff && display->getPowerMode() == hal::PowerMode::OFF) {
         ALOGI("%s: deferring because display is powered off", __func__);
         mLastActiveMode = mode;
