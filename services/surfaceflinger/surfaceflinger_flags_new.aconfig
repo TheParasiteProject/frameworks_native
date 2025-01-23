@@ -168,6 +168,13 @@ flag {
 } # follower_arbitrary_refresh_rate_selection
 
 flag {
+  name: "follower_display_backpressure"
+  namespace: "desktop_display"
+  description: "Skips presentation on a follower display if there is a pending present for the next follower vsync. Enables follower displays to present even when their refresh rate does not match the pacesetter display."
+  bug: "374072507"
+} # follower_display_backpressure
+
+flag {
   name: "force_slower_follower_gpu_composition"
   namespace: "desktop_display"
   description: "Force slower connected displays to be GPU composited."
