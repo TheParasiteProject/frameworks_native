@@ -440,7 +440,7 @@ void Scheduler::onFrameSignal(ICompositor& compositor, VsyncId vsyncId,
     mDebugPresentDelay.store(std::nullopt);
 
     const FrameTargeter::BeginFrameArgs beginFrameArgs =
-            {.frameBeginTime = SchedulerClock::now(),
+            {.frameBeginTime = mClock->now(),
              .vsyncId = vsyncId,
              .expectedVsyncTime = expectedVsyncTime,
              .sfWorkDuration = mVsyncModulator->getVsyncConfig().sfWorkDuration,
@@ -450,25 +450,47 @@ void Scheduler::onFrameSignal(ICompositor& compositor, VsyncId vsyncId,
     ftl::NonNull<const Display*> pacesetterPtr = pacesetterPtrLocked();
     pacesetterPtr->targeterPtr->beginFrame(beginFrameArgs, *pacesetterPtr->schedulePtr);
 
+    ui::PhysicalDisplayVector<PhysicalDisplayId> presentableDisplays = {pacesetterPtr->displayId};
     {
         FrameTargets targets;
         targets.try_emplace(pacesetterPtr->displayId, &pacesetterPtr->targeterPtr->target());
 
-        // TODO (b/256196556): Followers should use the next VSYNC after the frontrunner, not the
-        // pacesetter.
-        // Update expectedVsyncTime, which may have been adjusted by beginFrame.
-        expectedVsyncTime = pacesetterPtr->targeterPtr->target().expectedPresentTime();
+        const bool followerDisplayBackpressure =
+                FlagManager::getInstance().follower_display_backpressure();
+        if (!followerDisplayBackpressure) {
+            expectedVsyncTime = pacesetterPtr->targeterPtr->target().expectedPresentTime();
+        }
 
         for (const auto& [id, display] : mDisplays) {
             if (id == pacesetterPtr->displayId) continue;
 
             auto followerBeginFrameArgs = beginFrameArgs;
-            followerBeginFrameArgs.expectedVsyncTime =
+            const TimePoint nextFollowerVsync =
                     display.schedulePtr->vsyncDeadlineAfter(expectedVsyncTime);
+            followerBeginFrameArgs.expectedVsyncTime = nextFollowerVsync;
 
             FrameTargeter& targeter = *display.targeterPtr;
+            if (followerDisplayBackpressure) {
+                const size_t pendingFenceCount =
+                        targeter.countPresentFencesPendingAt(beginFrameArgs.frameBeginTime);
+                const TimePoint nextFollowerVsync =
+                        display.schedulePtr->vsyncDeadlineAfter(beginFrameArgs.frameBeginTime);
+                const bool isNextFollowerVsyncBeforeNextPacesetterVsync =
+                        nextFollowerVsync < expectedVsyncTime;
+                if (pendingFenceCount > 0 &&
+                    // Tolerate the temporary lockup caused by backpressure if there's one pending
+                    // present, and the vsync is anticipated to happen before the next pacesetter
+                    // vsync, as it will resolve itself before the next pacesetter present.
+                    !(pendingFenceCount == 1 && isNextFollowerVsyncBeforeNextPacesetterVsync)) {
+                    SFTRACE_FORMAT_INSTANT("Avoiding backpressure for follower display %lu",
+                                           id.value);
+                    continue;
+                }
+            }
+
             targeter.beginFrame(followerBeginFrameArgs, *display.schedulePtr);
             targets.try_emplace(id, &targeter.target());
+            presentableDisplays.push_back(id);
         }
 
         if (!compositor.commit(pacesetterPtr->displayId, targets)) {
@@ -481,12 +503,12 @@ void Scheduler::onFrameSignal(ICompositor& compositor, VsyncId vsyncId,
     // The pacesetter may have changed or been registered anew during commit.
     pacesetterPtr = pacesetterPtrLocked();
 
-    // TODO(b/256196556): Choose the frontrunner display.
     FrameTargeters targeters;
     targeters.try_emplace(pacesetterPtr->displayId, pacesetterPtr->targeterPtr.get());
 
     for (auto& [id, display] : mDisplays) {
         if (id == pacesetterPtr->displayId) continue;
+        if (!ftl::contains(presentableDisplays, id)) continue;
 
         FrameTargeter& targeter = *display.targeterPtr;
         targeters.try_emplace(id, &targeter);

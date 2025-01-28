@@ -21,7 +21,20 @@
 #include <utils/Log.h>
 
 namespace android::scheduler {
+namespace {
 using namespace std::chrono_literals;
+
+// TODO: b/416629136 - Move this into android::Fence.
+// Returns true if the `fence` hasn't fired before `time`.
+bool isFencePendingAt(const FenceTimePtr& fenceTime, TimePoint time) {
+    const nsecs_t signalTime = fenceTime->getSignalTime();
+    if (signalTime == Fence::SIGNAL_TIME_PENDING) {
+        return true;
+    }
+    // A fence fired after `time` should be considered pending at `time`.
+    return Fence::isValidTimestamp(signalTime) && signalTime >= time.ns();
+}
+} // namespace
 
 FrameTarget::FrameTarget(const std::string& displayLabel)
       : mFramePending("PrevFramePending " + displayLabel, false),
@@ -80,6 +93,16 @@ const FenceTimePtr& FrameTarget::presentFenceForPreviousFrame() const {
         return mPresentFences.back().fenceTime;
     }
     return FenceTime::NO_FENCE;
+}
+
+size_t FrameTargeter::countPresentFencesPendingAt(TimePoint time) const {
+    size_t pendingFenceCount = 0;
+    for (ssize_t i = static_cast<ssize_t>(mPresentFences.size() - 1); i >= 0; --i) {
+        if (isFencePendingAt(mPresentFences[static_cast<size_t>(i)].fenceTime, time)) {
+            pendingFenceCount++;
+        }
+    }
+    return pendingFenceCount;
 }
 
 void FrameTargeter::beginFrame(const BeginFrameArgs& args, const IVsyncSource& vsyncSource) {
