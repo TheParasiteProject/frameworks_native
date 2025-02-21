@@ -1219,6 +1219,8 @@ private:
                                    const DisplayDevice& newFrontInternalDisplay)
             REQUIRES(mStateLock, kMainThreadContext);
 
+    void onNewPacesetterDisplay() REQUIRES(mStateLock, kMainThreadContext);
+
     /*
      * Debugging & dumpsys
      */
