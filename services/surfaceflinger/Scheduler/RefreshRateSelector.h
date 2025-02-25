@@ -40,8 +40,6 @@ namespace android::scheduler {
 
 using namespace std::chrono_literals;
 
-using FrameRateOverride = DisplayEventReceiver::Event::FrameRateOverride;
-
 // Selects the refresh rate of a display by ranking its `DisplayModes` in accordance with
 // the DisplayManager (or override) `Policy`, the `LayerRequirement` of each active layer,
 // and `GlobalSignals`.
@@ -192,11 +190,14 @@ public:
         // Whether layer is in focus or not based on WindowManager's state
         bool focused = false;
 
+        LayerFilter layerFilter;
+
         bool operator==(const LayerRequirement& other) const {
             return name == other.name && vote == other.vote &&
                     isApproxEqual(desiredRefreshRate, other.desiredRefreshRate) &&
                     seamlessness == other.seamlessness && weight == other.weight &&
-                    focused == other.focused && frameRateCategory == other.frameRateCategory;
+                    focused == other.focused && frameRateCategory == other.frameRateCategory &&
+                    layerFilter == other.layerFilter;
         }
 
         bool operator!=(const LayerRequirement& other) const { return !(*this == other); }
@@ -438,7 +439,7 @@ private:
     // See mActiveModeOpt for thread safety.
     const FrameRateMode& getActiveModeLocked() const REQUIRES(mLock);
 
-    RankedFrameRates getRankedFrameRatesLocked(const std::vector<LayerRequirement>& layers,
+    RankedFrameRates getRankedFrameRatesLocked(const std::vector<LayerRequirement>& allLayers,
                                                GlobalSignals signals, Fps pacesetterFps) const
             REQUIRES(mLock);
 

@@ -183,6 +183,7 @@ auto LayerHistory::summarize(nsecs_t now) -> Summary {
 
     for (const auto& [key, value] : mActiveLayerInfos) {
         auto& info = value.second;
+
         const auto frameRateSelectionPriority = info->getFrameRateSelectionPriority();
         const auto layerFocused = Layer::isLayerFocusedBasedOnPriority(frameRateSelectionPriority);
         ALOGV("%s has priority: %d %s focused", info->getName().c_str(), frameRateSelectionPriority,
@@ -208,9 +209,18 @@ auto LayerHistory::summarize(nsecs_t now) -> Summary {
                     : base::StringPrintf("category=%s", ftl::enum_string(vote.category).c_str());
             SFTRACE_FORMAT_INSTANT("%s %s %s (%.2f)", ftl::enum_string(vote.type).c_str(),
                                    to_string(vote.fps).c_str(), categoryString.c_str(), weight);
-            summary.push_back({info->getName(), info->getOwnerUid(), vote.type, vote.fps,
-                               vote.seamlessness, vote.category, vote.categorySmoothSwitchOnly,
-                               weight, layerFocused});
+            summary.push_back({
+                    .name = info->getName(),
+                    .ownerUid = info->getOwnerUid(),
+                    .vote = vote.type,
+                    .desiredRefreshRate = vote.fps,
+                    .seamlessness = vote.seamlessness,
+                    .frameRateCategory = vote.category,
+                    .frameRateCategorySmoothSwitchOnly = vote.categorySmoothSwitchOnly,
+                    .weight = weight,
+                    .focused = layerFocused,
+                    .layerFilter = info->getLayerFilter(),
+            });
 
             if (CC_UNLIKELY(mTraceEnabled)) {
                 trace(*info, vote.type, vote.fps.getIntValue());

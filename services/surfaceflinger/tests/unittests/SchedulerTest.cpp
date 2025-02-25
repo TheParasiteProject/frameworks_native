@@ -392,9 +392,8 @@ MATCHER(Is120Hz, "") {
 }
 
 TEST_F(SchedulerTest, chooseRefreshRateForContentSelectsMaxRefreshRate) {
-    mScheduler->registerDisplay(kDisplayId1,
-                                std::make_shared<RefreshRateSelector>(kDisplay1Modes,
-                                                                      kDisplay1Mode60->getId()));
+    auto selector = std::make_shared<RefreshRateSelector>(kDisplay1Modes, kDisplay1Mode60->getId());
+    mScheduler->registerDisplay(kDisplayId1, selector);
 
     const sp<MockLayer> layer = sp<MockLayer>::make(mFlinger.flinger());
     scheduler::LayerProps layerProps = {
@@ -405,6 +404,7 @@ TEST_F(SchedulerTest, chooseRefreshRateForContentSelectsMaxRefreshRate) {
             .frameRateSelectionPriority = Layer::PRIORITY_UNSET,
             .isSmallDirty = false,
             .isFrontBuffered = false,
+            .refreshRateSelector = selector.get(),
     };
     mScheduler->recordLayerHistory(layer->getSequence(), layerProps, 0, systemTime(),
                                    LayerHistory::LayerUpdateType::Buffer);

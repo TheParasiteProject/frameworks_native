@@ -454,6 +454,10 @@ RefreshRateSelector* LayerInfo::getRefreshRateSelector() const {
     return mLayerProps->refreshRateSelector;
 }
 
+LayerFilter LayerInfo::getLayerFilter() const {
+    return mLayerProps->refreshRateSelector->getLayerFilter();
+}
+
 LayerInfo::RefreshRateHistory::HeuristicTraceTagData
 LayerInfo::RefreshRateHistory::makeHeuristicTraceTagData() const {
     const std::string prefix = "LFPS ";

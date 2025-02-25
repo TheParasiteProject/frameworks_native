@@ -22,6 +22,7 @@
 #include <string>
 #include <unordered_map>
 
+#include <ui/LayerStack.h>
 #include <ui/Transform.h>
 #include <utils/Timers.h>
 
@@ -215,6 +216,7 @@ public:
     FloatRect getBounds() const;
     ui::Transform getTransform() const;
     RefreshRateSelector* getRefreshRateSelector() const;
+    LayerFilter getLayerFilter() const;
 
     // Returns a C string for tracing a vote
     const char* getTraceTag(LayerHistory::LayerVoteType type) const;
