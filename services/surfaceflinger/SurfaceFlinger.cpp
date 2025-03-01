@@ -2483,7 +2483,8 @@ void SurfaceFlinger::updateLayerHistory(nsecs_t now) {
 }
 
 bool SurfaceFlinger::updateLayerSnapshots(VsyncId vsyncId, nsecs_t frameTimeNs,
-                                          bool flushTransactions, bool& outTransactionsAreEmpty) {
+                                          bool flushTransactions, bool& outTransactionsAreEmpty)
+        EXCLUDES(mStateLock) {
     using Changes = frontend::RequestedLayerState::Changes;
     SFTRACE_CALL();
     SFTRACE_NAME_FOR_TRACK(WorkloadTracer::TRACK_NAME, "Transaction Handling");
@@ -2680,7 +2681,7 @@ bool SurfaceFlinger::updateLayerSnapshots(VsyncId vsyncId, nsecs_t frameTimeNs,
 }
 
 bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
-                            const scheduler::FrameTargets& frameTargets) {
+                            const scheduler::FrameTargets& frameTargets) EXCLUDES(mStateLock) {
     const scheduler::FrameTarget& pacesetterFrameTarget = *frameTargets.get(pacesetterId)->get();
 
     const VsyncId vsyncId = pacesetterFrameTarget.vsyncId();
@@ -2855,18 +2856,20 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
 
     // Tracks layer stacks of displays that are added to CompositionEngine output.
     ui::DisplayMap<ui::LayerStack, ftl::Unit> outputLayerStacks;
-    auto isOutputLayerStack = [&outputLayerStacks](DisplayId id, ui::LayerStack layerStack) {
-        if (FlagManager::getInstance().reject_dupe_layerstacks() &&
-            outputLayerStacks.contains(layerStack)) {
-            // TODO: remove log and DisplayId from params once reject_dupe_layerstacks flag is
-            // removed
-            ALOGD("Existing layer stack ID %d output to another display %" PRIu64
-                  ", dropping display from outputs",
-                  layerStack.id, id.value);
-            return true;
+    auto isUniqueOutputLayerStack = [&outputLayerStacks](DisplayId id, ui::LayerStack layerStack) {
+        if (FlagManager::getInstance().reject_dupe_layerstacks()) {
+            if (layerStack != ui::INVALID_LAYER_STACK && outputLayerStacks.contains(layerStack)) {
+                // TODO: remove log and DisplayId from params once reject_dupe_layerstacks flag is
+                // removed
+                ALOGD("Existing layer stack ID %d output to another display %" PRIu64
+                      ", dropping display from outputs",
+                      layerStack.id, id.value);
+                return false;
+            }
         }
+
         outputLayerStacks.try_emplace(layerStack);
-        return false;
+        return true;
     };
 
     // Add outputs for physical displays.
@@ -2875,7 +2878,7 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
 
         if (const auto display = getCompositionDisplayLocked(id)) {
             const auto layerStack = physicalDisplayLayerStacks.get(id)->get();
-            if (!isOutputLayerStack(display->getId(), layerStack)) {
+            if (isUniqueOutputLayerStack(display->getId(), layerStack)) {
                 refreshArgs.outputs.push_back(display);
             }
         }
@@ -2894,7 +2897,7 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
 
             if (!refreshRate.isValid() ||
                 mScheduler->isVsyncInPhase(pacesetterTarget.frameBeginTime(), refreshRate)) {
-                if (!isOutputLayerStack(display->getId(), display->getLayerStack())) {
+                if (isUniqueOutputLayerStack(display->getId(), display->getLayerStack())) {
                     refreshArgs.outputs.push_back(display->getCompositionDisplay());
                 }
             }
@@ -4893,12 +4896,14 @@ bool SurfaceFlinger::flushTransactionQueues() {
     return applyTransactions(transactions);
 }
 
-bool SurfaceFlinger::applyTransactions(std::vector<QueuedTransactionState>& transactions) {
+bool SurfaceFlinger::applyTransactions(std::vector<QueuedTransactionState>& transactions)
+        EXCLUDES(mStateLock) {
     Mutex::Autolock lock(mStateLock);
     return applyTransactionsLocked(transactions);
 }
 
-bool SurfaceFlinger::applyTransactionsLocked(std::vector<QueuedTransactionState>& transactions) {
+bool SurfaceFlinger::applyTransactionsLocked(std::vector<QueuedTransactionState>& transactions)
+        REQUIRES(mStateLock) {
     bool needsTraversal = false;
     // Now apply all transactions.
     for (auto& transaction : transactions) {
@@ -5115,15 +5120,13 @@ status_t SurfaceFlinger::setTransactionState(
     return NO_ERROR;
 }
 
-bool SurfaceFlinger::applyTransactionState(const FrameTimelineInfo& frameTimelineInfo,
-                                           std::vector<ResolvedComposerState>& states,
-                                           Vector<DisplayState>& displays, uint32_t flags,
-                                           const InputWindowCommands& inputWindowCommands,
-                                           const int64_t desiredPresentTime, bool isAutoTimestamp,
-                                           const std::vector<uint64_t>& uncacheBufferIds,
-                                           const int64_t postTime, bool hasListenerCallbacks,
-                                           const std::vector<ListenerCallbacks>& listenerCallbacks,
-                                           int originPid, int originUid, uint64_t transactionId) {
+bool SurfaceFlinger::applyTransactionState(
+        const FrameTimelineInfo& frameTimelineInfo, std::vector<ResolvedComposerState>& states,
+        Vector<DisplayState>& displays, uint32_t flags,
+        const InputWindowCommands& inputWindowCommands, const int64_t desiredPresentTime,
+        bool isAutoTimestamp, const std::vector<uint64_t>& uncacheBufferIds, const int64_t postTime,
+        bool hasListenerCallbacks, const std::vector<ListenerCallbacks>& listenerCallbacks,
+        int originPid, int originUid, uint64_t transactionId) REQUIRES(mStateLock) {
     uint32_t transactionFlags = 0;
 
     // start and end registration for listeners w/ no surface so they can get their callback.  Note
@@ -5275,7 +5278,7 @@ uint32_t SurfaceFlinger::updateLayerCallbacksAndStats(const FrameTimelineInfo& f
                                                       ResolvedComposerState& composerState,
                                                       int64_t desiredPresentTime,
                                                       bool isAutoTimestamp, int64_t postTime,
-                                                      uint64_t transactionId) {
+                                                      uint64_t transactionId) REQUIRES(mStateLock) {
     layer_state_t& s = composerState.state;
 
     std::vector<ListenerCallbacks> filteredListeners;
@@ -7820,15 +7823,16 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::renderScreenImpl(
     // Otherwise for seamless transitions it's important to match the current
     // display state as the buffer will be shown under these same conditions, and we
     // want to avoid any flickers.
-    if (captureResults.capturedHdrLayers && !enableLocalTonemapping &&
-        args.sdrWhitePointNits > 1.0f && !args.seamlessTransition) {
-        // Restrict the amount of HDR "headroom" in the screenshot to avoid
-        // over-dimming the SDR portion. 2.0 chosen by experimentation
-        constexpr float kMaxScreenshotHeadroom = 2.0f;
-        // TODO: Aim to update displayBrightnessNits earlier in screenshot
-        // path so ScreenshotArgs can be passed as const
-        args.displayBrightnessNits = std::min(args.sdrWhitePointNits * kMaxScreenshotHeadroom,
-                                              args.displayBrightnessNits);
+    if (captureResults.capturedHdrLayers) {
+        if (!enableLocalTonemapping && args.sdrWhitePointNits > 1.0f && !args.seamlessTransition) {
+            // Restrict the amount of HDR "headroom" in the screenshot to avoid
+            // over-dimming the SDR portion. 2.0 chosen by experimentation
+            constexpr float kMaxScreenshotHeadroom = 2.0f;
+            // TODO: Aim to update displayBrightnessNits earlier in screenshot
+            // path so ScreenshotArgs can be passed as const
+            args.displayBrightnessNits = std::min(args.sdrWhitePointNits * kMaxScreenshotHeadroom,
+                                                  args.displayBrightnessNits);
+        }
     } else {
         args.displayBrightnessNits = args.sdrWhitePointNits;
     }
