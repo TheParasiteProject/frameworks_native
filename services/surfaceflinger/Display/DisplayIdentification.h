@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -35,6 +34,13 @@ namespace android::display {
 
 using DisplayIdentificationData = std::vector<uint8_t>;
 
+enum class HotplugStatus {
+    Connected,
+    // This is a special workaround for the lack of headless mode. If a display is in this status,
+    // the display modes are reloaded.
+    Reconnected
+};
+
 struct DetailedTimingDescriptor {
     ui::Size pixelSizeCount;
     ui::Size physicalSizeInMm;
@@ -44,6 +50,7 @@ struct DisplayIdentificationInfo {
     PhysicalDisplayId id;
     std::string name;
     uint8_t port;
+    HotplugStatus hotplugStatus = HotplugStatus::Connected;
     std::optional<DeviceProductInfo> deviceProductInfo;
     std::optional<DetailedTimingDescriptor> preferredDetailedTimingDescriptor;
     ScreenPartStatus screenPartStatus;

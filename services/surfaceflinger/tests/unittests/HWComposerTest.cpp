@@ -477,6 +477,25 @@ TEST_F(HWComposerTest, onVsyncInvalid) {
     EXPECT_FALSE(displayIdOpt);
 }
 
+TEST_F(HWComposerTest, propagateHotplugReconnectStatus) {
+    constexpr hal::HWDisplayId kHwcDisplayId = 1;
+    constexpr uint8_t kPort = 0;
+    expectHotplugConnect(kHwcDisplayId, kPort, getExternalEdid());
+
+    const auto info1 = mHwc.onHotplug(kHwcDisplayId, HWComposer::HotplugEvent::Connected);
+    ASSERT_TRUE(info1);
+    EXPECT_EQ(display::HotplugStatus::Connected, info1->hotplugStatus);
+
+    // Emit another hotplug event on the same display, but with a different EDID. This should
+    // trigger a hotplug reconnect. Display identification data should not be fetched.
+    EXPECT_CALL(*mHal, getDisplayIdentificationData(kHwcDisplayId, _, _, _)).Times(0);
+    const auto info2 = mHwc.onHotplug(kHwcDisplayId, HWComposer::HotplugEvent::Connected);
+    ASSERT_TRUE(info2);
+
+    EXPECT_EQ(display::HotplugStatus::Reconnected, info2->hotplugStatus);
+    EXPECT_EQ(info1->id, info2->id);
+}
+
 TEST_F(HWComposerTest, displayIdConflictResolution) {
     // Two different displays (connected to two different ports) produce the same EDID,
     // which will result in the same EDID-based display ID.

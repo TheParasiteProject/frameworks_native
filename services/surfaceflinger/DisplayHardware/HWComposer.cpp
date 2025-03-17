@@ -1208,6 +1208,8 @@ std::optional<display::DisplayIdentificationInfo> HWComposer::onHotplugConnect(
     if (const auto displayId = toPhysicalDisplayId(hwcDisplayId)) {
         info = display::DisplayIdentificationInfo{.id = *displayId,
                                                   .name = std::string(),
+                                                  .hotplugStatus =
+                                                          display::HotplugStatus::Reconnected,
                                                   .deviceProductInfo = std::nullopt};
         if (mUpdateDeviceProductInfoOnHotplugReconnect) {
             uint8_t port;
