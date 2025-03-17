@@ -432,6 +432,16 @@ std::optional<DisplayIdentificationInfo> parseDisplayIdentificationData(
     };
 }
 
+PhysicalDisplayId resolveDisplayIdCollision(PhysicalDisplayId id, uint8_t port) {
+    const uint8_t lowByte = static_cast<uint8_t>(id.value) == port ? ~port : port;
+    const uint64_t newIdValue = (id.value & ~0xFFULL) | lowByte;
+
+    ALOGI("Display ID %" PRIu64 " --> resolved to %" PRIu64 " using %" PRIu8 " as suffix.",
+          id.value, newIdValue, lowByte);
+
+    return PhysicalDisplayId::fromValue(newIdValue);
+}
+
 PhysicalDisplayId getVirtualDisplayId(uint32_t id) {
     return PhysicalDisplayId::fromEdid(0, kVirtualEdidManufacturerId, id);
 }

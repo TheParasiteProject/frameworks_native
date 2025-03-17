@@ -234,6 +234,13 @@ void HWComposer::allocatePhysicalDisplay(hal::HWDisplayId hwcDisplayId, Physical
              "Attaching display %" PRIu64 " to an already active port %" PRIu8 ".", hwcDisplayId,
              port);
 
+    if (FlagManager::getInstance().stable_edid_ids()) {
+        LOG_ALWAYS_FATAL_IF(hasDisplayWithId(displayId),
+                            "Cannot attach display to HAL display %" PRIu64
+                            " with a duplicate display ID %" PRIu64 ".",
+                            hwcDisplayId, displayId.value);
+    }
+
     mPhysicalDisplayIdMap[hwcDisplayId] = displayId;
 
     if (!mPrimaryHwcDisplayId) {
@@ -1235,8 +1242,12 @@ std::optional<display::DisplayIdentificationInfo> HWComposer::onHotplugConnect(
         info = [this, hwcDisplayId, &port, &data, &screenPartStatus, hasDisplayIdentificationData] {
             const bool isPrimary = !mPrimaryHwcDisplayId;
             if (mHasMultiDisplaySupport) {
-                if (const auto info =
+                if (auto info =
                             display::parseDisplayIdentificationData(port, data, screenPartStatus)) {
+                    if (FlagManager::getInstance().stable_edid_ids() &&
+                        hasDisplayWithId(info->id)) {
+                        info->id = display::resolveDisplayIdCollision(info->id, info->port);
+                    }
                     return *info;
                 }
                 ALOGE("Failed to parse identification data for display %" PRIu64, hwcDisplayId);
@@ -1254,6 +1265,15 @@ std::optional<display::DisplayIdentificationInfo> HWComposer::onHotplugConnect(
                     .screenPartStatus = screenPartStatus,
             };
         }();
+
+        // Fail the hotplug if the display ID conflict could not be resolved to avoid display
+        // mixups.
+        if (FlagManager::getInstance().stable_edid_ids() && hasDisplayWithId(info->id)) {
+            ALOGE("Ignoring connection of display %" PRIu64
+                  ". Failed to resolve Display ID collision for duplicate display ID %" PRIu64 ".",
+                  hwcDisplayId, info->id.value);
+            return {};
+        }
 
         mComposer->onHotplugConnect(hwcDisplayId);
     }
@@ -1367,6 +1387,12 @@ void HWComposer::loadLayerMetadataSupport() {
     for (const auto& [name, mandatory] : supportedMetadataKeyInfo) {
         mSupportedLayerGenericMetadata.emplace(name, mandatory);
     }
+}
+
+bool HWComposer::hasDisplayWithId(PhysicalDisplayId displayId) const {
+    return ftl::find_if(mPhysicalDisplayIdMap,
+                        [displayId](const auto& pair) { return pair.second == displayId; })
+            .has_value();
 }
 
 } // namespace impl

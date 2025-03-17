@@ -92,6 +92,8 @@ std::optional<PnpId> getPnpId(uint16_t manufacturerId);
 std::optional<DisplayIdentificationInfo> parseDisplayIdentificationData(
         uint8_t port, const DisplayIdentificationData&, android::ScreenPartStatus screenPartStatus);
 
+PhysicalDisplayId resolveDisplayIdCollision(PhysicalDisplayId id, uint8_t port);
+
 PhysicalDisplayId getVirtualDisplayId(uint32_t id);
 
 // Generates a consistent, stable, and hashed display ID that is based on the
