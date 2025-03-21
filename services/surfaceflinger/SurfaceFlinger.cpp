@@ -2887,7 +2887,8 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
     ui::DisplayMap<ui::LayerStack, ftl::Unit> outputLayerStacks;
     auto isUniqueOutputLayerStack = [&outputLayerStacks](DisplayId id, ui::LayerStack layerStack) {
         if (FlagManager::getInstance().reject_dupe_layerstacks()) {
-            if (layerStack != ui::INVALID_LAYER_STACK && outputLayerStacks.contains(layerStack)) {
+            if (layerStack != ui::UNASSIGNED_LAYER_STACK &&
+                outputLayerStacks.contains(layerStack)) {
                 // TODO: remove log and DisplayId from params once reject_dupe_layerstacks flag is
                 // removed
                 ALOGD("Existing layer stack ID %d output to another display %" PRIu64
@@ -3016,9 +3017,9 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
                         LayerFE::ReleaseFencePromiseStatus::UNINITIALIZED ||
                 layerFE->getReleaseFencePromiseStatus() ==
                         LayerFE::ReleaseFencePromiseStatus::FULFILLED) {
-                // layerStack is invalid because layer is not on a display
+                // layerStack is unassigned because layer is not on a display
                 attachReleaseFenceFutureToLayer(layer.get(), layerFE.get(),
-                                                ui::INVALID_LAYER_STACK);
+                                                ui::UNASSIGNED_LAYER_STACK);
             }
         }
     }
@@ -3035,13 +3036,13 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
 
     int index = 0;
     ftl::StaticVector<char, WorkloadTracer::COMPOSITION_SUMMARY_SIZE> compositionSummary;
-    auto lastLayerStack = ui::INVALID_LAYER_STACK;
+    auto lastLayerStack = ui::UNASSIGNED_LAYER_STACK;
 
     uint64_t prevOverrideBufferId = 0;
     for (auto& [layer, layerFE] : layers) {
         CompositionResult compositionResult{layerFE->stealCompositionResult()};
         if (lastLayerStack != layerFE->mSnapshot->outputFilter.layerStack) {
-            if (lastLayerStack != ui::INVALID_LAYER_STACK) {
+            if (lastLayerStack != ui::UNASSIGNED_LAYER_STACK) {
                 // add a space to separate displays
                 compositionSummary.push_back(' ');
             }
@@ -3356,7 +3357,7 @@ void SurfaceFlinger::onCompositionPresented(PhysicalDisplayId pacesetterId,
             if (optDisplay && !optDisplay->get()->isVirtual()) {
                 auto fence = getHwComposer().getPresentFence(optDisplay->get()->getPhysicalId());
                 layer->prepareReleaseCallbacks(ftl::yield<FenceResult>(fence),
-                                               ui::INVALID_LAYER_STACK);
+                                               ui::UNASSIGNED_LAYER_STACK);
             }
         }
         layer->releasePendingBuffer(presentTime.ns());
@@ -6219,7 +6220,7 @@ void SurfaceFlinger::dumpHdrInfo(std::string& result) const {
 void SurfaceFlinger::dumpFrontEnd(std::string& result) {
     std::ostringstream out;
     out << "\nComposition list (bottom to top)\n";
-    ui::LayerStack lastPrintedLayerStackHeader = ui::INVALID_LAYER_STACK;
+    ui::LayerStack lastPrintedLayerStackHeader = ui::UNASSIGNED_LAYER_STACK;
     for (const auto& snapshot : mLayerSnapshotBuilder.getSnapshots()) {
         if (lastPrintedLayerStackHeader != snapshot->outputFilter.layerStack) {
             lastPrintedLayerStackHeader = snapshot->outputFilter.layerStack;
@@ -6229,7 +6230,7 @@ void SurfaceFlinger::dumpFrontEnd(std::string& result) {
     }
 
     out << "\nInput list\n";
-    lastPrintedLayerStackHeader = ui::INVALID_LAYER_STACK;
+    lastPrintedLayerStackHeader = ui::UNASSIGNED_LAYER_STACK;
     mLayerSnapshotBuilder.forEachInputSnapshot([&](const frontend::LayerSnapshot& snapshot) {
         if (lastPrintedLayerStackHeader != snapshot.outputFilter.layerStack) {
             lastPrintedLayerStackHeader = snapshot.outputFilter.layerStack;
@@ -6247,7 +6248,7 @@ void SurfaceFlinger::dumpFrontEnd(std::string& result) {
 void SurfaceFlinger::dumpVisibleFrontEnd(std::string& result) {
     std::ostringstream out;
     out << "\nComposition list (bottom to top)\n";
-    ui::LayerStack lastPrintedLayerStackHeader = ui::INVALID_LAYER_STACK;
+    ui::LayerStack lastPrintedLayerStackHeader = ui::UNASSIGNED_LAYER_STACK;
     mLayerSnapshotBuilder.forEachVisibleSnapshot(
             [&](std::unique_ptr<frontend::LayerSnapshot>& snapshot) {
                 if (snapshot->hasSomethingToDraw()) {
@@ -6260,7 +6261,7 @@ void SurfaceFlinger::dumpVisibleFrontEnd(std::string& result) {
             });
 
     out << "\nInput list\n";
-    lastPrintedLayerStackHeader = ui::INVALID_LAYER_STACK;
+    lastPrintedLayerStackHeader = ui::UNASSIGNED_LAYER_STACK;
     mLayerSnapshotBuilder.forEachInputSnapshot([&](const frontend::LayerSnapshot& snapshot) {
         if (lastPrintedLayerStackHeader != snapshot.outputFilter.layerStack) {
             lastPrintedLayerStackHeader = snapshot.outputFilter.layerStack;
@@ -7693,7 +7694,7 @@ bool SurfaceFlinger::getSnapshotsFromMainThread(
                 if (mRenderEngine->isThreaded()) {
                     for (auto& [layer, layerFE] : layers) {
                         attachReleaseFenceFutureToLayer(layer, layerFE.get(),
-                                                        ui::INVALID_LAYER_STACK);
+                                                        ui::UNASSIGNED_LAYER_STACK);
                     }
                 }
                 return getDisplayStateOnMainThread(args);
@@ -7975,7 +7976,7 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::renderScreenImpl(
             // deadlocks between main thread and binder threads waiting for the future fence
             // result, fences should be added to layers in the same hop onto the main thread.
             if (!mRenderEngine->isThreaded()) {
-                attachReleaseFenceFutureToLayer(layer, layerFE.get(), ui::INVALID_LAYER_STACK);
+                attachReleaseFenceFutureToLayer(layer, layerFE.get(), ui::UNASSIGNED_LAYER_STACK);
             }
             layerFEs.push_back(layerFE);
         }
