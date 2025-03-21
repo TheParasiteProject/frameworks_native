@@ -225,6 +225,7 @@ private:
             std::shared_ptr<scheduler::VsyncSchedule>) EXCLUDES(mMutex);
 
     const char* const mThreadName;
+    std::string mEventThreadStateName;
     TracedOrdinal<int> mVsyncTracer;
     TracedOrdinal<std::chrono::nanoseconds> mWorkDuration GUARDED_BY(mMutex);
     std::chrono::nanoseconds mReadyDuration GUARDED_BY(mMutex);
@@ -268,6 +269,8 @@ private:
     };
 
     State mState GUARDED_BY(mMutex) = State::Idle;
+
+    void updateState(State state) REQUIRES(mMutex);
 
     static const char* toCString(State);
 };
