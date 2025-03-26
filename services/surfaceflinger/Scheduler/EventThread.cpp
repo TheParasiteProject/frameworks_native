@@ -307,6 +307,7 @@ EventThread::EventThread(const char* name, std::shared_ptr<scheduler::VsyncSched
                          IEventThreadCallback& callback, std::chrono::nanoseconds workDuration,
                          std::chrono::nanoseconds readyDuration)
       : mThreadName(name),
+        mEventThreadStateName(base::StringPrintf("EventThreadState-%s", name)),
         mVsyncTracer(base::StringPrintf("VSYNC-%s", name), 0),
         mWorkDuration(base::StringPrintf("VsyncWorkDuration-%s", name), workDuration),
         mReadyDuration(readyDuration),
@@ -337,7 +338,7 @@ EventThread::EventThread(const char* name, std::shared_ptr<scheduler::VsyncSched
 EventThread::~EventThread() {
     {
         std::lock_guard<std::mutex> lock(mMutex);
-        mState = State::Quit;
+        updateState(State::Quit);
         mCondition.notify_all();
     }
     mThread.join();
@@ -447,6 +448,8 @@ void EventThread::enableSyntheticVsync(bool enable) {
     if (!mVSyncState || mVSyncState->synthetic == enable) {
         return;
     }
+
+    ALOGD("%s synthetic vsync", enable ? "Enabling" : "Disabling");
 
     mVSyncState->synthetic = enable;
     mCondition.notify_all();
@@ -574,17 +577,17 @@ void EventThread::threadMain(std::unique_lock<std::mutex>& lock) {
             const bool vsyncOmitted =
                     FlagManager::getInstance().no_vsyncs_on_screen_off() && mVSyncState->omitted;
             if (vsyncOmitted) {
-                mState = State::Idle;
+                updateState(State::Idle);
                 SFTRACE_INT("VsyncPendingScreenOn", 1);
             } else {
-                mState = mVSyncState->synthetic ? State::SyntheticVSync : State::VSync;
+                updateState(mVSyncState->synthetic ? State::SyntheticVSync : State::VSync);
                 if (FlagManager::getInstance().no_vsyncs_on_screen_off()) {
                     SFTRACE_INT("VsyncPendingScreenOn", 0);
                 }
             }
         } else {
             ALOGW_IF(!mVSyncState, "Ignoring VSYNC request while display is disconnected");
-            mState = State::Idle;
+            updateState(State::Idle);
         }
 
         if (mState == State::VSync) {
@@ -828,6 +831,16 @@ void EventThread::dump(std::string& result) const {
         }
     }
     result += '\n';
+}
+
+void EventThread::updateState(State state) {
+    if (state == mState) {
+        return;
+    }
+    mState = state;
+
+    SFTRACE_ASYNC_FOR_TRACK_END(mEventThreadStateName.c_str(), 0);
+    SFTRACE_ASYNC_FOR_TRACK_BEGIN(mEventThreadStateName.c_str(), toCString(mState), 0);
 }
 
 const char* EventThread::toCString(State state) {
