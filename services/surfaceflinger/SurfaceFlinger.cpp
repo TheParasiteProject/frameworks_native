@@ -1239,9 +1239,10 @@ void SurfaceFlinger::getDynamicDisplayInfoInternal(ui::DynamicDisplayInfo*& info
         // VsyncController offset.  Any additional delays introduced by the hardware
         // composer or panel must be accounted for here.
         //
-        // We add an additional 1ms to allow for processing time and
-        // differences between the ideal and actual refresh rate.
-        outMode.presentationDeadline = peakFps.getPeriodNsecs() - outMode.sfVsyncOffset + 1000000;
+        outMode.presentationDeadline =
+                scheduler::Scheduler::getPresentationDeadline(peakFps,
+                                                              Duration::fromNs(
+                                                                      outMode.sfVsyncOffset));
         excludeDolbyVisionIf4k30Present(display->getHdrCapabilities().getSupportedHdrTypes(),
                                         outMode);
         info->supportedDisplayModes.push_back(outMode);
@@ -7184,9 +7185,8 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
                     data.readInt64(&appDurationNs) != NO_ERROR) {
                     return BAD_VALUE;
                 }
-                mScheduler->reloadPhaseConfiguration(mDisplayModeController
-                                                             .getActiveMode(mActiveDisplayId)
-                                                             .fps,
+                mScheduler->reloadPhaseConfiguration(mDisplayModeController.getActiveMode(
+                                                             mActiveDisplayId),
                                                      Duration::fromNs(minSfNs),
                                                      Duration::fromNs(maxSfNs),
                                                      Duration::fromNs(appDurationNs));

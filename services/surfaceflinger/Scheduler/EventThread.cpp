@@ -42,6 +42,7 @@
 
 #include <utils/Errors.h>
 
+#include <Scheduler/Scheduler.h>
 #include <common/FlagManager.h>
 #include <scheduler/FrameRateMode.h>
 #include <scheduler/VsyncConfig.h>
@@ -96,8 +97,11 @@ std::string toString(const DisplayEventReceiver::Event& event) {
                                 to_string(event.header.displayId).c_str(), event.vsync.count,
                                 event.vsync.vsyncData.preferredExpectedPresentationTime());
         case DisplayEventType::DISPLAY_EVENT_MODE_CHANGE:
-            return StringPrintf("ModeChanged{displayId=%s, modeId=%u}",
-                                to_string(event.header.displayId).c_str(), event.modeChange.modeId);
+            return StringPrintf("ModeChanged{displayId=%s, modeId=%u, appVsyncOffset=%" PRId64
+                                ", presentationDeadline=%" PRId64 "}",
+                                to_string(event.header.displayId).c_str(), event.modeChange.modeId,
+                                event.modeChange.appVsyncOffset,
+                                event.modeChange.presentationDeadline);
         case DisplayEventType::DISPLAY_EVENT_HDCP_LEVELS_CHANGE:
             return StringPrintf("HdcpLevelsChange{displayId=%s, connectedLevel=%d, maxLevel=%d}",
                                 to_string(event.header.displayId).c_str(),
@@ -153,12 +157,17 @@ DisplayEventReceiver::Event makeVSync(PhysicalDisplayId displayId, nsecs_t times
     return event;
 }
 
-DisplayEventReceiver::Event makeModeChanged(const scheduler::FrameRateMode& mode) {
+DisplayEventReceiver::Event makeModeChanged(const scheduler::FrameRateMode& mode,
+                                            scheduler::VsyncConfigSet config) {
     DisplayEventReceiver::Event event;
     event.header = {DisplayEventType::DISPLAY_EVENT_MODE_CHANGE,
                     mode.modePtr->getPhysicalDisplayId(), systemTime()};
     event.modeChange.modeId = ftl::to_underlying(mode.modePtr->getId());
     event.modeChange.vsyncPeriod = mode.fps.getPeriodNsecs();
+    event.modeChange.appVsyncOffset = config.late.appOffset;
+    event.modeChange.presentationDeadline =
+            scheduler::Scheduler::getPresentationDeadline(mode.fps,
+                                                          Duration::fromNs(config.late.sfOffset));
     return event;
 }
 
@@ -478,10 +487,11 @@ void EventThread::onHotplugConnectionError(int32_t errorCode) {
     mCondition.notify_all();
 }
 
-void EventThread::onModeChanged(const scheduler::FrameRateMode& mode) {
+void EventThread::onModeChanged(const scheduler::FrameRateMode& mode,
+                                scheduler::VsyncConfigSet config) {
     std::lock_guard<std::mutex> lock(mMutex);
 
-    mPendingEvents.push_back(makeModeChanged(mode));
+    mPendingEvents.push_back(makeModeChanged(mode, config));
     mCondition.notify_all();
 }
 
