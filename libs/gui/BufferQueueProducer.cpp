@@ -1553,7 +1553,7 @@ status_t BufferQueueProducer::disconnect(int api, DisconnectMode mode) {
                                 IInterface::asBinder(mCore->mLinkedToDeath);
                         // This can fail if we're here because of the death
                         // notification, but we just ignore it
-                        token->unlinkToDeath(static_cast<IBinder::DeathRecipient*>(this));
+                        token->unlinkToDeath(wp<IBinder::DeathRecipient>::fromExisting(this));
                     }
 #endif
                     mCore->mSharedBufferSlot =
