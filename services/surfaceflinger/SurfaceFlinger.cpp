@@ -3388,7 +3388,8 @@ void SurfaceFlinger::onCompositionPresented(PhysicalDisplayId pacesetterId,
                 stats::stats_write(stats::SURFACE_CONTROL_EVENT,
                                    static_cast<int32_t>(layerEvent.uid),
                                    static_cast<int64_t>(layerEvent.timeSinceLastEvent.count()),
-                                   static_cast<int32_t>(layerEvent.dataspace));
+                                   static_cast<int32_t>(layerEvent.dataspace),
+                                   static_cast<bool>(layerEvent.useLuts));
         if (result < 0) {
             ALOGW("Failed to report layer event with error: %d", result);
         }
@@ -5434,6 +5435,10 @@ uint32_t SurfaceFlinger::updateLayerCallbacksAndStats(const FrameTimelineInfo& f
 
     if (what & layer_state_t::eBufferReleaseChannelChanged) {
         layer->setBufferReleaseChannel(s.bufferReleaseChannel);
+    }
+
+    if (what & layer_state_t::eLutsChanged) {
+        layer->setUseLuts(s.luts ? true : false);
     }
 
     const auto& requestedLayerState = mLayerLifecycleManager.getLayerFromId(layer->getSequence());
