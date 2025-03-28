@@ -151,6 +151,16 @@ public:
     void dispatchHotplugError(int32_t errorCode);
 
     // Returns true if the PhysicalDisplayId is the pacesetter.
+    bool updatePolicyContentRequirements(PhysicalDisplayId, const FrameRateMode&,
+                                         bool clearContentRequirements)
+            EXCLUDES(mPolicyLock, mDisplayLock);
+
+    // Returns true if the PhysicalDisplayId is the pacesetter.
+    bool onDisplayModeAndFrameRateOverridesChanged(PhysicalDisplayId, const FrameRateMode&,
+                                                   bool clearContentRequirements)
+            EXCLUDES(mPolicyLock, mDisplayLock);
+
+    // Returns true if the PhysicalDisplayId is the pacesetter.
     bool onDisplayModeChanged(PhysicalDisplayId, const FrameRateMode&,
                               bool clearContentRequirements) EXCLUDES(mPolicyLock);
 
@@ -324,6 +334,9 @@ public:
     // Retrieves the overridden refresh rate for a given uid.
     std::optional<Fps> getFrameRateOverride(uid_t) const EXCLUDES(mDisplayLock);
 
+    std::pair<FrameRateMode, std::vector<FrameRateOverride>> getFrameRateOverrides()
+            EXCLUDES(mDisplayLock);
+
     Period getPacesetterVsyncPeriod() const EXCLUDES(mDisplayLock) {
         return pacesetterSelectorPtr()->getActiveMode().fps.getPeriod();
     }
@@ -340,7 +353,8 @@ public:
         return mLayerHistory.getLayerFramerate(now, id);
     }
 
-    void updateFrameRateOverrides(GlobalSignals, Fps displayRefreshRate) EXCLUDES(mPolicyLock);
+    // Returns true if frame rate overrides has changed.
+    bool updateFrameRateOverrides(GlobalSignals, Fps displayRefreshRate) EXCLUDES(mPolicyLock);
 
     // Returns true if the small dirty detection is enabled for the appId.
     bool supportSmallDirtyDetection(int32_t appId) {
