@@ -113,6 +113,9 @@ std::optional<compositionengine::LayerFE::LayerSettings> LayerFE::prepareClientC
     // set the shadow for the layer if needed
     prepareShadowClientComposition(*layerSettings, targetSettings.viewport);
 
+    layerSettings->borderSettings = mSnapshot->borderSettings;
+    layerSettings->boxShadowSettings = mSnapshot->boxShadowSettings;
+
     return layerSettings;
 }
 
@@ -120,6 +123,7 @@ std::optional<compositionengine::LayerFE::LayerSettings> LayerFE::prepareClientC
         compositionengine::LayerFE::ClientCompositionTargetSettings& targetSettings) const {
     SFTRACE_CALL();
     compositionengine::LayerFE::LayerSettings layerSettings;
+    layerSettings.geometry.originalBounds = mSnapshot->geomLayerBounds;
     layerSettings.geometry.boundaries =
             reduce(mSnapshot->geomLayerBounds, mSnapshot->transparentRegionHint);
     layerSettings.geometry.positionTransform = mSnapshot->geomLayerTransform.asMatrix4();
@@ -205,7 +209,7 @@ void LayerFE::prepareEffectsClientComposition(
     if (targetSettings.realContentIsVisible && fillsColor()) {
         // Set color for color fill settings.
         layerSettings.source.solidColor = mSnapshot->color.rgb;
-    } else if (hasBlur() || drawShadows()) {
+    } else if (hasBlur() || drawShadows() || hasBorderSettings() || hasBoxShadowSettings()) {
         layerSettings.skipContentDraw = true;
     }
 }
@@ -390,6 +394,14 @@ bool LayerFE::fillsColor() const {
 
 bool LayerFE::hasBlur() const {
     return mSnapshot->backgroundBlurRadius > 0 || mSnapshot->blurRegions.size() > 0;
+}
+
+bool LayerFE::hasBorderSettings() const {
+    return mSnapshot->hasBorderSettings();
+}
+
+bool LayerFE::hasBoxShadowSettings() const {
+    return mSnapshot->hasBoxShadowSettings();
 }
 
 bool LayerFE::drawShadows() const {

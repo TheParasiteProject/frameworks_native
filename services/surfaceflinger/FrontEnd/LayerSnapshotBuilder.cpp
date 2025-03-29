@@ -711,6 +711,13 @@ void LayerSnapshotBuilder::resetRelativeState(LayerSnapshot& snapshot) {
     snapshot.relativeLayerMetadata.mMap.clear();
 }
 
+int multiplyAlpha(int color, float alpha) {
+    uint32_t c = static_cast<uint32_t>(color);
+    float scaledAlpha = alpha * (c >> 24) / 255.0f;
+    uint32_t a = static_cast<uint32_t>(scaledAlpha * 255 + 0.5f);
+    return static_cast<int32_t>((c & ~0xff000000) | (a << 24));
+}
+
 void LayerSnapshotBuilder::updateSnapshot(LayerSnapshot& snapshot, const Args& args,
                                           const RequestedLayerState& requested,
                                           const LayerSnapshot& parentSnapshot,
@@ -781,7 +788,7 @@ void LayerSnapshotBuilder::updateSnapshot(LayerSnapshot& snapshot, const Args& a
         // Display mirrors are always placed in a VirtualDisplay so we never want to capture layers
         // marked as skip capture
         snapshot.handleSkipScreenshotFlag = parentSnapshot.handleSkipScreenshotFlag ||
-                (requested.layerStackToMirror != ui::INVALID_LAYER_STACK);
+                (requested.layerStackToMirror != ui::UNASSIGNED_LAYER_STACK);
     }
 
     if (forceUpdate || snapshot.clientChanges & layer_state_t::eAlphaChanged) {
@@ -936,6 +943,26 @@ void LayerSnapshotBuilder::updateSnapshot(LayerSnapshot& snapshot, const Args& a
     }
 
     if (forceUpdate ||
+        snapshot.clientChanges &
+                (layer_state_t::eBoxShadowSettingsChanged | layer_state_t::eAlphaChanged)) {
+        snapshot.boxShadowSettings = requested.boxShadowSettings;
+        for (gui::BoxShadowSettings::BoxShadowParams& params :
+             snapshot.boxShadowSettings.boxShadows) {
+            params.color = multiplyAlpha(params.color, snapshot.alpha);
+        }
+    }
+
+    if (forceUpdate ||
+        snapshot.clientChanges &
+                (layer_state_t::eBorderSettingsChanged | layer_state_t::eAlphaChanged)) {
+        snapshot.borderSettings = requested.borderSettings;
+
+        // Multiply outline alpha by snapshot alpha.
+        snapshot.borderSettings.color =
+                multiplyAlpha(snapshot.borderSettings.color, snapshot.alpha);
+    }
+
+    if (forceUpdate ||
         snapshot.changes.any(RequestedLayerState::Changes::Geometry |
                              RequestedLayerState::Changes::Input)) {
         updateInput(snapshot, requested, parentSnapshot, path, args);
@@ -943,7 +970,10 @@ void LayerSnapshotBuilder::updateSnapshot(LayerSnapshot& snapshot, const Args& a
 
     // computed snapshot properties
     snapshot.forceClientComposition = snapshot.shadowSettings.length > 0 ||
-            snapshot.stretchEffect.hasEffect() || snapshot.edgeExtensionEffect.hasEffect();
+            snapshot.stretchEffect.hasEffect() || snapshot.edgeExtensionEffect.hasEffect() ||
+            snapshot.borderSettings.strokeWidth > 0 ||
+            !snapshot.boxShadowSettings.boxShadows.empty();
+
     snapshot.contentOpaque = snapshot.isContentOpaque();
     snapshot.isOpaque = snapshot.contentOpaque && !snapshot.roundedCorner.hasRoundedCorners() &&
             snapshot.color.a == 1.f;

@@ -662,6 +662,212 @@ TEST_P(LayerTypeAndRenderTypeTransactionTest, ParentCornerRadiusPrecedenceClient
     }
 }
 
+TEST_P(LayerTypeAndRenderTypeTransactionTest, SetBorderSettings) {
+    sp<SurfaceControl> parent;
+    sp<SurfaceControl> child;
+    const uint32_t size = 64;
+    const uint32_t parentSize = size * 3;
+    ASSERT_NO_FATAL_FAILURE(parent = createLayer("parent", parentSize, parentSize));
+    ASSERT_NO_FATAL_FAILURE(fillLayerColor(parent, Color::RED, parentSize, parentSize));
+    ASSERT_NO_FATAL_FAILURE(child = createLayer("child", size, size));
+    ASSERT_NO_FATAL_FAILURE(fillLayerColor(child, Color::GREEN, size, size));
+
+    gui::BorderSettings outline;
+    outline.strokeWidth = 3;
+    outline.color = 0xff0000ff;
+    Transaction()
+            .setCrop(parent, Rect(0, 0, parentSize, parentSize))
+            .reparent(child, parent)
+            .setPosition(child, size, size)
+            .setCornerRadius(child, 20.0f)
+            .setBorderSettings(child, outline)
+            .apply(true);
+
+    {
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBorderSettings_Opaque.png");
+    }
+
+    {
+        Transaction().setAlpha(child, 0.5f).apply(true);
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBorderSettings_HalfAlpha.png");
+    }
+
+    {
+        Transaction().setAlpha(child, 0.0f).apply(true);
+
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBorderSettings_ZeroAlpha.png");
+    }
+
+    {
+        Transaction()
+                .setAlpha(child, 1.0f)
+                .setCrop(parent, Rect(0, 0, parentSize / 2, parentSize))
+                .apply(true);
+
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBorderSettings_Cropped.png");
+    }
+
+    {
+        outline.color = 0xff0000ff;
+        outline.strokeWidth = 1;
+        Transaction()
+                .setCrop(parent, Rect(0, 0, parentSize, parentSize))
+                .setBorderSettings(child, outline)
+                .apply(true);
+
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBorderSettings_StrokeWidth1.png");
+    }
+
+    {
+        outline.color = 0x440000ff;
+        outline.strokeWidth = 3;
+        Transaction()
+                .setCrop(parent, Rect(0, 0, parentSize, parentSize))
+                .setBorderSettings(child, outline)
+                .apply(true);
+
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/"
+                                               "SetBorderSettings_StrokeColorWithAlpha.png");
+    }
+}
+
+TEST_P(LayerTypeAndRenderTypeTransactionTest, SetBoxShadowSettings) {
+    sp<SurfaceControl> parent;
+    sp<SurfaceControl> child;
+    const uint32_t size = 64;
+    const uint32_t parentSize = size * 3;
+    ASSERT_NO_FATAL_FAILURE(parent = createLayer("parent", parentSize, parentSize));
+    ASSERT_NO_FATAL_FAILURE(fillLayerColor(parent, Color::WHITE, parentSize, parentSize));
+    ASSERT_NO_FATAL_FAILURE(child = createLayer("child", size, size));
+    ASSERT_NO_FATAL_FAILURE(fillLayerColor(child, Color::GREEN, size, size));
+
+    Transaction()
+            .setCrop(parent, Rect(0, 0, parentSize, parentSize))
+            .reparent(child, parent)
+            .setPosition(child, size, size)
+            .setCornerRadius(child, 20.0f)
+            .apply(true);
+
+    {
+        gui::BoxShadowSettings settings;
+        gui::BoxShadowSettings::BoxShadowParams boxShadow;
+        boxShadow.blurRadius = 20.0f;
+        boxShadow.spreadRadius = 20.0f;
+        boxShadow.color = 0xff000000;
+        boxShadow.offsetX = 0;
+        boxShadow.offsetY = 0;
+        settings.boxShadows.push_back(boxShadow);
+
+        Transaction().setBoxShadowSettings(child, settings).apply(true);
+
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBoxShadowSettings_LargeBlur.png");
+    }
+
+    {
+        gui::BoxShadowSettings settings;
+        gui::BoxShadowSettings::BoxShadowParams boxShadow;
+        boxShadow.blurRadius = 5.0f;
+        boxShadow.spreadRadius = 20.0f;
+        boxShadow.color = 0xff0088ff;
+        boxShadow.offsetX = 20;
+        boxShadow.offsetY = -20;
+        settings.boxShadows.push_back(boxShadow);
+
+        Transaction().setBoxShadowSettings(child, settings).apply(true);
+
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBoxShadowSettings_SmallBlur.png");
+    }
+
+    {
+        gui::BoxShadowSettings settings;
+        gui::BoxShadowSettings::BoxShadowParams boxShadow;
+        boxShadow.blurRadius = 5.0f;
+        boxShadow.spreadRadius = 10.0f;
+        boxShadow.color = 0xffff8888;
+        boxShadow.offsetX = 20;
+        boxShadow.offsetY = -20;
+        settings.boxShadows.push_back(boxShadow);
+
+        boxShadow.blurRadius = 5.0f;
+        boxShadow.spreadRadius = 10.0f;
+        boxShadow.color = 0xff8888ff;
+        boxShadow.offsetX = -20;
+        boxShadow.offsetY = 20;
+        settings.boxShadows.push_back(boxShadow);
+
+        Transaction().setBoxShadowSettings(child, settings).apply(true);
+
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBoxShadowSettings_Multiple.png");
+    }
+
+    {
+        gui::BoxShadowSettings settings;
+        gui::BoxShadowSettings::BoxShadowParams boxShadow;
+        boxShadow.blurRadius = 5.0f;
+        boxShadow.spreadRadius = 20.0f;
+        boxShadow.color = 0xff8888ff;
+        boxShadow.offsetX = 20;
+        boxShadow.offsetY = -20;
+        settings.boxShadows.push_back(boxShadow);
+
+        Transaction().setBoxShadowSettings(child, settings).setAlpha(child, 0.2f).apply(true);
+
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBoxShadowSettings_LayerAlpha.png");
+    }
+
+    {
+        gui::BoxShadowSettings settings;
+        gui::BoxShadowSettings::BoxShadowParams boxShadow;
+        boxShadow.blurRadius = 5.0f;
+        boxShadow.spreadRadius = 5.0f;
+        boxShadow.color = 0xff8888ff;
+        boxShadow.offsetX = 10;
+        boxShadow.offsetY = 10;
+        settings.boxShadows.push_back(boxShadow);
+
+        Transaction()
+                .setBoxShadowSettings(child, settings)
+                .setCornerRadius(child, 0)
+                .setAlpha(child, 1.0)
+                .apply(true);
+
+        auto shot = getScreenCapture();
+
+        shot->expectBufferMatchesImageFromFile(Rect(0, 0, parentSize, parentSize),
+                                               "testdata/SetBoxShadowSettings_Square.png");
+    }
+}
+
 TEST_P(LayerTypeAndRenderTypeTransactionTest, SetBackgroundBlurRadiusSimple) {
     if (!deviceSupportsBlurs()) GTEST_SKIP();
     if (!deviceUsesSkiaRenderEngine()) GTEST_SKIP();

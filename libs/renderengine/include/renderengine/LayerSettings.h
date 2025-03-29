@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <android/gui/BorderSettings.h>
+#include <android/gui/BoxShadowSettings.h>
 #include <gui/DisplayLuts.h>
 #include <math/mat4.h>
 #include <math/vec3.h>
@@ -70,6 +72,10 @@ struct Buffer {
 struct Geometry {
     // Boundaries of the layer.
     FloatRect boundaries = FloatRect();
+
+    // Boundaries of the layer before transparent region hint is subtracted.
+    // Effects like shadows and outline ignore the transparent region hint.
+    FloatRect originalBounds = FloatRect();
 
     // Transform matrix to apply to mesh coordinates.
     mat4 positionTransform = mat4();
@@ -126,6 +132,10 @@ struct LayerSettings {
     bool skipContentDraw = false;
 
     ShadowSettings shadow;
+
+    gui::BorderSettings borderSettings;
+
+    gui::BoxShadowSettings boxShadowSettings;
 
     int backgroundBlurRadius = 0;
 
