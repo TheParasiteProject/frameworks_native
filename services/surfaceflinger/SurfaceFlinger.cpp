@@ -2593,12 +2593,8 @@ bool SurfaceFlinger::updateLayerSnapshots(VsyncId vsyncId, nsecs_t frameTimeNs,
         mUpdateAttachedChoreographer = true;
     }
     outTransactionsAreEmpty = mLayerLifecycleManager.getGlobalChanges().get() == 0;
-    if (FlagManager::getInstance().vrr_bugfix_24q4()) {
-        mustComposite |= mLayerLifecycleManager.getGlobalChanges().any(
-                frontend::RequestedLayerState::kMustComposite);
-    } else {
-        mustComposite |= mLayerLifecycleManager.getGlobalChanges().get() != 0;
-    }
+    mustComposite |= mLayerLifecycleManager.getGlobalChanges().any(
+            frontend::RequestedLayerState::kMustComposite);
 
     bool newDataLatched = false;
     SFTRACE_NAME("DisplayCallbackAndStatsUpdates");
