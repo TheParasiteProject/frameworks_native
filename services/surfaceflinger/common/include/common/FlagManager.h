@@ -86,6 +86,7 @@ public:
     bool deprecate_vsync_sf() const;
     bool detached_mirror() const;
     bool disable_synthetic_vsync_for_performance() const;
+    bool display_command_modeset() const;
     bool enable_layer_command_batching() const;
     bool enable_small_area_detection() const;
     bool flush_buffer_slots_to_uncache() const;
