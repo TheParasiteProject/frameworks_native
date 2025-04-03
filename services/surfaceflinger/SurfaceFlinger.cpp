@@ -8198,13 +8198,9 @@ status_t SurfaceFlinger::setDesiredDisplayModeSpecs(const sp<IBinder>& displayTo
             return INVALID_OPERATION;
         } else {
             using Policy = scheduler::RefreshRateSelector::DisplayManagerPolicy;
-            const auto idleScreenConfigOpt =
-                    FlagManager::getInstance().idle_screen_refresh_rate_timeout()
-                    ? specs.idleScreenRefreshRateConfig
-                    : std::nullopt;
             const Policy policy{DisplayModeId(specs.defaultMode), translate(specs.primaryRanges),
                                 translate(specs.appRequestRanges), specs.allowGroupSwitching,
-                                idleScreenConfigOpt};
+                                specs.idleScreenRefreshRateConfig};
 
             return setDesiredDisplayModeSpecsInternal(display, policy);
         }
