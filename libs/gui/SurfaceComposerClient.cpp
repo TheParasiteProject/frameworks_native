@@ -1698,6 +1698,18 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setBackg
     return *this;
 }
 
+SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setBackgroundBlurScale(
+        const sp<SurfaceControl>& sc, float backgroundBlurScale) {
+    layer_state_t* s = getLayerState(sc);
+    if (!s) {
+        mStatus = BAD_INDEX;
+        return *this;
+    }
+    s->what |= layer_state_t::eBackgroundBlurScaleChanged;
+    s->backgroundBlurScale = backgroundBlurScale;
+    return *this;
+}
+
 SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setBlurRegions(
         const sp<SurfaceControl>& sc, const std::vector<BlurRegion>& blurRegions) {
     layer_state_t* s = getLayerState(sc);

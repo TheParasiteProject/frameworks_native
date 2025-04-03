@@ -583,6 +583,8 @@ public:
                                                 float clientDrawnCornerRadius);
         Transaction& setBackgroundBlurRadius(const sp<SurfaceControl>& sc,
                                              int backgroundBlurRadius);
+        Transaction& setBackgroundBlurScale(const sp<SurfaceControl>& sc,
+                                             float backgroundBlurScale);
         Transaction& setBlurRegions(const sp<SurfaceControl>& sc,
                                     const std::vector<BlurRegion>& regions);
         Transaction& setLayerStack(const sp<SurfaceControl>&, ui::LayerStack);
