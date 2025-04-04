@@ -175,6 +175,7 @@ void FlagManager::dump(std::string& result) const {
     DUMP_ACONFIG_FLAG(restore_blur_step);
     DUMP_ACONFIG_FLAG(skip_invisible_windows_in_input);
     DUMP_ACONFIG_FLAG(stable_edid_ids);
+    DUMP_ACONFIG_FLAG(stop_layer);
     DUMP_ACONFIG_FLAG(synced_resolution_switch);
     DUMP_ACONFIG_FLAG(trace_frame_rate_override);
     DUMP_ACONFIG_FLAG(true_hdr_screenshots);
@@ -297,6 +298,7 @@ FLAG_MANAGER_ACONFIG_FLAG(display_config_error_hal, "");
 FLAG_MANAGER_ACONFIG_FLAG(connected_display_hdr, "debug.sf.connected_display_hdr");
 FLAG_MANAGER_ACONFIG_FLAG(deprecate_frame_tracker, "");
 FLAG_MANAGER_ACONFIG_FLAG(skip_invisible_windows_in_input, "");
+FLAG_MANAGER_ACONFIG_FLAG(stop_layer, "");
 FLAG_MANAGER_ACONFIG_FLAG(begone_bright_hlg, "debug.sf.begone_bright_hlg");
 FLAG_MANAGER_ACONFIG_FLAG(window_blur_kawase2, "");
 FLAG_MANAGER_ACONFIG_FLAG(reject_dupe_layerstacks, "");
