@@ -849,7 +849,7 @@ private:
     status_t checkLayerLeaks();
 
     status_t mirrorLayer(const LayerCreationArgs& args, const sp<IBinder>& mirrorFromHandle,
-                         gui::CreateSurfaceResult& outResult);
+                         const sp<IBinder>& stopAtHandle, gui::CreateSurfaceResult& outResult);
 
     status_t mirrorDisplay(DisplayId displayId, const LayerCreationArgs& args,
                            gui::CreateSurfaceResult& outResult);
