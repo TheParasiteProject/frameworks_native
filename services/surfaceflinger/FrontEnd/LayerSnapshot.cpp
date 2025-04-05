@@ -134,7 +134,7 @@ LayerSnapshot::LayerSnapshot(const RequestedLayerState& state,
     clientChanges = 0;
     mirrorRootPath =
             LayerHierarchy::isMirror(path.variant) ? path : LayerHierarchy::TraversalPath::ROOT;
-    reachablilty = LayerSnapshot::Reachablilty::Unreachable;
+    reachability = LayerSnapshot::Reachability::Unreachable;
     frameRateSelectionPriority = state.frameRateSelectionPriority;
     layerMetadata = state.metadata;
 }
@@ -223,7 +223,7 @@ bool LayerSnapshot::isHiddenByPolicy() const {
 }
 
 bool LayerSnapshot::getIsVisible() const {
-    if (reachablilty != LayerSnapshot::Reachablilty::Reachable) {
+    if (reachability != LayerSnapshot::Reachability::Reachable) {
         return false;
     }
 
@@ -244,9 +244,9 @@ bool LayerSnapshot::getIsVisible() const {
 
 std::string LayerSnapshot::getIsVisibleReason() const {
     // not visible
-    if (reachablilty == LayerSnapshot::Reachablilty::Unreachable)
+    if (reachability == LayerSnapshot::Reachability::Unreachable)
         return "layer not reachable from root";
-    if (reachablilty == LayerSnapshot::Reachablilty::ReachableByRelativeParent)
+    if (reachability == LayerSnapshot::Reachability::ReachableByRelativeParent)
         return "layer only reachable via relative parent";
     if (isHiddenByPolicyFromParent) return "hidden by parent or layer flag";
     if (isHiddenByPolicyFromRelativeParent) return "hidden by relative parent";
@@ -283,7 +283,7 @@ bool LayerSnapshot::isTransformValid(const ui::Transform& t) {
 bool LayerSnapshot::hasInputInfo() const {
     return (inputInfo.token != nullptr ||
             inputInfo.inputConfig.test(gui::WindowInfo::InputConfig::NO_INPUT_CHANNEL)) &&
-            reachablilty == Reachablilty::Reachable;
+            reachability == Reachability::Reachable;
 }
 
 std::string LayerSnapshot::getDebugString() const {
@@ -347,6 +347,14 @@ std::ostream& operator<<(std::ostream& out, const LayerSnapshot& obj) {
 
     if (obj.edgeExtensionEffect.hasEffect()) {
         out << obj.edgeExtensionEffect;
+    }
+
+    if (obj.currentHdrSdrRatio > 1.f) {
+        out << " currentHdrSdrRatio=" << obj.currentHdrSdrRatio;
+    }
+
+    if (obj.desiredHdrSdrRatio > 1.f) {
+        out << " desiredHdrSdrRatio=" << obj.desiredHdrSdrRatio;
     }
     return out;
 }

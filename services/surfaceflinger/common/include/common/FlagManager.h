@@ -97,7 +97,6 @@ public:
     bool graphite_renderengine() const;
     bool hdcp_level_hal() const;
     bool hdcp_negotiation() const;
-    bool idle_screen_refresh_rate_timeout() const;
     bool latch_unsignaled_with_auto_refresh_changed() const;
     bool local_tonemap_screenshots() const;
     bool luts_api() const;
@@ -110,12 +109,11 @@ public:
     bool restore_blur_step() const;
     bool skip_invisible_windows_in_input() const;
     bool stable_edid_ids() const;
+    bool stop_layer() const;
     bool synced_resolution_switch() const;
     bool trace_frame_rate_override() const;
     bool true_hdr_screenshots() const;
     bool use_known_refresh_rate_for_fps_consistency() const;
-    bool vrr_bugfix_24q4() const;
-    bool vrr_bugfix_dropped_frame() const;
     bool vrr_config() const;
     bool vulkan_renderengine() const;
     bool window_blur_kawase2() const;
