@@ -320,7 +320,7 @@ public:
     void setLayerCompositionType(const sp<Layer>& layer,
                                  aidl::android::hardware::graphics::composer3::Composition type) {
         auto outputLayer = findOutputLayerForDisplay(static_cast<uint32_t>(layer->sequence),
-                                                     mFlinger->getDefaultDisplayDevice());
+                                                     mFlinger->getActiveDisplay());
         LOG_ALWAYS_FATAL_IF(!outputLayer);
         auto& state = outputLayer->editState();
         LOG_ALWAYS_FATAL_IF(!outputLayer->getState().hwc);
