@@ -7273,6 +7273,12 @@ void SurfaceFlinger::vrrDisplayIdle(PhysicalDisplayId displayId, bool idle) {
     }));
 }
 
+void SurfaceFlinger::enableLayerCachingTexturePool(PhysicalDisplayId displayId, bool enable) {
+    if (const auto display = FTL_FAKE_GUARD(mStateLock, getDisplayDeviceLocked(displayId))) {
+        display->getCompositionDisplay()->setLayerCachingTexturePoolEnabled(enable);
+    }
+}
+
 auto SurfaceFlinger::getKernelIdleTimerProperties(PhysicalDisplayId displayId)
         -> std::pair<std::optional<KernelIdleTimerController>, std::chrono::milliseconds> {
     const bool isKernelIdleTimerHwcSupported = getHwComposer().getComposer()->isSupported(
@@ -8467,12 +8473,14 @@ void SurfaceFlinger::onNewFrontInternalDisplay(const DisplayDevice* oldFrontInte
     sFrontInternalDisplayRotationFlags =
             ui::Transform::toRotationFlags(newFrontInternalDisplay.getOrientation());
 
-    if (oldFrontInternalDisplayPtr) {
-        oldFrontInternalDisplayPtr->getCompositionDisplay()->setLayerCachingTexturePoolEnabled(
-                false);
-    }
+    if (!FlagManager::getInstance().pacesetter_selection()) {
+        if (oldFrontInternalDisplayPtr) {
+            oldFrontInternalDisplayPtr->getCompositionDisplay()->setLayerCachingTexturePoolEnabled(
+                    false);
+        }
 
-    newFrontInternalDisplay.getCompositionDisplay()->setLayerCachingTexturePoolEnabled(true);
+        newFrontInternalDisplay.getCompositionDisplay()->setLayerCachingTexturePoolEnabled(true);
+    }
 
     // TODO(b/255635711): Check for pending mode changes on other displays.
     mScheduler->setModeChangePending(false);

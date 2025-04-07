@@ -1054,6 +1054,10 @@ std::shared_ptr<VsyncSchedule> Scheduler::promotePacesetterDisplayLocked(
         constexpr bool kForce = true;
         newVsyncSchedulePtr->onDisplayModeChanged(pacesetter.selectorPtr->getActiveMode().modePtr,
                                                   kForce);
+
+        if (FlagManager::getInstance().pacesetter_selection()) {
+            mSchedulerCallback.enableLayerCachingTexturePool(pacesetterId, true);
+        }
     }
     return newVsyncSchedulePtr;
 }
@@ -1075,6 +1079,11 @@ void Scheduler::demotePacesetterDisplay(PromotionParams params) {
             pacesetterPtr->stopIdleTimer();
             pacesetterPtr->clearIdleTimerCallbacks();
         }
+    }
+
+    if (FlagManager::getInstance().pacesetter_selection()) {
+        const PhysicalDisplayId pacesetterId = FTL_FAKE_GUARD(mDisplayLock, *mPacesetterDisplayId);
+        mSchedulerCallback.enableLayerCachingTexturePool(pacesetterId, false);
     }
 
     // Clear state that depends on the pacesetter's RefreshRateSelector.
