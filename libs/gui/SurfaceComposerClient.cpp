@@ -2707,14 +2707,16 @@ status_t SurfaceComposerClient::createSurfaceChecked(const String8& name, uint32
     return err;
 }
 
-sp<SurfaceControl> SurfaceComposerClient::mirrorSurface(SurfaceControl* mirrorFromSurface) {
+sp<SurfaceControl> SurfaceComposerClient::mirrorSurface(SurfaceControl* mirrorFromSurface,
+                                                        SurfaceControl* stopAt) {
     if (mirrorFromSurface == nullptr) {
         return nullptr;
     }
 
     sp<IBinder> mirrorFromHandle = mirrorFromSurface->getHandle();
+    sp<IBinder> stopAtHandle = stopAt ? stopAt->getHandle() : nullptr;
     gui::CreateSurfaceResult result;
-    const binder::Status status = mClient->mirrorSurface(mirrorFromHandle, &result);
+    const binder::Status status = mClient->mirrorSurface(mirrorFromHandle, stopAtHandle, &result);
     const status_t err = statusTFromBinderStatus(status);
     if (err == NO_ERROR) {
         return sp<SurfaceControl>::make(this, result.handle, result.layerId,

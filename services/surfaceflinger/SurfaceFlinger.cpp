@@ -5442,6 +5442,7 @@ uint32_t SurfaceFlinger::addInputWindowCommands(const InputWindowCommands& input
 
 status_t SurfaceFlinger::mirrorLayer(const LayerCreationArgs& args,
                                      const sp<IBinder>& mirrorFromHandle,
+                                     const sp<IBinder>& stopAtHandle,
                                      gui::CreateSurfaceResult& outResult) {
     if (!mirrorFromHandle) {
         return NAME_NOT_FOUND;
@@ -5459,6 +5460,13 @@ status_t SurfaceFlinger::mirrorLayer(const LayerCreationArgs& args,
         mirrorArgs.flags |= ISurfaceComposerClient::eNoColorFill;
         mirrorArgs.mirrorLayerHandle = mirrorFromHandle;
         mirrorArgs.addToRoot = false;
+        if (stopAtHandle) {
+            uint32_t stopLayerId = LayerHandle::getLayerId(stopAtHandle);
+            if (stopLayerId == UNASSIGNED_LAYER_ID) {
+                return NAME_NOT_FOUND;
+            }
+            mirrorArgs.stopLayerId = stopLayerId;
+        }
         status_t result = createLayer(mirrorArgs, &outResult.handle, &mirrorLayer);
         if (result != NO_ERROR) {
             return result;

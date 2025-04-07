@@ -389,7 +389,19 @@ public:
     //      A               A'
     //      |               |
     //      B               B'
-    sp<SurfaceControl> mirrorSurface(SurfaceControl* mirrorFromSurface);
+    //
+    // The mirrored hierarchy will exclude all layers z-ordered above the layer specified by
+    // stopAt. With stopAt specified as B:
+    //
+    //  Real Hierarchy    Mirror
+    //                      SC (value that's returned)
+    //                      |
+    //      A               A'
+    //      |
+    //      B
+    //
+    sp<SurfaceControl> mirrorSurface(SurfaceControl* mirrorFromSurface,
+                                     SurfaceControl* stopAt = nullptr);
 
     sp<SurfaceControl> mirrorDisplay(DisplayId displayId);
 

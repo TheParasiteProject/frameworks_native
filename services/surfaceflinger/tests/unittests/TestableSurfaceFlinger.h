@@ -572,8 +572,8 @@ public:
     }
 
     auto mirrorLayer(const LayerCreationArgs& args, const sp<IBinder>& mirrorFromHandle,
-                     gui::CreateSurfaceResult& outResult) {
-        return mFlinger->mirrorLayer(args, mirrorFromHandle, outResult);
+                     const sp<IBinder>& stopAtHandle, gui::CreateSurfaceResult& outResult) {
+        return mFlinger->mirrorLayer(args, mirrorFromHandle, stopAtHandle, outResult);
     }
 
     void getDynamicDisplayInfoFromToken(const sp<IBinder>& displayToken,
