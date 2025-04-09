@@ -7405,14 +7405,31 @@ ui::Dataspace pickBestDataspace(ui::Dataspace requestedDataspace, ui::ColorMode 
     return dataspaceForColorMode;
 }
 
-} // namespace
-
 static void invokeScreenCaptureError(const status_t status,
                                      const sp<IScreenCaptureListener>& captureListener) {
     ScreenCaptureResults captureResults;
     captureResults.fenceResult = base::unexpected(status);
     captureListener->onScreenCaptureCompleted(captureResults);
 }
+
+// Scans through layer handles to provide a list of layer IDs that should be
+// excluded from a screenshot, or std::nullopt if any layer handle does not
+// correspond to a valid layer ID.
+static base::expected<std::unordered_set<uint32_t>, status_t> getExcludeLayerIds(
+        const std::vector<::android::sp<::android::IBinder>>& excludeHandles) {
+    std::unordered_set<uint32_t> excludeLayerIds;
+    for (const auto& handle : excludeHandles) {
+        uint32_t excludeLayer = LayerHandle::getLayerId(handle);
+        if (excludeLayer != UNASSIGNED_LAYER_ID) {
+            excludeLayerIds.emplace(excludeLayer);
+        } else {
+            return base::unexpected(NAME_NOT_FOUND);
+        }
+    }
+    return excludeLayerIds;
+}
+
+} // namespace
 
 void SurfaceFlinger::captureDisplay(const DisplayCaptureArgs& args,
                                     const sp<IScreenCaptureListener>& captureListener) {
@@ -7442,7 +7459,6 @@ void SurfaceFlinger::captureDisplay(const DisplayCaptureArgs& args,
     ftl::Optional<DisplayIdVariant> displayIdVariantOpt;
     ui::LayerStack layerStack;
     ui::Size reqSize(args.width, args.height);
-    std::unordered_set<uint32_t> excludeLayerIds;
     Rect layerStackSpaceRect;
     bool displayIsSecure;
 
@@ -7464,22 +7480,18 @@ void SurfaceFlinger::captureDisplay(const DisplayCaptureArgs& args,
         if (args.width == 0 || args.height == 0) {
             reqSize = layerStackSpaceRect.getSize();
         }
+    }
 
-        for (const auto& handle : captureArgs.excludeHandles) {
-            uint32_t excludeLayer = LayerHandle::getLayerId(handle);
-            if (excludeLayer != UNASSIGNED_LAYER_ID) {
-                excludeLayerIds.emplace(excludeLayer);
-            } else {
-                ALOGD("Invalid layer handle passed as excludeLayer to captureDisplay");
-                invokeScreenCaptureError(NAME_NOT_FOUND, captureListener);
-                return;
-            }
-        }
+    auto excludeLayerIds = getExcludeLayerIds(captureArgs.excludeHandles);
+    if (!excludeLayerIds) {
+        ALOGD("Invalid layer handle passed as excludeLayer to captureDisplay");
+        invokeScreenCaptureError(excludeLayerIds.error(), captureListener);
+        return;
     }
 
     GetLayerSnapshotsFunction getLayerSnapshotsFn =
             getLayerSnapshotsForScreenshots(layerStack, captureArgs.uid,
-                                            std::move(excludeLayerIds));
+                                            std::move(excludeLayerIds.value()));
 
     ScreenshotArgs screenshotArgs{.captureTypeVariant = displayWeak,
                                   .displayIdVariant = displayIdVariantOpt,
@@ -7590,7 +7602,6 @@ void SurfaceFlinger::captureLayers(const LayerCaptureArgs& args,
 
     ui::Size reqSize;
     sp<Layer> parent;
-    std::unordered_set<uint32_t> excludeLayerIds;
     ui::Dataspace dataspace = static_cast<ui::Dataspace>(captureArgs.dataspace);
 
     if (captureArgs.captureSecureLayers && !hasCaptureBlackoutContentPermission()) {
@@ -7629,18 +7640,14 @@ void SurfaceFlinger::captureLayers(const LayerCaptureArgs& args,
         }
         reqSize = ui::Size(crop.width() * captureArgs.frameScaleX,
                            crop.height() * captureArgs.frameScaleY);
-
-        for (const auto& handle : captureArgs.excludeHandles) {
-            uint32_t excludeLayer = LayerHandle::getLayerId(handle);
-            if (excludeLayer != UNASSIGNED_LAYER_ID) {
-                excludeLayerIds.emplace(excludeLayer);
-            } else {
-                ALOGD("Invalid layer handle passed as excludeLayer to captureLayers");
-                invokeScreenCaptureError(NAME_NOT_FOUND, captureListener);
-                return;
-            }
-        }
     } // mStateLock
+
+    auto excludeLayerIds = getExcludeLayerIds(captureArgs.excludeHandles);
+    if (!excludeLayerIds) {
+        ALOGD("Invalid layer handle passed as excludeLayer to captureLayers");
+        invokeScreenCaptureError(excludeLayerIds.error(), captureListener);
+        return;
+    }
 
     // really small crop or frameScale
     if (reqSize.width <= 0 || reqSize.height <= 0) {
@@ -7657,7 +7664,7 @@ void SurfaceFlinger::captureLayers(const LayerCaptureArgs& args,
 
     GetLayerSnapshotsFunction getLayerSnapshotsFn =
             getLayerSnapshotsForScreenshots(parent->sequence, captureArgs.uid,
-                                            std::move(excludeLayerIds), args.childrenOnly,
+                                            std::move(excludeLayerIds.value()), args.childrenOnly,
                                             parentCrop);
 
     if (captureListener == nullptr) {
