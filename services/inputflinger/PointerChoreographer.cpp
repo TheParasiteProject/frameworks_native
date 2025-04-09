@@ -867,14 +867,12 @@ std::optional<DisplayViewport> PointerChoreographer::getViewportForPointerDevice
     return std::nullopt;
 }
 
-vec2 PointerChoreographer::getMouseCursorPosition(ui::LogicalDisplayId displayId) {
+std::optional<vec2> PointerChoreographer::getMouseCursorPosition(ui::LogicalDisplayId displayId) {
     std::scoped_lock _l(getLock());
-    const ui::LogicalDisplayId resolvedDisplayId = getTargetMouseDisplayLocked(displayId);
-    if (auto it = mMousePointersByDisplay.find(resolvedDisplayId);
-        it != mMousePointersByDisplay.end()) {
+    if (auto it = mMousePointersByDisplay.find(displayId); it != mMousePointersByDisplay.end()) {
         return it->second->getPosition();
     }
-    return {AMOTION_EVENT_INVALID_CURSOR_POSITION, AMOTION_EVENT_INVALID_CURSOR_POSITION};
+    return std::nullopt;
 }
 
 void PointerChoreographer::setShowTouchesEnabled(bool enabled) {
