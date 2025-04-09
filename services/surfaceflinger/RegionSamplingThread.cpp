@@ -339,8 +339,6 @@ void RegionSamplingThread::captureSample() {
         return layerFilterFn(snapshot.name.c_str(), snapshot.path.id, bounds, transform,
                              outStopTraversal);
     };
-    auto getLayerSnapshotsFn =
-            mFlinger.getLayerSnapshotsForScreenshots(layerStack, CaptureArgs::UNSET_UID, filterFn);
 
     std::shared_ptr<renderengine::ExternalTexture> buffer = nullptr;
     if (mCachedBuffer && mCachedBuffer->getBuffer()->getWidth() == sampledBounds.getWidth() &&
@@ -361,23 +359,27 @@ void RegionSamplingThread::captureSample() {
                                                              WRITEABLE);
     }
 
-    SurfaceFlinger::ScreenshotArgs screenshotArgs{.captureTypeVariant = displayWeak,
-                                                  .displayIdVariant = std::nullopt,
-                                                  .sourceCrop = sampledBounds.isEmpty()
-                                                          ? layerStackSpaceRect
-                                                          : sampledBounds,
-                                                  .size = sampledBounds.getSize(),
-                                                  .dataspace = ui::Dataspace::V0_SRGB,
-                                                  .disableBlur = true,
-                                                  .isGrayscale = false,
-                                                  .isSecure = true,
-                                                  .seamlessTransition = false,
-                                                  .debugName = "RegionSampling"};
+    SurfaceFlinger::ScreenshotArgs
+            screenshotArgs{.captureTypeVariant = displayWeak,
+                           .displayIdVariant = std::nullopt,
+                           .snapshotRequest =
+                                   SurfaceFlinger::SnapshotRequestArgs{.uid = gui::Uid::INVALID,
+                                                                       .layerStack = layerStack,
+                                                                       .snapshotFilterFn =
+                                                                               filterFn},
+                           .sourceCrop =
+                                   sampledBounds.isEmpty() ? layerStackSpaceRect : sampledBounds,
+                           .size = sampledBounds.getSize(),
+                           .dataspace = ui::Dataspace::V0_SRGB,
+                           .disableBlur = true,
+                           .isGrayscale = false,
+                           .isSecure = true,
+                           .seamlessTransition = false,
+                           .debugName = "RegionSampling"};
 
     std::vector<std::pair<Layer*, sp<LayerFE>>> layers;
-    mFlinger.getSnapshotsFromMainThread(screenshotArgs, getLayerSnapshotsFn, layers);
-    FenceResult fenceResult =
-            mFlinger.captureScreenshot(screenshotArgs, buffer, nullptr, layers).get();
+    mFlinger.getSnapshotsFromMainThread(screenshotArgs);
+    FenceResult fenceResult = mFlinger.captureScreenshot(screenshotArgs, buffer, nullptr).get();
     if (fenceResult.ok()) {
         fenceResult.value()->waitForever(LOG_TAG);
     }

@@ -468,7 +468,7 @@ public:
 
     auto renderScreenImpl(const sp<DisplayDevice> display, const Rect sourceCrop,
                           ui::Dataspace dataspace,
-                          SurfaceFlinger::GetLayerSnapshotsFunction getLayerSnapshotsFn,
+                          std::vector<std::pair<Layer*, sp<LayerFE>>>& layers,
                           const std::shared_ptr<renderengine::ExternalTexture>& buffer,
                           bool disableBlur, bool isSecure, bool seamlessTransition) {
         Mutex::Autolock lock(mFlinger->mStateLock);
@@ -476,10 +476,10 @@ public:
 
         ScreenCaptureResults captureResults;
         const auto& state = display->getCompositionDisplay()->getState();
-        auto layers = getLayerSnapshotsFn();
 
         SurfaceFlinger::ScreenshotArgs screenshotArgs{.captureTypeVariant = display,
                                                       .displayIdVariant = std::nullopt,
+                                                      .layers = layers,
                                                       .sourceCrop = sourceCrop,
                                                       .size = sourceCrop.getSize(),
                                                       .dataspace = dataspace,
@@ -495,12 +495,15 @@ public:
                                                       .debugName =
                                                               "TestableSurfaceFlinger screenshot"};
 
-        return mFlinger->renderScreenImpl(screenshotArgs, buffer, captureResults, layers);
+        return mFlinger->renderScreenImpl(screenshotArgs, buffer, captureResults);
     }
 
-    auto getLayerSnapshotsForScreenshotsFn(ui::LayerStack layerStack, uint32_t uid) {
-        return mFlinger->getLayerSnapshotsForScreenshots(layerStack, uid,
-                                                         std::unordered_set<uint32_t>{});
+    auto getLayerSnapshotsForScreenshots(ui::LayerStack layerStack, gui::Uid uid) {
+        ftl::FakeGuard guard(kMainThreadContext);
+        SurfaceFlinger::SnapshotRequestArgs snapshotArgs;
+        snapshotArgs.layerStack = layerStack;
+        snapshotArgs.uid = uid;
+        return mFlinger->getLayerSnapshotsForScreenshots(snapshotArgs);
     }
 
     auto getDisplayNativePrimaries(const sp<IBinder>& displayToken,
