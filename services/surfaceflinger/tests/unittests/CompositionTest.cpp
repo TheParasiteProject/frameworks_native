@@ -196,7 +196,6 @@ void CompositionTest::captureScreenComposition() {
     mFlinger.commit();
 
     const Rect sourceCrop(0, 0, DEFAULT_DISPLAY_WIDTH, DEFAULT_DISPLAY_HEIGHT);
-    constexpr bool regionSampling = false;
 
     auto getLayerSnapshotsFn = mFlinger.getLayerSnapshotsForScreenshotsFn(mDisplay->getLayerStack(),
                                                                           CaptureArgs::UNSET_UID);
@@ -211,7 +210,7 @@ void CompositionTest::captureScreenComposition() {
 
     auto future = mFlinger.renderScreenImpl(mDisplay, sourceCrop, ui::Dataspace::V0_SRGB,
                                             getLayerSnapshotsFn, mCaptureScreenBuffer,
-                                            regionSampling, mDisplay->isSecure(),
+                                            /* disableBlur */ false, mDisplay->isSecure(),
                                             /* seamlessTransition */ true);
     ASSERT_TRUE(future.valid());
     const auto fenceResult = future.get();

@@ -361,24 +361,23 @@ void RegionSamplingThread::captureSample() {
                                                              WRITEABLE);
     }
 
-    constexpr bool kRegionSampling = true;
-    constexpr bool kGrayscale = false;
-    constexpr bool kIsProtected = false;
-
-    SurfaceFlinger::ScreenshotArgs screenshotArgs;
-    screenshotArgs.captureTypeVariant = displayWeak;
-    screenshotArgs.displayIdVariant = std::nullopt;
-    screenshotArgs.sourceCrop = sampledBounds.isEmpty() ? layerStackSpaceRect : sampledBounds;
-    screenshotArgs.reqSize = sampledBounds.getSize();
-    screenshotArgs.dataspace = ui::Dataspace::V0_SRGB;
-    screenshotArgs.isSecure = true;
-    screenshotArgs.seamlessTransition = false;
+    SurfaceFlinger::ScreenshotArgs screenshotArgs{.captureTypeVariant = displayWeak,
+                                                  .displayIdVariant = std::nullopt,
+                                                  .sourceCrop = sampledBounds.isEmpty()
+                                                          ? layerStackSpaceRect
+                                                          : sampledBounds,
+                                                  .size = sampledBounds.getSize(),
+                                                  .dataspace = ui::Dataspace::V0_SRGB,
+                                                  .disableBlur = true,
+                                                  .isGrayscale = false,
+                                                  .isSecure = true,
+                                                  .seamlessTransition = false,
+                                                  .debugName = "RegionSampling"};
 
     std::vector<std::pair<Layer*, sp<LayerFE>>> layers;
     mFlinger.getSnapshotsFromMainThread(screenshotArgs, getLayerSnapshotsFn, layers);
-    FenceResult fenceResult = mFlinger.captureScreenshot(screenshotArgs, buffer, kRegionSampling,
-                                                         kGrayscale, kIsProtected, nullptr, layers)
-                                      .get();
+    FenceResult fenceResult =
+            mFlinger.captureScreenshot(screenshotArgs, buffer, nullptr, layers).get();
     if (fenceResult.ok()) {
         fenceResult.value()->waitForever(LOG_TAG);
     }

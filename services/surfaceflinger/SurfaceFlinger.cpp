@@ -7481,21 +7481,24 @@ void SurfaceFlinger::captureDisplay(const DisplayCaptureArgs& args,
             getLayerSnapshotsForScreenshots(layerStack, captureArgs.uid,
                                             std::move(excludeLayerIds));
 
-    ScreenshotArgs screenshotArgs;
-    screenshotArgs.captureTypeVariant = displayWeak;
-    screenshotArgs.displayIdVariant = displayIdVariantOpt;
-    screenshotArgs.sourceCrop = gui::aidl_utils::fromARect(captureArgs.sourceCrop);
+    ScreenshotArgs screenshotArgs{.captureTypeVariant = displayWeak,
+                                  .displayIdVariant = displayIdVariantOpt,
+                                  .sourceCrop = gui::aidl_utils::fromARect(captureArgs.sourceCrop),
+                                  .size = reqSize,
+                                  .dataspace = static_cast<ui::Dataspace>(captureArgs.dataspace),
+                                  .disableBlur = false,
+                                  .isGrayscale = captureArgs.grayscale,
+                                  .isSecure = captureArgs.captureSecureLayers && displayIsSecure,
+                                  .includeProtected = captureArgs.allowProtected,
+                                  .seamlessTransition = captureArgs.hintForSeamlessTransition,
+                                  .debugName = "ScreenCapture"};
+
     if (screenshotArgs.sourceCrop.isEmpty()) {
         screenshotArgs.sourceCrop = layerStackSpaceRect;
     }
-    screenshotArgs.reqSize = reqSize;
-    screenshotArgs.dataspace = static_cast<ui::Dataspace>(captureArgs.dataspace);
-    screenshotArgs.isSecure = captureArgs.captureSecureLayers && displayIsSecure;
-    screenshotArgs.seamlessTransition = captureArgs.hintForSeamlessTransition;
 
-    captureScreenCommon(screenshotArgs, getLayerSnapshotsFn, reqSize,
-                        static_cast<ui::PixelFormat>(captureArgs.pixelFormat),
-                        captureArgs.allowProtected, captureArgs.grayscale, captureListener);
+    captureScreenCommon(screenshotArgs, getLayerSnapshotsFn,
+                        static_cast<ui::PixelFormat>(captureArgs.pixelFormat), captureListener);
 }
 
 void SurfaceFlinger::captureDisplay(DisplayId displayId, const CaptureArgs& args,
@@ -7548,21 +7551,20 @@ void SurfaceFlinger::captureDisplay(DisplayId displayId, const CaptureArgs& args
         return;
     }
 
-    constexpr bool kAllowProtected = false;
-    constexpr bool kGrayscale = false;
+    ScreenshotArgs screenshotArgs{.captureTypeVariant = displayWeak,
+                                  .displayIdVariant = displayIdVariantOpt,
+                                  .sourceCrop = layerStackSpaceRect,
+                                  .size = size,
+                                  .dataspace = static_cast<ui::Dataspace>(args.dataspace),
+                                  .disableBlur = false,
+                                  .isGrayscale = false,
+                                  .isSecure = args.captureSecureLayers && displayIsSecure,
+                                  .includeProtected = false,
+                                  .seamlessTransition = args.hintForSeamlessTransition,
+                                  .debugName = "ScreenCapture"};
 
-    ScreenshotArgs screenshotArgs;
-    screenshotArgs.captureTypeVariant = displayWeak;
-    screenshotArgs.displayIdVariant = displayIdVariantOpt;
-    screenshotArgs.sourceCrop = layerStackSpaceRect;
-    screenshotArgs.reqSize = size;
-    screenshotArgs.dataspace = static_cast<ui::Dataspace>(args.dataspace);
-    screenshotArgs.isSecure = args.captureSecureLayers && displayIsSecure;
-    screenshotArgs.seamlessTransition = args.hintForSeamlessTransition;
-
-    captureScreenCommon(screenshotArgs, getLayerSnapshotsFn, size,
-                        static_cast<ui::PixelFormat>(args.pixelFormat), kAllowProtected, kGrayscale,
-                        captureListener);
+    captureScreenCommon(screenshotArgs, getLayerSnapshotsFn,
+                        static_cast<ui::PixelFormat>(args.pixelFormat), captureListener);
 }
 
 ScreenCaptureResults SurfaceFlinger::captureLayersSync(const LayerCaptureArgs& args) {
@@ -7664,18 +7666,20 @@ void SurfaceFlinger::captureLayers(const LayerCaptureArgs& args,
         return;
     }
 
-    ScreenshotArgs screenshotArgs;
-    screenshotArgs.captureTypeVariant = parent->getSequence();
-    screenshotArgs.childrenOnly = args.childrenOnly;
-    screenshotArgs.sourceCrop = crop;
-    screenshotArgs.reqSize = reqSize;
-    screenshotArgs.dataspace = static_cast<ui::Dataspace>(captureArgs.dataspace);
-    screenshotArgs.isSecure = captureArgs.captureSecureLayers;
-    screenshotArgs.seamlessTransition = captureArgs.hintForSeamlessTransition;
+    ScreenshotArgs screenshotArgs{.captureTypeVariant = parent->getSequence(),
+                                  .childrenOnly = args.childrenOnly,
+                                  .sourceCrop = crop,
+                                  .size = reqSize,
+                                  .dataspace = static_cast<ui::Dataspace>(captureArgs.dataspace),
+                                  .disableBlur = false,
+                                  .isGrayscale = captureArgs.grayscale,
+                                  .isSecure = captureArgs.captureSecureLayers,
+                                  .includeProtected = captureArgs.allowProtected,
+                                  .seamlessTransition = captureArgs.hintForSeamlessTransition,
+                                  .debugName = "ScreenCapture"};
 
-    captureScreenCommon(screenshotArgs, getLayerSnapshotsFn, reqSize,
-                        static_cast<ui::PixelFormat>(captureArgs.pixelFormat),
-                        captureArgs.allowProtected, captureArgs.grayscale, captureListener);
+    captureScreenCommon(screenshotArgs, getLayerSnapshotsFn,
+                        static_cast<ui::PixelFormat>(captureArgs.pixelFormat), captureListener);
 }
 
 // Creates a Future release fence for a layer and keeps track of it in a list to
@@ -7734,15 +7738,14 @@ bool SurfaceFlinger::getSnapshotsFromMainThread(
 
 void SurfaceFlinger::captureScreenCommon(ScreenshotArgs& args,
                                          GetLayerSnapshotsFunction getLayerSnapshotsFn,
-                                         ui::Size bufferSize, ui::PixelFormat reqPixelFormat,
-                                         bool allowProtected, bool grayscale,
+                                         ui::PixelFormat reqPixelFormat,
                                          const sp<IScreenCaptureListener>& captureListener) {
     SFTRACE_CALL();
 
-    if (exceedsMaxRenderTargetSize(bufferSize.getWidth(), bufferSize.getHeight())) {
+    if (exceedsMaxRenderTargetSize(args.size.getWidth(), args.size.getHeight())) {
         ALOGE("Attempted to capture screen with size (%" PRId32 ", %" PRId32
               ") that exceeds render target size limit.",
-              bufferSize.getWidth(), bufferSize.getHeight());
+              args.size.getWidth(), args.size.getHeight());
         invokeScreenCaptureError(BAD_VALUE, captureListener);
         return;
     }
@@ -7760,16 +7763,16 @@ void SurfaceFlinger::captureScreenCommon(ScreenshotArgs& args,
 
     const bool supportsProtected = getRenderEngine().supportsProtectedContent();
     bool hasProtectedLayer = false;
-    if (allowProtected && supportsProtected) {
+    if (args.includeProtected && supportsProtected) {
         hasProtectedLayer = layersHasProtectedLayer(layers);
     }
-    const bool isProtected = hasProtectedLayer && allowProtected && supportsProtected;
+    const bool isProtected = hasProtectedLayer && args.includeProtected && supportsProtected;
     const uint32_t usage = GRALLOC_USAGE_HW_COMPOSER | GRALLOC_USAGE_HW_RENDER |
             GRALLOC_USAGE_HW_TEXTURE |
             (isProtected ? GRALLOC_USAGE_PROTECTED
                          : GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
     sp<GraphicBuffer> buffer =
-            getFactory().createGraphicBuffer(bufferSize.getWidth(), bufferSize.getHeight(),
+            getFactory().createGraphicBuffer(args.size.getWidth(), args.size.getHeight(),
                                              static_cast<android_pixel_format>(reqPixelFormat),
                                              1 /* layerCount */, usage, "screenshot");
 
@@ -7825,8 +7828,7 @@ void SurfaceFlinger::captureScreenCommon(ScreenshotArgs& args,
     }
 
     auto futureFence =
-            captureScreenshot(args, texture, false /* regionSampling */, grayscale, isProtected,
-                              captureListener, layers, hdrTexture, gainmapTexture);
+            captureScreenshot(args, texture, captureListener, layers, hdrTexture, gainmapTexture);
     futureFence.get();
 }
 
@@ -7854,6 +7856,7 @@ bool SurfaceFlinger::getDisplayStateOnMainThread(ScreenshotArgs& args) {
                         [layerStack = snapshot->outputFilter.layerStack](const auto& display) {
                             return display.getLayerStack() == layerStack;
                         });
+                args.debugName.append(", ").append(snapshot->debugName);
             }
 
             // Screenshot initiated through captureDisplay
@@ -7872,6 +7875,8 @@ bool SurfaceFlinger::getDisplayStateOnMainThread(ScreenshotArgs& args) {
             args.sdrWhitePointNits = state.sdrWhitePointNits;
             args.renderIntent = state.renderIntent;
             args.colorMode = state.colorMode;
+            args.debugName.append(", ").append(display->getDisplayName());
+            args.debugName.append(" (").append(to_string(display->getId())).append(")");
             return true;
         }
     }
@@ -7880,7 +7885,6 @@ bool SurfaceFlinger::getDisplayStateOnMainThread(ScreenshotArgs& args) {
 
 ftl::SharedFuture<FenceResult> SurfaceFlinger::captureScreenshot(
         ScreenshotArgs& args, const std::shared_ptr<renderengine::ExternalTexture>& buffer,
-        bool regionSampling, bool grayscale, bool isProtected,
         const sp<IScreenCaptureListener>& captureListener,
         const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers,
         const std::shared_ptr<renderengine::ExternalTexture>& hdrBuffer,
@@ -7894,8 +7898,7 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::captureScreenshot(
 
     if (hdrBuffer && gainmapBuffer) {
         ftl::SharedFuture<FenceResult> hdrRenderFuture =
-                renderScreenImpl(args, hdrBuffer, regionSampling, grayscale, isProtected,
-                                 captureResults, layers);
+                renderScreenImpl(args, hdrBuffer, captureResults, layers);
         captureResults.buffer = buffer->getBuffer();
         captureResults.optionalGainMap = gainmapBuffer->getBuffer();
 
@@ -7926,8 +7929,7 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::captureScreenshot(
                         })
                         .share();
     } else {
-        renderFuture = renderScreenImpl(args, buffer, regionSampling, grayscale, isProtected,
-                                        captureResults, layers);
+        renderFuture = renderScreenImpl(args, buffer, captureResults, layers);
     }
 
     if (captureListener) {
@@ -7947,7 +7949,7 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::captureScreenshot(
 
 ftl::SharedFuture<FenceResult> SurfaceFlinger::renderScreenImpl(
         ScreenshotArgs& args, const std::shared_ptr<renderengine::ExternalTexture>& buffer,
-        bool regionSampling, bool grayscale, bool isProtected, ScreenCaptureResults& captureResults,
+        ScreenCaptureResults& captureResults,
         const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers) {
     SFTRACE_CALL();
 
@@ -8002,7 +8004,7 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::renderScreenImpl(
     }
 
     auto present = [this, buffer = capturedBuffer, dataspace = captureResults.capturedDataspace,
-                    grayscale, isProtected, layers, layerStack, regionSampling, args, renderIntent,
+                    layers, layerStack, args, renderIntent,
                     enableLocalTonemapping]() -> FenceResult {
         std::unique_ptr<compositionengine::CompositionEngine> compositionEngine =
                 mFactory.createCompositionEngine();
@@ -8056,20 +8058,20 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::renderScreenImpl(
                                         .sourceCrop = args.sourceCrop,
                                         .buffer = std::move(buffer),
                                         .displayIdVariant = args.displayIdVariant,
-                                        .reqBufferSize = args.reqSize,
+                                        .reqBufferSize = args.size,
                                         .sdrWhitePointNits = args.sdrWhitePointNits,
                                         .displayBrightnessNits = args.displayBrightnessNits,
                                         .targetBrightness = targetBrightness,
                                         .layerAlpha = layerAlpha,
-                                        .regionSampling = regionSampling,
+                                        .disableBlur = args.disableBlur,
                                         .treat170mAsSrgb = mTreat170mAsSrgb,
                                         .dimInGammaSpaceForEnhancedScreenshots =
                                                 dimInGammaSpaceForEnhancedScreenshots,
                                         .isSecure = args.isSecure,
-                                        .isProtected = isProtected,
-                                        .enableLocalTonemapping = enableLocalTonemapping});
+                                        .enableLocalTonemapping = enableLocalTonemapping,
+                                        .debugName = args.debugName});
 
-        const float colorSaturation = grayscale ? 0 : 1;
+        const float colorSaturation = args.isGrayscale ? 0 : 1;
         compositionengine::CompositionRefreshArgs refreshArgs{
                 .outputs = {output},
                 .layers = std::move(layerFEs),

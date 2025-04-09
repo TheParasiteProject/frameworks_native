@@ -470,7 +470,7 @@ public:
                           ui::Dataspace dataspace,
                           SurfaceFlinger::GetLayerSnapshotsFunction getLayerSnapshotsFn,
                           const std::shared_ptr<renderengine::ExternalTexture>& buffer,
-                          bool regionSampling, bool isSecure, bool seamlessTransition) {
+                          bool disableBlur, bool isSecure, bool seamlessTransition) {
         Mutex::Autolock lock(mFlinger->mStateLock);
         ftl::FakeGuard guard(kMainThreadContext);
 
@@ -478,22 +478,24 @@ public:
         const auto& state = display->getCompositionDisplay()->getState();
         auto layers = getLayerSnapshotsFn();
 
-        SurfaceFlinger::ScreenshotArgs screenshotArgs;
-        screenshotArgs.captureTypeVariant = display;
-        screenshotArgs.displayIdVariant = std::nullopt;
-        screenshotArgs.sourceCrop = sourceCrop;
-        screenshotArgs.reqSize = sourceCrop.getSize();
-        screenshotArgs.dataspace = dataspace;
-        screenshotArgs.isSecure = isSecure;
-        screenshotArgs.seamlessTransition = seamlessTransition;
-        screenshotArgs.displayBrightnessNits = state.displayBrightnessNits;
-        screenshotArgs.sdrWhitePointNits = state.sdrWhitePointNits;
-        screenshotArgs.renderIntent = state.renderIntent;
-        screenshotArgs.colorMode = state.colorMode;
+        SurfaceFlinger::ScreenshotArgs screenshotArgs{.captureTypeVariant = display,
+                                                      .displayIdVariant = std::nullopt,
+                                                      .sourceCrop = sourceCrop,
+                                                      .size = sourceCrop.getSize(),
+                                                      .dataspace = dataspace,
+                                                      .disableBlur = disableBlur,
+                                                      .isGrayscale = false,
+                                                      .isSecure = isSecure,
+                                                      .seamlessTransition = seamlessTransition,
+                                                      .displayBrightnessNits =
+                                                              state.displayBrightnessNits,
+                                                      .sdrWhitePointNits = state.sdrWhitePointNits,
+                                                      .colorMode = state.colorMode,
+                                                      .renderIntent = state.renderIntent,
+                                                      .debugName =
+                                                              "TestableSurfaceFlinger screenshot"};
 
-        return mFlinger->renderScreenImpl(screenshotArgs, buffer, regionSampling,
-                                          false /* grayscale */, false /* isProtected */,
-                                          captureResults, layers);
+        return mFlinger->renderScreenImpl(screenshotArgs, buffer, captureResults, layers);
     }
 
     auto getLayerSnapshotsForScreenshotsFn(ui::LayerStack layerStack, uint32_t uid) {

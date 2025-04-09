@@ -902,14 +902,24 @@ private:
         ui::Transform transform;
 
         // Size of the physical render area
-        ui::Size reqSize;
+        ui::Size size;
 
         // Composition dataspace of the render area
         ui::Dataspace dataspace;
 
+        // Whether blur should be disabled, such as for region sampling
+        bool disableBlur{false};
+
+        // If true, screenshot is captured in grayscale
+        bool isGrayscale{false};
+
         // If false, the secure layer is blacked out or skipped
         // when rendered to an insecure render area
         bool isSecure{false};
+
+        // If true, includes protected layers which, if screenshotted, results
+        // in a protected output buffer
+        bool includeProtected{false};
 
         // If true, the render result may be used for system animations
         // that must preserve the exact colors of the display
@@ -926,21 +936,21 @@ private:
 
         // Current active render intent of the output composition state
         ui::RenderIntent renderIntent{ui::RenderIntent::COLORIMETRIC};
+
+        std::string debugName;
     };
 
     bool getSnapshotsFromMainThread(ScreenshotArgs& args,
                                     GetLayerSnapshotsFunction getLayerSnapshotsFn,
                                     std::vector<std::pair<Layer*, sp<LayerFE>>>& layers);
 
-    void captureScreenCommon(ScreenshotArgs& args, GetLayerSnapshotsFunction, ui::Size bufferSize,
-                             ui::PixelFormat, bool allowProtected, bool grayscale,
+    void captureScreenCommon(ScreenshotArgs& args, GetLayerSnapshotsFunction, ui::PixelFormat,
                              const sp<IScreenCaptureListener>&);
 
     bool getDisplayStateOnMainThread(ScreenshotArgs& args) REQUIRES(kMainThreadContext);
 
     ftl::SharedFuture<FenceResult> captureScreenshot(
             ScreenshotArgs& args, const std::shared_ptr<renderengine::ExternalTexture>& buffer,
-            bool regionSampling, bool grayscale, bool isProtected,
             const sp<IScreenCaptureListener>& captureListener,
             const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers,
             const std::shared_ptr<renderengine::ExternalTexture>& hdrBuffer = nullptr,
@@ -948,8 +958,7 @@ private:
 
     ftl::SharedFuture<FenceResult> renderScreenImpl(
             ScreenshotArgs& args, const std::shared_ptr<renderengine::ExternalTexture>&,
-            bool regionSampling, bool grayscale, bool isProtected, ScreenCaptureResults&,
-            const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers);
+            ScreenCaptureResults&, const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers);
 
     void readPersistentProperties();
 
