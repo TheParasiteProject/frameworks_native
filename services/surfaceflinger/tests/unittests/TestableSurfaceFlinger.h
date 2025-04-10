@@ -24,7 +24,10 @@
 #include <ftl/fake_guard.h>
 #include <ftl/match.h>
 #include <gui/LayerMetadata.h>
+#include <gui/LayerState.h>
 #include <gui/ScreenCaptureResults.h>
+#include <gui/SimpleTransactionState.h>
+#include <gui/TransactionState.h>
 #include <ui/DynamicDisplayInfo.h>
 #include <ui/ScreenPartStatus.h>
 
@@ -532,11 +535,18 @@ public:
             bool hasListenerCallbacks, std::vector<ListenerCallbacks>& listenerCallbacks,
             uint64_t transactionId, const std::vector<uint64_t>& mergedTransactionIds,
             const std::vector<gui::EarlyWakeupInfo>& earlyWakeupInfos) {
-        return mFlinger->setTransactionState(frameTimelineInfo, states, displays, flags, applyToken,
-                                             inputWindowCommands, desiredPresentTime,
-                                             isAutoTimestamp, uncacheBuffers, hasListenerCallbacks,
-                                             listenerCallbacks, transactionId, mergedTransactionIds,
-                                             earlyWakeupInfos);
+        return mFlinger
+                ->setTransactionState(SimpleTransactionState(transactionId, flags,
+                                                             desiredPresentTime, isAutoTimestamp,
+                                                             InputWindowCommands(
+                                                                     inputWindowCommands)),
+                                      frameTimelineInfo, states, displays, applyToken,
+                                      uncacheBuffers,
+                                      TransactionListenerCallbacks{.mFlattenedListenerCallbacks =
+                                                                           listenerCallbacks,
+                                                                   .mHasListenerCallbacks =
+                                                                           hasListenerCallbacks},
+                                      mergedTransactionIds, earlyWakeupInfos);
     }
 
     auto setTransactionStateInternal(QueuedTransactionState& transaction) {
