@@ -7681,9 +7681,6 @@ TEST_F(InputDispatcherTest, FocusedWindow_PolicyConsumedKeyIgnoresDisableUserAct
 }
 
 TEST_F(InputDispatcherTest, FocusedWindow_DoesNotReceivePolicyFallbackKey) {
-#if !defined(__ANDROID__)
-    GTEST_SKIP() << "b/253299089 Generic files are currently read directly from device.";
-#endif
     InputDeviceInfo testDevice = generateTestDeviceInfo(/*vendorId=*/0,
                                                         /*productId=*/0, /*deviceId=*/1);
     std::unique_ptr<KeyCharacterMap> kcm = loadKeyCharacterMap("Generic");
@@ -15493,14 +15490,18 @@ INSTANTIATE_TEST_SUITE_P(WithAndWithoutTransfer, TransferOrDontTransferFixture, 
 class InputDispatcherConnectedDisplayTest : public InputDispatcherDragTests {
     constexpr static int DENSITY_MEDIUM = 160;
 
-    const DisplayTopologyGraph
-            mTopology{.primaryDisplayId = DISPLAY_ID,
-                      .graph = {{DISPLAY_ID,
-                                 {{SECOND_DISPLAY_ID, DisplayTopologyPosition::TOP, 0.0f}}},
-                                {SECOND_DISPLAY_ID,
-                                 {{DISPLAY_ID, DisplayTopologyPosition::BOTTOM, 0.0f}}}},
-                      .displaysDensity = {{DISPLAY_ID, DENSITY_MEDIUM},
-                                          {SECOND_DISPLAY_ID, DENSITY_MEDIUM}}};
+    const DisplayTopologyGraph mTopology =
+            DisplayTopologyGraph::create(/*primaryDisplayId=*/DISPLAY_ID,
+                                         /*adjacencyGraph=*/
+                                         {{DISPLAY_ID,
+                                           {{SECOND_DISPLAY_ID, DisplayTopologyPosition::TOP,
+                                             0.0f}}},
+                                          {SECOND_DISPLAY_ID,
+                                           {{DISPLAY_ID, DisplayTopologyPosition::BOTTOM, 0.0f}}}},
+                                         /*displaysDensity=*/
+                                         {{DISPLAY_ID, DENSITY_MEDIUM},
+                                          {SECOND_DISPLAY_ID, DENSITY_MEDIUM}})
+                    .value();
 
 protected:
     void SetUp() override {
