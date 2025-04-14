@@ -468,37 +468,42 @@ public:
 
     auto renderScreenImpl(const sp<DisplayDevice> display, const Rect sourceCrop,
                           ui::Dataspace dataspace,
-                          SurfaceFlinger::GetLayerSnapshotsFunction getLayerSnapshotsFn,
+                          std::vector<std::pair<Layer*, sp<LayerFE>>>& layers,
                           const std::shared_ptr<renderengine::ExternalTexture>& buffer,
-                          bool regionSampling, bool isSecure, bool seamlessTransition) {
+                          bool disableBlur, bool isSecure, bool seamlessTransition) {
         Mutex::Autolock lock(mFlinger->mStateLock);
         ftl::FakeGuard guard(kMainThreadContext);
 
         ScreenCaptureResults captureResults;
         const auto& state = display->getCompositionDisplay()->getState();
-        auto layers = getLayerSnapshotsFn();
 
-        SurfaceFlinger::ScreenshotArgs screenshotArgs;
-        screenshotArgs.captureTypeVariant = display;
-        screenshotArgs.displayIdVariant = std::nullopt;
-        screenshotArgs.sourceCrop = sourceCrop;
-        screenshotArgs.reqSize = sourceCrop.getSize();
-        screenshotArgs.dataspace = dataspace;
-        screenshotArgs.isSecure = isSecure;
-        screenshotArgs.seamlessTransition = seamlessTransition;
-        screenshotArgs.displayBrightnessNits = state.displayBrightnessNits;
-        screenshotArgs.sdrWhitePointNits = state.sdrWhitePointNits;
-        screenshotArgs.renderIntent = state.renderIntent;
-        screenshotArgs.colorMode = state.colorMode;
+        SurfaceFlinger::ScreenshotArgs screenshotArgs{.captureTypeVariant = display,
+                                                      .displayIdVariant = std::nullopt,
+                                                      .layers = layers,
+                                                      .sourceCrop = sourceCrop,
+                                                      .size = sourceCrop.getSize(),
+                                                      .dataspace = dataspace,
+                                                      .disableBlur = disableBlur,
+                                                      .isGrayscale = false,
+                                                      .isSecure = isSecure,
+                                                      .seamlessTransition = seamlessTransition,
+                                                      .displayBrightnessNits =
+                                                              state.displayBrightnessNits,
+                                                      .sdrWhitePointNits = state.sdrWhitePointNits,
+                                                      .colorMode = state.colorMode,
+                                                      .renderIntent = state.renderIntent,
+                                                      .debugName =
+                                                              "TestableSurfaceFlinger screenshot"};
 
-        return mFlinger->renderScreenImpl(screenshotArgs, buffer, regionSampling,
-                                          false /* grayscale */, false /* isProtected */,
-                                          captureResults, layers);
+        return mFlinger->renderScreenImpl(screenshotArgs, buffer, captureResults);
     }
 
-    auto getLayerSnapshotsForScreenshotsFn(ui::LayerStack layerStack, uint32_t uid) {
-        return mFlinger->getLayerSnapshotsForScreenshots(layerStack, uid,
-                                                         std::unordered_set<uint32_t>{});
+    auto getLayerSnapshotsForScreenshots(ui::LayerStack layerStack, gui::Uid uid) {
+        ftl::FakeGuard guard(kMainThreadContext);
+        SurfaceFlinger::SnapshotRequestArgs snapshotArgs;
+        snapshotArgs.layerStack = layerStack;
+        snapshotArgs.uid = uid;
+        return mFlinger->getLayerSnapshotsForScreenshots(snapshotArgs);
     }
 
     auto getDisplayNativePrimaries(const sp<IBinder>& displayToken,

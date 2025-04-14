@@ -379,7 +379,6 @@ private:
     friend class TunnelModeEnabledReporterTest;
 
     using TransactionSchedule = scheduler::TransactionSchedule;
-    using GetLayerSnapshotsFunction = std::function<std::vector<std::pair<Layer*, sp<LayerFE>>>()>;
     using DumpArgs = Vector<String16>;
     using Dumper = std::function<void(const DumpArgs&, bool asProto, std::string&)>;
 
@@ -879,6 +878,26 @@ private:
 
     using OutputCompositionState = compositionengine::impl::OutputCompositionState;
 
+    struct SnapshotRequestArgs {
+        // Uid initiating the screenshot request
+        gui::Uid uid{gui::Uid::INVALID};
+
+        std::optional<ui::LayerStack> layerStack{std::nullopt};
+
+        std::optional<uint32_t> rootLayerId{std::nullopt};
+
+        // IDs of layers that will be excluded from the screenshot
+        std::unordered_set<uint32_t> excludeLayerIds{{}};
+
+        // If true, transform is inverted from the parent layer snapshot
+        bool childrenOnly{false};
+
+        std::optional<FloatRect> parentCrop{std::nullopt};
+
+        std::function<bool(const frontend::LayerSnapshot&, bool& outStopTraversal)>
+                snapshotFilterFn{nullptr};
+    };
+
     /*
      * Parameters used across screenshot methods.
      */
@@ -891,8 +910,11 @@ private:
         // Display ID of the display the result will be on
         ftl::Optional<DisplayIdVariant> displayIdVariant{std::nullopt};
 
-        // If true, transform is inverted from the parent layer snapshot
-        bool childrenOnly{false};
+        // Arguments provided to screenshot function for getting layer snapshots
+        SnapshotRequestArgs snapshotRequest;
+
+        // List of all layer snapshots that are included in the screenshot
+        std::vector<std::pair<Layer*, sp<LayerFE>>> layers;
 
         // Source crop of the render area
         Rect sourceCrop;
@@ -902,14 +924,24 @@ private:
         ui::Transform transform;
 
         // Size of the physical render area
-        ui::Size reqSize;
+        ui::Size size;
 
         // Composition dataspace of the render area
         ui::Dataspace dataspace;
 
+        // Whether blur should be disabled, such as for region sampling
+        bool disableBlur{false};
+
+        // If true, screenshot is captured in grayscale
+        bool isGrayscale{false};
+
         // If false, the secure layer is blacked out or skipped
         // when rendered to an insecure render area
         bool isSecure{false};
+
+        // If true, includes protected layers which, if screenshotted, results
+        // in a protected output buffer
+        bool includeProtected{false};
 
         // If true, the render result may be used for system animations
         // that must preserve the exact colors of the display
@@ -926,30 +958,26 @@ private:
 
         // Current active render intent of the output composition state
         ui::RenderIntent renderIntent{ui::RenderIntent::COLORIMETRIC};
+
+        std::string debugName;
     };
 
-    bool getSnapshotsFromMainThread(ScreenshotArgs& args,
-                                    GetLayerSnapshotsFunction getLayerSnapshotsFn,
-                                    std::vector<std::pair<Layer*, sp<LayerFE>>>& layers);
+    bool getSnapshotsFromMainThread(ScreenshotArgs& args);
 
-    void captureScreenCommon(ScreenshotArgs& args, GetLayerSnapshotsFunction, ui::Size bufferSize,
-                             ui::PixelFormat, bool allowProtected, bool grayscale,
+    void captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat,
                              const sp<IScreenCaptureListener>&);
 
     bool getDisplayStateOnMainThread(ScreenshotArgs& args) REQUIRES(kMainThreadContext);
 
     ftl::SharedFuture<FenceResult> captureScreenshot(
             ScreenshotArgs& args, const std::shared_ptr<renderengine::ExternalTexture>& buffer,
-            bool regionSampling, bool grayscale, bool isProtected,
             const sp<IScreenCaptureListener>& captureListener,
-            const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers,
             const std::shared_ptr<renderengine::ExternalTexture>& hdrBuffer = nullptr,
             const std::shared_ptr<renderengine::ExternalTexture>& gainmapBuffer = nullptr);
 
     ftl::SharedFuture<FenceResult> renderScreenImpl(
             ScreenshotArgs& args, const std::shared_ptr<renderengine::ExternalTexture>&,
-            bool regionSampling, bool grayscale, bool isProtected, ScreenCaptureResults&,
-            const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers);
+            ScreenCaptureResults&);
 
     void readPersistentProperties();
 
@@ -1482,16 +1510,9 @@ private:
         return hasDisplay(
                 [](const auto& display) { return display.isHdrSdrRatioOverlayEnabled(); });
     }
-    std::function<std::vector<std::pair<Layer*, sp<LayerFE>>>()> getLayerSnapshotsForScreenshots(
-            std::optional<ui::LayerStack> layerStack, uint32_t uid,
-            std::function<bool(const frontend::LayerSnapshot&, bool& outStopTraversal)>
-                    snapshotFilterFn);
-    std::function<std::vector<std::pair<Layer*, sp<LayerFE>>>()> getLayerSnapshotsForScreenshots(
-            std::optional<ui::LayerStack> layerStack, uint32_t uid,
-            std::unordered_set<uint32_t> excludeLayerIds);
-    std::function<std::vector<std::pair<Layer*, sp<LayerFE>>>()> getLayerSnapshotsForScreenshots(
-            uint32_t rootLayerId, uint32_t uid, std::unordered_set<uint32_t> excludeLayerIds,
-            bool childrenOnly, const std::optional<FloatRect>& optionalParentCrop);
+
+    std::vector<std::pair<Layer*, sp<LayerFE>>> getLayerSnapshotsForScreenshots(
+            const SnapshotRequestArgs& args) REQUIRES(kMainThreadContext);
 
     const sp<WindowInfosListenerInvoker> mWindowInfosListenerInvoker;
 
