@@ -1012,6 +1012,7 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
         // No need to trigger update for pacesetter via Scheduler::setPacesetterDisplay() as it is
         // done as part of adding the `display` in initScheduler().
 
+        getRenderEngine().onActiveDisplaySizeChanged(findLargestFramebufferSizeLocked());
         const auto pacesetter = getPacesetterDisplayLocked();
         applyRefreshRateSelectorPolicy(pacesetter->getPhysicalId(),
                                        pacesetter->refreshRateSelector());
@@ -4182,6 +4183,8 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
                 if (FlagManager::getInstance().pacesetter_selection()) {
                     mScheduler->setPacesetterDisplay(mFrontInternalDisplayId);
 
+                    getRenderEngine().onActiveDisplaySizeChanged(
+                            findLargestFramebufferSizeLocked());
                     const auto pacesetter = getPacesetterDisplayLocked();
                     applyRefreshRateSelectorPolicy(pacesetter->getPhysicalId(),
                                                    pacesetter->refreshRateSelector());
@@ -4201,7 +4204,7 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
             display->setFlags(currentState.flags);
         }
 
-        const auto updateDisplaySize = [&]() {
+        const auto updateDisplaySize = [&]() REQUIRES(mStateLock) {
             if (currentState.width != drawingState.width ||
                 currentState.height != drawingState.height) {
                 const ui::Size resolution = ui::Size(currentState.width, currentState.height);
@@ -4218,8 +4221,17 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
                     display->setDisplaySize(resolution);
                 }
 
-                if (display->getId() == mFrontInternalDisplayId) {
-                    onFrontInternalDisplaySizeChanged(*display);
+                if (FlagManager::getInstance().pacesetter_selection()) {
+                    if (display->getId() == mScheduler->getPacesetterDisplayId()) {
+                        mScheduler->onPacesetterDisplaySizeChanged(display->getSize());
+                        getRenderEngine().onActiveDisplaySizeChanged(
+                                findLargestFramebufferSizeLocked());
+                    }
+                } else {
+                    if (display->getId() == mFrontInternalDisplayId) {
+                        mScheduler->onPacesetterDisplaySizeChanged(display->getSize());
+                        getRenderEngine().onActiveDisplaySizeChanged(display->getSize());
+                    }
                 }
             }
         };
@@ -4726,6 +4738,25 @@ void SurfaceFlinger::invalidateLayerStack(const ui::LayerFilter& layerFilter, co
             display->editState().dirtyRegion.orSelf(dirty);
         }
     }
+}
+
+ui::Size SurfaceFlinger::findLargestFramebufferSizeLocked() const {
+    ui::Size maxSize(0, 0);
+    int64_t maxArea = 0;
+    for (const auto& [_, display] : mDisplays) {
+        if (!display->isPoweredOn()) {
+            continue;
+        }
+
+        const ui::Size size = display->getSize();
+        const int64_t area = size.getWidth() * size.getHeight();
+        if (area > maxArea) {
+            maxSize = size;
+            maxArea = area;
+        }
+    }
+
+    return maxSize;
 }
 
 status_t SurfaceFlinger::addClientLayer(LayerCreationArgs& args, const sp<IBinder>& handle,
@@ -8476,11 +8507,6 @@ void SurfaceFlinger::sample() {
     mRegionSamplingThread->onCompositionComplete(scheduleFrameTimeOpt);
 }
 
-void SurfaceFlinger::onFrontInternalDisplaySizeChanged(const DisplayDevice& activeDisplay) {
-    mScheduler->onActiveDisplayAreaChanged(activeDisplay.getWidth() * activeDisplay.getHeight());
-    getRenderEngine().onActiveDisplaySizeChanged(activeDisplay.getSize());
-}
-
 sp<DisplayDevice> SurfaceFlinger::findFrontInternalDisplay() const {
     if (mPhysicalDisplays.size() == 1) return nullptr;
 
@@ -8498,7 +8524,6 @@ void SurfaceFlinger::onNewFrontInternalDisplay(const DisplayDevice* oldFrontInte
     SFTRACE_CALL();
 
     mFrontInternalDisplayId = newFrontInternalDisplay.getPhysicalId();
-    onFrontInternalDisplaySizeChanged(newFrontInternalDisplay);
 
     mFrontInternalDisplayTransformHint = newFrontInternalDisplay.getTransformHint();
     sFrontInternalDisplayRotationFlags =
@@ -8510,6 +8535,9 @@ void SurfaceFlinger::onNewFrontInternalDisplay(const DisplayDevice* oldFrontInte
                     false);
             mScheduler->setModeChangePending(oldFrontInternalDisplayPtr->getPhysicalId(), false);
         }
+
+        mScheduler->onPacesetterDisplaySizeChanged(newFrontInternalDisplay.getSize());
+        getRenderEngine().onActiveDisplaySizeChanged(newFrontInternalDisplay.getSize());
 
         newFrontInternalDisplay.getCompositionDisplay()->setLayerCachingTexturePoolEnabled(true);
 
