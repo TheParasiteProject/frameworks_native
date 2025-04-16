@@ -128,7 +128,7 @@ os::ServiceWithMetadata createServiceWithMetadata(const sp<IBinder>& service, bo
     return out;
 }
 
-bool BinderCacheWithInvalidation::isClientSideCachingEnabled(const std::string& serviceName) {
+bool BinderCacheWithInvalidation::isClientSideCachingEnabled(const std::string& serviceName) const {
     sp<ProcessState> self = ProcessState::selfOrNull();
     // Should not cache if process state could not be found, or if thread pool
     // max could is not greater than zero.
