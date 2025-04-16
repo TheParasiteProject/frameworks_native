@@ -7266,19 +7266,16 @@ void SurfaceFlinger::kernelTimerChanged(bool expired) {
     }));
 }
 
-void SurfaceFlinger::vrrDisplayIdle(bool idle) {
+void SurfaceFlinger::vrrDisplayIdle(PhysicalDisplayId displayId, bool idle) {
     // Update the overlay on the main thread to avoid race conditions with
     // RefreshRateSelector::getActiveMode
     static_cast<void>(mScheduler->schedule([=, this] {
-        const auto display = FTL_FAKE_GUARD(mStateLock, getDefaultDisplayDeviceLocked());
-        if (!display) {
-            ALOGW("%s: default display is null", __func__);
-            return;
+        if (const auto display = FTL_FAKE_GUARD(mStateLock, getDisplayDeviceLocked(displayId))) {
+            if (display->isRefreshRateOverlayEnabled()) {
+                display->onVrrIdle(idle);
+                mScheduler->scheduleFrame();
+            }
         }
-        if (!display->isRefreshRateOverlayEnabled()) return;
-
-        display->onVrrIdle(idle);
-        mScheduler->scheduleFrame();
     }));
 }
 
