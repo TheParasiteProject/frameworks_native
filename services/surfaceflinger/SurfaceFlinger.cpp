@@ -5075,8 +5075,7 @@ bool SurfaceFlinger::shouldLatchUnsignaled(const layer_state_t& state, size_t nu
 
 status_t SurfaceFlinger::setTransactionState(SimpleTransactionState podState,
                                              const ComplexTransactionState& complexState,
-                                             Vector<ComposerState>& states,
-                                             Vector<DisplayState>& displays,
+                                             MutableTransactionState& mutableState,
                                              const sp<IBinder>& applyToken) {
     SFTRACE_CALL();
 
@@ -5085,6 +5084,7 @@ status_t SurfaceFlinger::setTransactionState(SimpleTransactionState podState,
     const int originUid = ipc->getCallingUid();
     uint32_t permissions = LayerStatePermissions::getTransactionPermissions(originPid, originUid);
     ftl::Flags<adpf::Workload> queuedWorkload;
+    auto& states = mutableState.mComposerStates;
     for (auto& composerState : states) {
         composerState.state.sanitize(permissions);
         if (composerState.state.what & layer_state_t::COMPOSITION_EFFECTS) {
@@ -5095,7 +5095,7 @@ status_t SurfaceFlinger::setTransactionState(SimpleTransactionState podState,
         }
     }
 
-    for (DisplayState& display : displays) {
+    for (DisplayState& display : mutableState.mDisplayStates) {
         display.sanitize(permissions);
     }
 
@@ -5178,7 +5178,7 @@ status_t SurfaceFlinger::setTransactionState(SimpleTransactionState podState,
 
     QueuedTransactionState state{complexState.mFrameTimelineInfo,
                                  resolvedStates,
-                                 displays,
+                                 mutableState.mDisplayStates,
                                  flags,
                                  applyToken,
                                  std::move(inputWindowCommands),
