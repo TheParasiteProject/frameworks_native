@@ -3402,10 +3402,10 @@ int SurfaceComposerClient::getGpuContextPriority() {
 
 status_t SurfaceComposerClient::addWindowInfosListener(
         const sp<WindowInfosListener>& windowInfosListener,
-        std::pair<std::vector<gui::WindowInfo>, std::vector<gui::DisplayInfo>>* outInitialInfo) {
+        gui::WindowInfosUpdate* outInitialUpdate) {
     return WindowInfosListenerReporter::getInstance()
             ->addWindowInfosListener(windowInfosListener, ComposerServiceAIDL::getComposerService(),
-                                     outInitialInfo);
+                                     outInitialUpdate);
 }
 
 status_t SurfaceComposerClient::removeWindowInfosListener(
