@@ -169,7 +169,6 @@ void FlagManager::dump(std::string& result) const {
     DUMP_ACONFIG_FLAG(override_trusted_overlay);
     DUMP_ACONFIG_FLAG(pacesetter_selection);
     DUMP_ACONFIG_FLAG(protected_if_client);
-    DUMP_ACONFIG_FLAG(reject_dupe_layerstacks);
     DUMP_ACONFIG_FLAG(renderable_buffer_usage);
     DUMP_ACONFIG_FLAG(restore_blur_step);
     DUMP_ACONFIG_FLAG(skip_invisible_windows_in_input);
@@ -295,7 +294,6 @@ FLAG_MANAGER_ACONFIG_FLAG(skip_invisible_windows_in_input, "");
 FLAG_MANAGER_ACONFIG_FLAG(stop_layer, "");
 FLAG_MANAGER_ACONFIG_FLAG(begone_bright_hlg, "debug.sf.begone_bright_hlg");
 FLAG_MANAGER_ACONFIG_FLAG(window_blur_kawase2, "");
-FLAG_MANAGER_ACONFIG_FLAG(reject_dupe_layerstacks, "");
 FLAG_MANAGER_ACONFIG_FLAG(synced_resolution_switch, "");
 
 /// Trunk stable server (R/W) flags ///
