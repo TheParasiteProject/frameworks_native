@@ -676,10 +676,7 @@ public:
         mSupportsPresent = supportsPresent;
     }
 
-    status_t setTransactionState(SimpleTransactionState /*podState*/,
-                                 const ComplexTransactionState& /*complexState*/,
-                                 MutableTransactionState& /*mutableState*/,
-                                 const sp<IBinder>& /*applyToken*/
+    status_t setTransactionState(TransactionState&& /*state*/, const sp<IBinder>& /*applyToken*/
                                  ) override {
         return NO_ERROR;
     }
