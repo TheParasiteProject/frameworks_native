@@ -957,9 +957,10 @@ InputDispatcher::InputDispatcher(InputDispatcherPolicyInterface& policy,
 
     mWindowInfoListener = sp<DispatcherWindowListener>::make(*this);
 #if defined(__ANDROID__)
-    gui::WindowInfosUpdate update;
-    SurfaceComposerClient::getDefault()->addWindowInfosListener(mWindowInfoListener, &update);
-    onWindowInfosChanged(update);
+    android::base::Result<gui::WindowInfosUpdate> result =
+            SurfaceComposerClient::getDefault()->addWindowInfosListener(mWindowInfoListener);
+    LOG_IF(FATAL, !result.ok()) << "Can't listen for window info. Input will not work";
+    onWindowInfosChanged(*result);
 #endif
     mKeyRepeatState.lastKeyEntry = nullptr;
 
