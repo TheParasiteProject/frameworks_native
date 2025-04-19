@@ -128,7 +128,7 @@ os::ServiceWithMetadata createServiceWithMetadata(const sp<IBinder>& service, bo
     return out;
 }
 
-bool BinderCacheWithInvalidation::isClientSideCachingEnabled(const std::string& serviceName) {
+bool BinderCacheWithInvalidation::isClientSideCachingEnabled(const std::string& serviceName) const {
     sp<ProcessState> self = ProcessState::selfOrNull();
     // Should not cache if process state could not be found, or if thread pool
     // max could is not greater than zero.
@@ -468,6 +468,17 @@ Status BackendUnifiedServiceManager::getServiceDebugInfo(
         ::std::vector<os::ServiceDebugInfo>* _aidl_return) {
     if (mTheRealServiceManager) {
         return mTheRealServiceManager->getServiceDebugInfo(_aidl_return);
+    }
+    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+                                     kUnsupportedOpNoServiceManager);
+}
+
+Status BackendUnifiedServiceManager::checkServiceAccess(
+        const AidlServiceManager::CallerContext& callerCtx, const std::string& name,
+        const std::string& permission, bool* _aidl_return) {
+    if (mTheRealServiceManager) {
+        return mTheRealServiceManager->checkServiceAccess(callerCtx, name, permission,
+                                                          _aidl_return);
     }
     return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
                                      kUnsupportedOpNoServiceManager);
