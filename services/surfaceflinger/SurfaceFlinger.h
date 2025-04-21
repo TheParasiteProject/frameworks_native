@@ -701,7 +701,7 @@ private:
                                      Fps renderRate) override;
     void onCommitNotComposited() override
             REQUIRES(kMainThreadContext);
-    void vrrDisplayIdle(bool idle) override;
+    void vrrDisplayIdle(PhysicalDisplayId displayId, bool idle) override;
 
     // ICEPowerCallback overrides:
     void notifyCpuLoadUp() override;
