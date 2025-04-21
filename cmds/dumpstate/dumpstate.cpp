@@ -1752,6 +1752,7 @@ Dumpstate::RunStatus Dumpstate::dumpstate() {
     DumpFile("ZONEINFO", "/proc/zoneinfo");
     DumpFile("PAGETYPEINFO", "/proc/pagetypeinfo");
     DumpFile("BUDDYINFO", "/proc/buddyinfo");
+    DumpFile("MGLRU", "/sys/kernel/mm/lru_gen/enabled");
     DumpExternalFragmentationInfo();
 
     DumpFile("KERNEL CPUFREQ", "/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state");
