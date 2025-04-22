@@ -10,14 +10,6 @@ flag {
 } # apply_picture_profiles
 
 flag {
-  name: "bq_setframerate"
-  namespace: "core_graphics"
-  description: "This flag controls plumbing setFrameRate thru BufferQueue"
-  bug: "281695725"
-  is_fixed_read_only: true
-} # bq_setframerate
-
-flag {
   name: "bq_consumer_attach_callback"
   namespace: "core_graphics"
   description: "Controls IProducerListener to have consumer side attach callback"
