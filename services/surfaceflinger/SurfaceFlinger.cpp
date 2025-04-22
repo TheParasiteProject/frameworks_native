@@ -8304,6 +8304,9 @@ status_t SurfaceFlinger::setGlobalShadowSettings(const half4& ambientColor, cons
     // these values are overridden when calculating the shadow settings for a layer.
     mCurrentState.globalShadowSettings.lightPos.x = 0.f;
     mCurrentState.globalShadowSettings.length = 0.f;
+
+    setTransactionFlags(eTransactionNeeded);
+
     return NO_ERROR;
 }
 
