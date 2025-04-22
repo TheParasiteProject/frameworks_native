@@ -2640,6 +2640,9 @@ void SurfaceComposerClient::onFirstRef() {
         if (status.isOk() && conn != nullptr) {
             mClient = conn;
             mStatus = NO_ERROR;
+        } else {
+            ALOGE("SurfaceComposerClient::onFirstRef unable to create client connection, error: %s",
+                  status.toString8().c_str());
         }
     }
 }
