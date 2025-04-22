@@ -105,7 +105,6 @@ public:
     bool override_trusted_overlay() const;
     bool pacesetter_selection() const;
     bool protected_if_client() const;
-    bool reject_dupe_layerstacks() const;
     bool renderable_buffer_usage() const;
     bool restore_blur_step() const;
     bool skip_invisible_windows_in_input() const;

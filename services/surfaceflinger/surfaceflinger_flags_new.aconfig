@@ -248,17 +248,6 @@ flag {
 } # pacesetter_selection
 
 flag {
-  name: "reject_dupe_layerstacks"
-  namespace: "window_surfaces"
-  description: "Reject duplicate layerstacks for displays"
-  bug: "370358572"
-  is_fixed_read_only: true
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
- } # reject_dupe_layerstacks
-
-flag {
   name: "skip_invisible_windows_in_input"
   namespace: "window_surfaces"
   description: "Only send visible windows to input list"
