@@ -1331,6 +1331,7 @@ private:
         ui::Dataspace dataspace;
         std::chrono::milliseconds timeSinceLastEvent;
         bool useLuts;
+        float desiredHdrHeadroom;
     };
     std::vector<LayerEvent> mLayerEvents;
 
