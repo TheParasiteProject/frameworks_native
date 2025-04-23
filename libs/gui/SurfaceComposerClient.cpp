@@ -836,8 +836,7 @@ SurfaceComposerClient::Transaction::Transaction(const Transaction& other)
         mDesiredPresentTime(other.mDesiredPresentTime),
         mIsAutoTimestamp(other.mIsAutoTimestamp),
         mFrameTimelineInfo(other.mFrameTimelineInfo),
-        mApplyToken(other.mApplyToken),
-        mEarlyWakeupInfo(other.mEarlyWakeupInfo) {
+        mApplyToken(other.mApplyToken) {
     mDisplayStates = other.mDisplayStates;
     mComposerStates = other.mComposerStates;
     mInputWindowCommands = other.mInputWindowCommands;
@@ -959,9 +958,6 @@ status_t SurfaceComposerClient::Transaction::readFromParcel(const Parcel* parcel
         SAFE_PARCEL(parcel->readUint64, &mergedTransactionIds[i]);
     }
 
-    gui::EarlyWakeupInfo earlyWakeupInfo;
-    earlyWakeupInfo.readFromParcel(parcel);
-
     // Parsing was successful. Update the object.
     mId = transactionId;
     mFlags = flags;
@@ -975,7 +971,6 @@ status_t SurfaceComposerClient::Transaction::readFromParcel(const Parcel* parcel
     mApplyToken = applyToken;
     mUncacheBuffers = std::move(uncacheBuffers);
     mMergedTransactionIds = std::move(mergedTransactionIds);
-    mEarlyWakeupInfo = earlyWakeupInfo;
     return NO_ERROR;
 }
 
@@ -1035,8 +1030,6 @@ status_t SurfaceComposerClient::Transaction::writeToParcel(Parcel* parcel) const
     for (auto mergedTransactionId : mMergedTransactionIds) {
         SAFE_PARCEL(parcel->writeUint64, mergedTransactionId);
     }
-
-    mEarlyWakeupInfo.writeToParcel(parcel);
 
     return NO_ERROR;
 }
@@ -1147,8 +1140,6 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::merge(Tr
              "Transaction %" PRIu64 " merged with transaction %" PRIu64, other.getId(), mId);
     }
 
-    mEarlyWakeupInfo = other.mEarlyWakeupInfo;
-
     other.clear();
     return *this;
 }
@@ -1167,7 +1158,6 @@ void SurfaceComposerClient::Transaction::clear() {
     mMergedTransactionIds.clear();
     mLogCallPoints = false;
     mFlags = 0;
-    mEarlyWakeupInfo = {};
 }
 
 uint64_t SurfaceComposerClient::Transaction::getId() {
@@ -1186,11 +1176,10 @@ void SurfaceComposerClient::doUncacheBufferTransaction(uint64_t cacheId) {
     uncacheBuffer.id = cacheId;
     Vector<ComposerState> composerStates;
     Vector<DisplayState> displayStates;
-    status_t status =
-            sf->setTransactionState(FrameTimelineInfo{}, composerStates, displayStates,
-                                    ISurfaceComposer::eOneWay, Transaction::getDefaultApplyToken(),
-                                    {}, systemTime(), true, {uncacheBuffer}, false, {},
-                                    generateId(), {}, {});
+    status_t status = sf->setTransactionState(FrameTimelineInfo{}, composerStates, displayStates,
+                                              ISurfaceComposer::eOneWay,
+                                              Transaction::getDefaultApplyToken(), {}, systemTime(),
+                                              true, {uncacheBuffer}, false, {}, generateId(), {});
     if (status != NO_ERROR) {
         ALOGE_AND_TRACE("SurfaceComposerClient::doUncacheBufferTransaction - %s",
                         strerror(-status));
@@ -1351,8 +1340,7 @@ status_t SurfaceComposerClient::Transaction::apply(bool synchronous, bool oneWay
             sf->setTransactionState(mFrameTimelineInfo, mComposerStates, mDisplayStates, mFlags,
                                     applyToken, mInputWindowCommands, mDesiredPresentTime,
                                     mIsAutoTimestamp, mUncacheBuffers, hasListenerCallbacks,
-                                    listenerCallbacks, mId, mMergedTransactionIds,
-                                    mEarlyWakeupInfo);
+                                    listenerCallbacks, mId, mMergedTransactionIds);
     mId = generateId();
 
     // Clear the current states and flags
@@ -1459,15 +1447,11 @@ void SurfaceComposerClient::Transaction::setAnimationTransaction() {
     mFlags |= ISurfaceComposer::eAnimation;
 }
 
-void SurfaceComposerClient::Transaction::setEarlyWakeupStart(
-        const gui::EarlyWakeupInfo& earlyWakeupInfo) {
-    mEarlyWakeupInfo = earlyWakeupInfo;
+void SurfaceComposerClient::Transaction::setEarlyWakeupStart() {
     mFlags |= ISurfaceComposer::eEarlyWakeupStart;
 }
 
-void SurfaceComposerClient::Transaction::setEarlyWakeupEnd(
-        const gui::EarlyWakeupInfo& earlyWakeupInfo) {
-    mEarlyWakeupInfo = earlyWakeupInfo;
+void SurfaceComposerClient::Transaction::setEarlyWakeupEnd() {
     mFlags |= ISurfaceComposer::eEarlyWakeupEnd;
 }
 

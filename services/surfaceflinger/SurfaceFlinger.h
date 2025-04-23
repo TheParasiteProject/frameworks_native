@@ -550,8 +550,7 @@ private:
             InputWindowCommands inputWindowCommands, int64_t desiredPresentTime,
             bool isAutoTimestamp, const std::vector<client_cache_t>& uncacheBuffers,
             bool hasListenerCallbacks, const std::vector<ListenerCallbacks>& listenerCallbacks,
-            uint64_t transactionId, const std::vector<uint64_t>& mergedTransactionIds,
-            const gui::EarlyWakeupInfo& earlyWakeupInfo) override;
+            uint64_t transactionId, const std::vector<uint64_t>& mergedTransactionIds) override;
     void bootFinished();
     status_t getSupportedFrameTimestamps(std::vector<FrameEvent>* outSupported) const;
     sp<IDisplayEventConnection> createDisplayEventConnection(
@@ -833,8 +832,8 @@ private:
 
     // Sets the masked bits, and schedules a commit if needed.
     void setTransactionFlags(uint32_t mask, TransactionSchedule = TransactionSchedule::Late,
-                             FrameHint = FrameHint::kActive,
-                             const gui::EarlyWakeupInfo& earlyWakeupInfo = {});
+                             const sp<IBinder>& applyToken = nullptr,
+                             FrameHint = FrameHint::kActive);
 
     // Clears and returns the masked bits.
     uint32_t clearTransactionFlags(uint32_t mask);
