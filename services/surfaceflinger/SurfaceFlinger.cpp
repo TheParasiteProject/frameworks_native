@@ -704,11 +704,11 @@ std::vector<PhysicalDisplayId> SurfaceFlinger::getPhysicalDisplayIdsLocked() con
     std::vector<PhysicalDisplayId> displayIds;
     displayIds.reserve(mPhysicalDisplays.size());
 
-    const auto defaultDisplayId = getDefaultDisplayDeviceLocked()->getPhysicalId();
-    displayIds.push_back(defaultDisplayId);
+    const auto activeDisplayId = getActiveDisplayLocked()->getPhysicalId();
+    displayIds.push_back(activeDisplayId);
 
     for (const auto& [id, display] : mPhysicalDisplays) {
-        if (id != defaultDisplayId) {
+        if (id != activeDisplayId) {
             displayIds.push_back(id);
         }
     }
@@ -960,7 +960,7 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
         processDisplayAdded(token, state);
         mDrawingState.displays.add(token, state);
 
-        display = getDefaultDisplayDeviceLocked();
+        display = getActiveDisplayLocked();
     }
 
     LOG_ALWAYS_FATAL_IF(!display, "Failed to configure the primary display");
@@ -6465,7 +6465,7 @@ void SurfaceFlinger::dumpAll(const DumpArgs& args, const std::string& compositio
     ClientCache::getInstance().dump(result);
     DebugEGLImageTracker::getInstance()->dump(result);
 
-    if (const auto display = getDefaultDisplayDeviceLocked()) {
+    if (const auto display = getActiveDisplayLocked()) {
         display->getCompositionDisplay()->getState().undefinedRegion.dump(result,
                                                                           "undefinedRegion");
         StringAppendF(&result, "  orientation=%s, isPoweredOn=%d\n",
@@ -6473,7 +6473,7 @@ void SurfaceFlinger::dumpAll(const DumpArgs& args, const std::string& compositio
     }
     StringAppendF(&result, "  transaction-flags         : %08x\n", mTransactionFlags.load());
 
-    if (const auto display = getDefaultDisplayDeviceLocked()) {
+    if (const auto display = getActiveDisplayLocked()) {
         std::string peakFps, xDpi, yDpi;
         const auto activeMode = display->refreshRateSelector().getActiveMode();
         if (const auto activeModePtr = activeMode.modePtr.get()) {
@@ -6846,7 +6846,7 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
             }
             // Is a DisplayColorSetting supported?
             case 1027: {
-                const auto display = getDefaultDisplayDevice();
+                const auto display = getActiveDisplay();
                 if (!display) {
                     return NAME_NOT_FOUND;
                 }
@@ -6929,7 +6929,7 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
             case 1035: {
                 // Parameters:
                 // - (required) i32 mode id.
-                // - (optional) i64 display id. Using default display if not provided.
+                // - (optional) i64 display id. Using pacesetter display if not provided.
                 // - (optional) f min render rate. Using mode's fps is not provided.
                 // - (optional) f max render rate. Using mode's fps is not provided.
 
@@ -6938,7 +6938,7 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
                 const auto display = [&]() -> sp<IBinder> {
                     uint64_t value;
                     if (data.readUint64(&value) != NO_ERROR) {
-                        return getDefaultDisplayDevice()->getDisplayToken().promote();
+                        return getPacesetterDisplay()->getDisplayToken().promote();
                     }
 
                     if (const auto token =
@@ -6976,7 +6976,7 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
                     return mScheduler
                             ->schedule([this]() FTL_FAKE_GUARD(kMainThreadContext) {
                                 const auto display =
-                                        FTL_FAKE_GUARD(mStateLock, getDefaultDisplayDeviceLocked());
+                                        FTL_FAKE_GUARD(mStateLock, getPacesetterDisplayLocked());
 
                                 // This is a little racy, but not in a way that hurts anything. As
                                 // we grab the defaultMode from the display manager policy, we could
@@ -6996,7 +6996,7 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
                     return mScheduler
                             ->schedule([this]() FTL_FAKE_GUARD(kMainThreadContext) {
                                 const auto display =
-                                        FTL_FAKE_GUARD(mStateLock, getDefaultDisplayDeviceLocked());
+                                        FTL_FAKE_GUARD(mStateLock, getPacesetterDisplayLocked());
                                 return setDesiredDisplayModeSpecsInternal(
                                         display,
                                         scheduler::RefreshRateSelector::NoOverridePolicy{});
@@ -7256,7 +7256,7 @@ void SurfaceFlinger::kernelTimerChanged(bool expired) {
     // Update the overlay on the main thread to avoid race conditions with
     // RefreshRateSelector::getActiveMode
     static_cast<void>(mScheduler->schedule([=, this]() FTL_FAKE_GUARD(kMainThreadContext) {
-        const auto display = FTL_FAKE_GUARD(mStateLock, getDefaultDisplayDeviceLocked());
+        const auto display = FTL_FAKE_GUARD(mStateLock, getPacesetterDisplayLocked());
         if (!display) {
             ALOGW("%s: default display is null", __func__);
             return;
@@ -7879,7 +7879,7 @@ bool SurfaceFlinger::getDisplayStateOnMainThread(ScreenshotArgs& args) {
         }
 
         if (display == nullptr) {
-            display = getDefaultDisplayDeviceLocked();
+            display = getPacesetterDisplayLocked();
         }
 
         if (display != nullptr) {
@@ -8413,7 +8413,8 @@ status_t SurfaceFlinger::getMaxAcquiredBufferCount(int* buffers) const {
     Fps maxRefreshRate = 60_Hz;
 
     if (!getHwComposer().isHeadless()) {
-        if (const auto display = getDefaultDisplayDevice()) {
+        const sp<const DisplayDevice> display = getPacesetterDisplay();
+        if (display) {
             maxRefreshRate = display->refreshRateSelector().getSupportedRefreshRateRange().max;
         }
     }
@@ -8428,7 +8429,9 @@ uint32_t SurfaceFlinger::getMaxAcquiredBufferCountForCurrentRefreshRate(uid_t ui
     if (const auto frameRateOverride = mScheduler->getFrameRateOverride(uid)) {
         refreshRate = *frameRateOverride;
     } else if (!getHwComposer().isHeadless()) {
-        if (const auto display = FTL_FAKE_GUARD(mStateLock, getDefaultDisplayDeviceLocked())) {
+        const sp<const DisplayDevice> display =
+                FTL_FAKE_GUARD(mStateLock, getPacesetterDisplayLocked());
+        if (display) {
             refreshRate = display->refreshRateSelector().getActiveMode().fps;
         }
     }
