@@ -186,11 +186,11 @@ Layer::~Layer() {
     mFlinger->onLayerDestroyed(this);
 
     const auto currentTime = std::chrono::steady_clock::now();
-    if (mBufferInfo.mTimeSinceDataspaceUpdate > std::chrono::steady_clock::time_point::min()) {
-        mFlinger->mLayerEvents.emplace_back(mOwnerUid, getSequence(), mBufferInfo.mDataspace,
-                                            std::chrono::duration_cast<std::chrono::milliseconds>(
-                                                    currentTime -
-                                                    mBufferInfo.mTimeSinceDataspaceUpdate));
+    if (mLastLayerEvent.has_value() &&
+        mTimeSinceLayerEventsUpdate > std::chrono::steady_clock::time_point::min()) {
+        mLastLayerEvent->timeSinceLastEvent = std::chrono::duration_cast<std::chrono::milliseconds>(
+                currentTime - mTimeSinceLayerEventsUpdate);
+        mFlinger->mLayerEvents.emplace_back(mLastLayerEvent.value());
     }
 
     if (mDrawingState.sidebandStream != nullptr) {
@@ -1326,17 +1326,8 @@ void Layer::gatherBufferInfo() {
             }
         }
     }
-    if (lastDataspace != mBufferInfo.mDataspace ||
-        mBufferInfo.mTimeSinceDataspaceUpdate == std::chrono::steady_clock::time_point::min()) {
+    if (lastDataspace != mBufferInfo.mDataspace) {
         mFlinger->mHdrLayerInfoChanged = true;
-        const auto currentTime = std::chrono::steady_clock::now();
-        if (mBufferInfo.mTimeSinceDataspaceUpdate > std::chrono::steady_clock::time_point::min()) {
-            mFlinger->mLayerEvents
-                    .emplace_back(mOwnerUid, getSequence(), lastDataspace,
-                                  std::chrono::duration_cast<std::chrono::milliseconds>(
-                                          currentTime - mBufferInfo.mTimeSinceDataspaceUpdate));
-        }
-        mBufferInfo.mTimeSinceDataspaceUpdate = currentTime;
     }
     if (mBufferInfo.mDesiredHdrSdrRatio != mDrawingState.desiredHdrSdrRatio) {
         mBufferInfo.mDesiredHdrSdrRatio = mDrawingState.desiredHdrSdrRatio;
@@ -1344,6 +1335,28 @@ void Layer::gatherBufferInfo() {
     }
     mBufferInfo.mCrop = computeBufferCrop(mDrawingState);
     mBufferInfo.mTransformToDisplayInverse = mDrawingState.transformToDisplayInverse;
+
+    // update layer event
+    // a new layer event instance is added if any defined parameter changes.
+    if (!mLastLayerEvent.has_value()) {
+        mLastLayerEvent =
+                std::make_optional<SurfaceFlinger::LayerEvent>({mOwnerUid, getSequence()});
+    }
+
+    if (mLastLayerEvent->dataspace != mBufferInfo.mDataspace ||
+        mLastLayerEvent->useLuts != mDrawingState.useLuts ||
+        mTimeSinceLayerEventsUpdate == std::chrono::steady_clock::time_point::min()) {
+        const auto currentTime = std::chrono::steady_clock::now();
+        if (mTimeSinceLayerEventsUpdate > std::chrono::steady_clock::time_point::min()) {
+            mLastLayerEvent->timeSinceLastEvent =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                            currentTime - mTimeSinceLayerEventsUpdate);
+            mFlinger->mLayerEvents.emplace_back(mLastLayerEvent.value());
+        }
+        mTimeSinceLayerEventsUpdate = currentTime;
+        mLastLayerEvent->dataspace = mBufferInfo.mDataspace;
+        mLastLayerEvent->useLuts = mDrawingState.useLuts;
+    }
 }
 
 Rect Layer::computeBufferCrop(const State& s) {

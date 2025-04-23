@@ -160,6 +160,7 @@ public:
         float desiredHdrSdrRatio = -1.f;
         int64_t latchedVsyncId = 0;
         bool useVsyncIdForRefreshRateSelection = false;
+        bool useLuts = false;
     };
 
     explicit Layer(const surfaceflinger::LayerCreationArgs& args);
@@ -187,6 +188,7 @@ public:
     bool setDataspace(ui::Dataspace /*dataspace*/);
     bool setExtendedRangeBrightness(float currentBufferRatio, float desiredRatio);
     bool setDesiredHdrHeadroom(float desiredRatio);
+    void setUseLuts(bool useLuts) { mDrawingState.useLuts = useLuts; }
     bool setSidebandStream(const sp<NativeHandle>& /*sidebandStream*/,
                            const FrameTimelineInfo& /* info*/, nsecs_t /* postTime */,
                            gui::GameMode gameMode);
@@ -245,8 +247,6 @@ public:
         sp<Fence> mFence;
         uint32_t mTransform{0};
         ui::Dataspace mDataspace{ui::Dataspace::UNKNOWN};
-        std::chrono::steady_clock::time_point mTimeSinceDataspaceUpdate =
-                std::chrono::steady_clock::time_point::min();
         Rect mCrop;
         PixelFormat mPixelFormat{PIXEL_FORMAT_NONE};
         bool mTransformToDisplayInverse{false};
@@ -258,6 +258,9 @@ public:
     };
 
     BufferInfo mBufferInfo;
+    std::optional<SurfaceFlinger::LayerEvent> mLastLayerEvent;
+    std::chrono::steady_clock::time_point mTimeSinceLayerEventsUpdate =
+            std::chrono::steady_clock::time_point::min();
     std::shared_ptr<gui::BufferReleaseChannel::ProducerEndpoint> mBufferReleaseChannel;
 
     bool fenceHasSignaled() const;

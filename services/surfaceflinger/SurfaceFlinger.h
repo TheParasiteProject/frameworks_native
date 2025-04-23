@@ -1330,6 +1330,7 @@ private:
         int32_t layerId;
         ui::Dataspace dataspace;
         std::chrono::milliseconds timeSinceLastEvent;
+        bool useLuts;
     };
     std::vector<LayerEvent> mLayerEvents;
 
