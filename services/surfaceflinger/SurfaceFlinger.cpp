@@ -413,7 +413,8 @@ bool callingThreadHasPermission(const String16& permission) {
             PermissionCache::checkPermission(permission, pid, uid);
 }
 
-ui::Transform::RotationFlags SurfaceFlinger::sActiveDisplayRotationFlags = ui::Transform::ROT_0;
+ui::Transform::RotationFlags SurfaceFlinger::sFrontInternalDisplayRotationFlags =
+        ui::Transform::ROT_0;
 
 SurfaceFlinger::SurfaceFlinger(Factory& factory, SkipInitializationTag)
       : mFactory(factory),
@@ -704,11 +705,11 @@ std::vector<PhysicalDisplayId> SurfaceFlinger::getPhysicalDisplayIdsLocked() con
     std::vector<PhysicalDisplayId> displayIds;
     displayIds.reserve(mPhysicalDisplays.size());
 
-    const auto activeDisplayId = getActiveDisplayLocked()->getPhysicalId();
-    displayIds.push_back(activeDisplayId);
+    const auto frontInternalDisplayId = getFrontInternalDisplayLocked()->getPhysicalId();
+    displayIds.push_back(frontInternalDisplayId);
 
     for (const auto& [id, display] : mPhysicalDisplays) {
-        if (id != activeDisplayId) {
+        if (id != frontInternalDisplayId) {
             displayIds.push_back(id);
         }
     }
@@ -947,11 +948,11 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
     LOG_ALWAYS_FATAL_IF(!configureLocked(),
                         "Initial display configuration failed: HWC did not hotplug");
 
-    mActiveDisplayId = getPrimaryDisplayIdLocked();
+    mFrontInternalDisplayId = getPrimaryDisplayIdLocked();
 
     // Commit primary display.
     sp<const DisplayDevice> display;
-    if (const auto indexOpt = mCurrentState.getDisplayIndex(mActiveDisplayId)) {
+    if (const auto indexOpt = mCurrentState.getDisplayIndex(mFrontInternalDisplayId)) {
         const auto& displays = mCurrentState.displays;
 
         const auto& token = displays.keyAt(*indexOpt);
@@ -960,7 +961,7 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
         processDisplayAdded(token, state);
         mDrawingState.displays.add(token, state);
 
-        display = getActiveDisplayLocked();
+        display = getFrontInternalDisplayLocked();
     }
 
     LOG_ALWAYS_FATAL_IF(!display, "Failed to configure the primary display");
@@ -1007,7 +1008,7 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
     // initialize our drawing state
     mDrawingState = mCurrentState;
 
-    onActiveDisplayChangedLocked(nullptr, *display);
+    onNewFrontInternalDisplay(nullptr, *display);
 
     static_cast<void>(mScheduler->schedule(
             [this]() FTL_FAKE_GUARD(kMainThreadContext) { initializeDisplays(); }));
@@ -1521,7 +1522,7 @@ bool SurfaceFlinger::finalizeDisplayModeChange(PhysicalDisplayId displayId) {
 
 void SurfaceFlinger::dropModeRequest(PhysicalDisplayId displayId) {
     mDisplayModeController.clearDesiredMode(displayId);
-    if (displayId == mActiveDisplayId) {
+    if (displayId == mFrontInternalDisplayId) {
         // TODO(b/255635711): Check for pending mode changes on other displays.
         mScheduler->setModeChangePending(false);
     }
@@ -2756,10 +2757,10 @@ bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
     const Period vsyncPeriod = mScheduler->getVsyncSchedule()->period();
 
     // Save this once per commit + composite to ensure consistency
-    // TODO (b/240619471): consider removing active display check once AOD is fixed
-    const auto activeDisplay = FTL_FAKE_GUARD(mStateLock, getDisplayDeviceLocked(mActiveDisplayId));
-    mPowerHintSessionEnabled = mPowerAdvisor->usePowerHintSession() && activeDisplay &&
-            activeDisplay->getPowerMode() == hal::PowerMode::ON;
+    // TODO: b/240619471 - Consider removing front internal display check once AOD is fixed
+    const auto frontInternalDisplay = FTL_FAKE_GUARD(mStateLock, getFrontInternalDisplayLocked());
+    mPowerHintSessionEnabled = mPowerAdvisor->usePowerHintSession() && frontInternalDisplay &&
+            frontInternalDisplay->getPowerMode() == hal::PowerMode::ON;
     if (mPowerHintSessionEnabled) {
         mPowerAdvisor->setCommitStart(pacesetterFrameTarget.frameBeginTime());
         mPowerAdvisor->setExpectedPresentTime(pacesetterFrameTarget.expectedPresentTime());
@@ -2942,7 +2943,7 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
     refreshArgs.updatingOutputGeometryThisFrame = mVisibleRegionsDirty;
     refreshArgs.updatingGeometryThisFrame = mGeometryDirty.exchange(false) ||
             mVisibleRegionsDirty || mDrawingState.colorMatrixChanged;
-    refreshArgs.internalDisplayRotationFlags = getActiveDisplayRotationFlags();
+    refreshArgs.internalDisplayRotationFlags = getFrontInternalDisplayRotationFlags();
 
     if (CC_UNLIKELY(mDrawingState.colorMatrixChanged)) {
         refreshArgs.colorTransformMatrix = mDrawingState.colorMatrix;
@@ -4055,7 +4056,7 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
     if (mScheduler && !display->isVirtual()) {
         // For hotplug reconnect, renew the registration since display modes have been reloaded.
         mScheduler->registerDisplay(display->getPhysicalId(), display->holdRefreshRateSelector(),
-                                    mActiveDisplayId);
+                                    mFrontInternalDisplayId);
     }
 
     if (display->isVirtual()) {
@@ -4101,7 +4102,7 @@ void SurfaceFlinger::processDisplayRemoved(const wp<IBinder>& displayToken) {
         if (const auto virtualDisplayIdVariant = display->getVirtualDisplayIdVariant()) {
             releaseVirtualDisplay(*virtualDisplayIdVariant);
         } else {
-            mScheduler->unregisterDisplay(display->getPhysicalId(), mActiveDisplayId);
+            mScheduler->unregisterDisplay(display->getPhysicalId(), mFrontInternalDisplayId);
         }
 
         if (display->isRefreshable()) {
@@ -4166,8 +4167,8 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
                 setPhysicalDisplayPowerMode(display, hal::PowerMode::ON);
             }
 
-            if (display->getPhysicalId() == mActiveDisplayId) {
-                onActiveDisplayChangedLocked(nullptr, *display);
+            if (display->getPhysicalId() == mFrontInternalDisplayId) {
+                onNewFrontInternalDisplay(nullptr, *display);
             }
         }
         return;
@@ -4199,8 +4200,8 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
                     display->setDisplaySize(resolution);
                 }
 
-                if (display->getId() == mActiveDisplayId) {
-                    onActiveDisplaySizeChanged(*display);
+                if (display->getId() == mFrontInternalDisplayId) {
+                    onFrontInternalDisplaySizeChanged(*display);
                 }
             }
         };
@@ -4215,9 +4216,9 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
             (currentState.orientedDisplaySpaceRect != drawingState.orientedDisplaySpaceRect)) {
             display->setProjection(currentState.orientation, currentState.layerStackSpaceRect,
                                    currentState.orientedDisplaySpaceRect);
-            if (display->getId() == mActiveDisplayId) {
-                mActiveDisplayTransformHint = display->getTransformHint();
-                sActiveDisplayRotationFlags =
+            if (display->getId() == mFrontInternalDisplayId) {
+                mFrontInternalDisplayTransformHint = display->getTransformHint();
+                sFrontInternalDisplayRotationFlags =
                         ui::Transform::toRotationFlags(display->getOrientation());
             }
         }
@@ -4664,7 +4665,7 @@ void SurfaceFlinger::initScheduler(const sp<const DisplayDevice>& display) {
 
     // The pacesetter must be registered before EventThread creation below.
     mScheduler->registerDisplay(display->getPhysicalId(), display->holdRefreshRateSelector(),
-                                mActiveDisplayId);
+                                mFrontInternalDisplayId);
     if (FlagManager::getInstance().vrr_config()) {
         mScheduler->setRenderRate(display->getPhysicalId(), activeMode.fps,
                                   /*applyImmediately*/ true);
@@ -4713,7 +4714,7 @@ status_t SurfaceFlinger::addClientLayer(LayerCreationArgs& args, const sp<IBinde
                                         const sp<Layer>& layer, const wp<Layer>& parent,
                                         uint32_t* outTransformHint) {
     if (outTransformHint) {
-        *outTransformHint = mActiveDisplayTransformHint;
+        *outTransformHint = mFrontInternalDisplayTransformHint;
     }
     args.parentId = LayerHandle::getLayerId(args.parentHandle.promote());
     args.layerIdToMirror = LayerHandle::getLayerId(args.mirrorLayerHandle.promote());
@@ -5701,12 +5702,6 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
                                            .transform(&PhysicalDisplay::isInternal)
                                            .value_or(false);
 
-    const auto activeDisplay = getDisplayDeviceLocked(mActiveDisplayId);
-
-    ALOGW_IF(display != activeDisplay && isInternalDisplay && activeDisplay &&
-                     activeDisplay->isPoweredOn(),
-             "Trying to change power mode on inactive display without powering off active display");
-
     const bool couldRefresh = display->isRefreshable();
     display->setPowerMode(mode);
     const bool canRefresh = display->isRefreshable();
@@ -5728,19 +5723,18 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
     using OptimizationPolicy = gui::ISurfaceComposer::OptimizationPolicy;
     if (currentMode == hal::PowerMode::OFF) {
         // Turn on the display
+        const auto frontInternalDisplay = getFrontInternalDisplayLocked();
 
-        // Activate the display (which involves a modeset to the active mode) when the inner or
-        // outer display of a foldable is powered on. This condition relies on the above
-        // DisplayDevice::setPowerMode. If `display` and `activeDisplay` are the same display,
-        // then the `activeDisplay->isPoweredOn()` below is true, such that the display is not
-        // activated every time it is powered on.
-        //
-        // TODO(b/255635821): Remove the concept of active display.
-        if (isInternalDisplay && (!activeDisplay || !activeDisplay->isPoweredOn())) {
-            onActiveDisplayChangedLocked(activeDisplay.get(), *display);
+        // Detects the new front internal display when the inner or outer display of a foldable is
+        // powered on. This condition relies on the above DisplayDevice::setPowerMode. If `display`
+        // and `frontInternalDisplay` are the same display, then the
+        // `frontInternalDisplay->isPoweredOn()` below is true, such that the front internal display
+        // is not detected every time it is powered on.
+        if (isInternalDisplay && (!frontInternalDisplay || !frontInternalDisplay->isPoweredOn())) {
+            onNewFrontInternalDisplay(frontInternalDisplay.get(), *display);
         }
 
-        if (displayId == mActiveDisplayId && !shouldApplyOptimizationPolicy) {
+        if (displayId == mFrontInternalDisplayId && !shouldApplyOptimizationPolicy) {
             optimizeThreadScheduling("setPhysicalDisplayPowerMode(ON/DOZE)",
                                      OptimizationPolicy::optimizeForPerformance);
         }
@@ -5751,7 +5745,7 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
                     mScheduler->getVsyncSchedule(displayId)->getPendingHardwareVsyncState();
             requestHardwareVsync(displayId, enable);
 
-            if (displayId == mActiveDisplayId && !shouldApplyOptimizationPolicy) {
+            if (displayId == mFrontInternalDisplayId && !shouldApplyOptimizationPolicy) {
                 mScheduler->enableSyntheticVsync(false);
             }
 
@@ -5764,9 +5758,10 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
     } else if (mode == hal::PowerMode::OFF) {
         const bool currentModeNotDozeSuspend = (currentMode != hal::PowerMode::DOZE_SUSPEND);
         // Turn off the display
-        if (displayId == mActiveDisplayId) {
-            if (const auto display = getActivatableDisplay()) {
-                onActiveDisplayChangedLocked(activeDisplay.get(), *display);
+        if (displayId == mFrontInternalDisplayId) {
+            if (const auto display = findFrontInternalDisplay()) {
+                const auto frontInternalDisplay = getFrontInternalDisplayLocked();
+                onNewFrontInternalDisplay(frontInternalDisplay.get(), *display);
             } else {
                 if (!shouldApplyOptimizationPolicy) {
                     optimizeThreadScheduling("setPhysicalDisplayPowerMode(OFF)",
@@ -5797,7 +5792,7 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
         // Update display while dozing
         getHwComposer().setPowerMode(displayId, mode);
         if (currentMode == hal::PowerMode::DOZE_SUSPEND) {
-            if (displayId == mActiveDisplayId) {
+            if (displayId == mFrontInternalDisplayId) {
                 ALOGI("Force repainting for DOZE_SUSPEND -> DOZE or ON.");
                 mVisibleRegionsDirty = true;
                 scheduleRepaint();
@@ -5813,7 +5808,7 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
         constexpr bool kDisallow = true;
         mScheduler->disableHardwareVsync(displayId, kDisallow);
 
-        if (displayId == mActiveDisplayId && !shouldApplyOptimizationPolicy) {
+        if (displayId == mFrontInternalDisplayId && !shouldApplyOptimizationPolicy) {
             mScheduler->enableSyntheticVsync();
         }
         getHwComposer().setPowerMode(displayId, mode);
@@ -5822,7 +5817,7 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
         getHwComposer().setPowerMode(displayId, mode);
     }
 
-    if (displayId == mActiveDisplayId) {
+    if (displayId == mFrontInternalDisplayId) {
         mTimeStats->setPowerMode(mode);
         mScheduler->setActiveDisplayPowerModeForRefreshRateStats(mode);
     }
@@ -6362,8 +6357,7 @@ void SurfaceFlinger::dumpHwcLayersMinidump(std::string& result) const {
             continue;
         }
 
-        StringAppendF(&result, "Display %s (%s) HWC layers:\n", to_string(*displayId).c_str(),
-                      displayId == mActiveDisplayId ? "active" : "inactive");
+        StringAppendF(&result, "Display %s HWC layers:\n", to_string(*displayId).c_str());
         Layer::miniDumpHeader(result);
 
         const DisplayDevice& ref = *display;
@@ -6465,7 +6459,7 @@ void SurfaceFlinger::dumpAll(const DumpArgs& args, const std::string& compositio
     ClientCache::getInstance().dump(result);
     DebugEGLImageTracker::getInstance()->dump(result);
 
-    if (const auto display = getActiveDisplayLocked()) {
+    if (const auto display = getFrontInternalDisplayLocked()) {
         display->getCompositionDisplay()->getState().undefinedRegion.dump(result,
                                                                           "undefinedRegion");
         StringAppendF(&result, "  orientation=%s, isPoweredOn=%d\n",
@@ -6473,7 +6467,7 @@ void SurfaceFlinger::dumpAll(const DumpArgs& args, const std::string& compositio
     }
     StringAppendF(&result, "  transaction-flags         : %08x\n", mTransactionFlags.load());
 
-    if (const auto display = getActiveDisplayLocked()) {
+    if (const auto display = getFrontInternalDisplayLocked()) {
         std::string peakFps, xDpi, yDpi;
         const auto activeMode = display->refreshRateSelector().getActiveMode();
         if (const auto activeModePtr = activeMode.modePtr.get()) {
@@ -6846,7 +6840,7 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
             }
             // Is a DisplayColorSetting supported?
             case 1027: {
-                const auto display = getActiveDisplay();
+                const auto display = getFrontInternalDisplay();
                 if (!display) {
                     return NAME_NOT_FOUND;
                 }
@@ -7237,7 +7231,7 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
                     return BAD_VALUE;
                 }
                 mScheduler->reloadPhaseConfiguration(mDisplayModeController.getActiveMode(
-                                                             mActiveDisplayId),
+                                                             mFrontInternalDisplayId),
                                                      Duration::fromNs(minSfNs),
                                                      Duration::fromNs(maxSfNs),
                                                      Duration::fromNs(appDurationNs));
@@ -8457,50 +8451,52 @@ void SurfaceFlinger::sample() {
     mRegionSamplingThread->onCompositionComplete(scheduleFrameTimeOpt);
 }
 
-void SurfaceFlinger::onActiveDisplaySizeChanged(const DisplayDevice& activeDisplay) {
+void SurfaceFlinger::onFrontInternalDisplaySizeChanged(const DisplayDevice& activeDisplay) {
     mScheduler->onActiveDisplayAreaChanged(activeDisplay.getWidth() * activeDisplay.getHeight());
     getRenderEngine().onActiveDisplaySizeChanged(activeDisplay.getSize());
 }
 
-sp<DisplayDevice> SurfaceFlinger::getActivatableDisplay() const {
+sp<DisplayDevice> SurfaceFlinger::findFrontInternalDisplay() const {
     if (mPhysicalDisplays.size() == 1) return nullptr;
 
-    // TODO(b/255635821): Choose the pacesetter display, considering both internal and external
-    // displays. For now, pick the other internal display, assuming a dual-display foldable.
     return findDisplay([this](const DisplayDevice& display) REQUIRES(mStateLock) {
         const auto idOpt = asPhysicalDisplayId(display.getDisplayIdVariant());
-        return idOpt.has_value() && *idOpt != mActiveDisplayId && display.isPoweredOn() &&
+        return idOpt.has_value() && *idOpt != mFrontInternalDisplayId && display.isPoweredOn() &&
                 mPhysicalDisplays.get(*idOpt)
                         .transform(&PhysicalDisplay::isInternal)
                         .value_or(false);
     });
 }
 
-void SurfaceFlinger::onActiveDisplayChangedLocked(const DisplayDevice* inactiveDisplayPtr,
-                                                  const DisplayDevice& activeDisplay) {
+void SurfaceFlinger::onNewFrontInternalDisplay(const DisplayDevice* oldFrontInternalDisplayPtr,
+                                               const DisplayDevice& newFrontInternalDisplay) {
     SFTRACE_CALL();
 
-    if (inactiveDisplayPtr) {
-        inactiveDisplayPtr->getCompositionDisplay()->setLayerCachingTexturePoolEnabled(false);
+    mFrontInternalDisplayId = newFrontInternalDisplay.getPhysicalId();
+    onFrontInternalDisplaySizeChanged(newFrontInternalDisplay);
+
+    mFrontInternalDisplayTransformHint = newFrontInternalDisplay.getTransformHint();
+    sFrontInternalDisplayRotationFlags =
+            ui::Transform::toRotationFlags(newFrontInternalDisplay.getOrientation());
+
+    if (oldFrontInternalDisplayPtr) {
+        oldFrontInternalDisplayPtr->getCompositionDisplay()->setLayerCachingTexturePoolEnabled(
+                false);
     }
 
-    mActiveDisplayId = activeDisplay.getPhysicalId();
-    activeDisplay.getCompositionDisplay()->setLayerCachingTexturePoolEnabled(true);
+    newFrontInternalDisplay.getCompositionDisplay()->setLayerCachingTexturePoolEnabled(true);
 
     // TODO(b/255635711): Check for pending mode changes on other displays.
     mScheduler->setModeChangePending(false);
 
-    mScheduler->setPacesetterDisplay(mActiveDisplayId);
+    mScheduler->setPacesetterDisplay(mFrontInternalDisplayId);
 
-    onActiveDisplaySizeChanged(activeDisplay);
-    mActiveDisplayTransformHint = activeDisplay.getTransformHint();
-    sActiveDisplayRotationFlags = ui::Transform::toRotationFlags(activeDisplay.getOrientation());
-
-    // Whether or not the policy of the new active/pacesetter display changed while it was inactive
+    // Whether or not the policy of the new front internal display changed while it was powered off
     // (in which case its preferred mode has already been propagated to HWC via setDesiredMode), the
-    // Scheduler's cachedModeChangedParams must be initialized to the newly active mode, and the
-    // kernel idle timer of the newly active display must be toggled.
-    applyRefreshRateSelectorPolicy(mActiveDisplayId, activeDisplay.refreshRateSelector());
+    // Scheduler's cachedModeChangedParams must be initialized to the newly active mode, and
+    // the kernel idle timer of the front internal display must be toggled.
+    applyRefreshRateSelectorPolicy(mFrontInternalDisplayId,
+                                   newFrontInternalDisplay.refreshRateSelector());
 }
 
 status_t SurfaceFlinger::addWindowInfosListener(const sp<IWindowInfosListener>& windowInfosListener,
