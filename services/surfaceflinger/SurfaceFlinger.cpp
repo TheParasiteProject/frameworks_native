@@ -7025,28 +7025,15 @@ status_t SurfaceFlinger::onTransact(uint32_t code, const Parcel& data, Parcel* r
                 return NO_ERROR;
             }
             // Toggle caching feature
-            // First argument is an int32 - nonzero enables caching and zero disables caching
-            // Second argument is an optional uint64 - if present, then limits enabling/disabling
-            // caching to a particular physical display
+            // First argument is an int32 - nonzero enables caching and zero disables caching for
+            // all displays
             case 1040: {
                 auto future = mScheduler->schedule([&] {
                     n = data.readInt32();
-                    PhysicalDisplayId inputId;
-                    if (uint64_t inputDisplayId; data.readUint64(&inputDisplayId) == NO_ERROR) {
-                        inputId = PhysicalDisplayId::fromValue(inputDisplayId);
-                        if (!getPhysicalDisplayToken(inputId)) {
-                            ALOGE("No display with id: %" PRIu64, inputDisplayId);
-                            return NAME_NOT_FOUND;
-                        }
-                    }
-                    {
-                        Mutex::Autolock lock(mStateLock);
-                        mLayerCachingEnabled = n != 0;
-                        for (const auto& [_, display] : mDisplays) {
-                            if (inputId == display->getPhysicalId()) {
-                                display->enableLayerCaching(mLayerCachingEnabled);
-                            }
-                        }
+                    Mutex::Autolock lock(mStateLock);
+                    mLayerCachingEnabled = n != 0;
+                    for (const auto& [_, display] : mDisplays) {
+                        display->enableLayerCaching(mLayerCachingEnabled);
                     }
                     return OK;
                 });
