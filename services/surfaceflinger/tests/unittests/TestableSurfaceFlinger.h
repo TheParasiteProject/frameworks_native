@@ -20,7 +20,6 @@
 #include <memory>
 #include <variant>
 
-#include <android/gui/EarlyWakeupInfo.h>
 #include <ftl/fake_guard.h>
 #include <ftl/match.h>
 #include <gui/LayerMetadata.h>
@@ -530,13 +529,12 @@ public:
             const InputWindowCommands& inputWindowCommands, int64_t desiredPresentTime,
             bool isAutoTimestamp, const std::vector<client_cache_t>& uncacheBuffers,
             bool hasListenerCallbacks, std::vector<ListenerCallbacks>& listenerCallbacks,
-            uint64_t transactionId, const std::vector<uint64_t>& mergedTransactionIds,
-            const gui::EarlyWakeupInfo& earlyWakeupInfo) {
+            uint64_t transactionId, const std::vector<uint64_t>& mergedTransactionIds) {
         return mFlinger->setTransactionState(frameTimelineInfo, states, displays, flags, applyToken,
                                              inputWindowCommands, desiredPresentTime,
                                              isAutoTimestamp, uncacheBuffers, hasListenerCallbacks,
-                                             listenerCallbacks, transactionId, mergedTransactionIds,
-                                             earlyWakeupInfo);
+                                             listenerCallbacks, transactionId,
+                                             mergedTransactionIds);
     }
 
     auto setTransactionStateInternal(QueuedTransactionState& transaction) {
