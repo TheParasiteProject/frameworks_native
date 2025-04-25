@@ -3385,7 +3385,8 @@ void SurfaceFlinger::onCompositionPresented(PhysicalDisplayId pacesetterId,
                                    static_cast<int32_t>(layerEvent.uid),
                                    static_cast<int64_t>(layerEvent.timeSinceLastEvent.count()),
                                    static_cast<int32_t>(layerEvent.dataspace),
-                                   static_cast<bool>(layerEvent.useLuts));
+                                   static_cast<bool>(layerEvent.useLuts),
+                                   static_cast<float>(layerEvent.desiredHdrHeadroom));
         if (result < 0) {
             ALOGW("Failed to report layer event with error: %d", result);
         }
