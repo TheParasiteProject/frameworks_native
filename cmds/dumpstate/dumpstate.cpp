@@ -1752,6 +1752,7 @@ Dumpstate::RunStatus Dumpstate::dumpstate() {
     DumpFile("ZONEINFO", "/proc/zoneinfo");
     DumpFile("PAGETYPEINFO", "/proc/pagetypeinfo");
     DumpFile("BUDDYINFO", "/proc/buddyinfo");
+    DumpFile("MGLRU", "/sys/kernel/mm/lru_gen/enabled");
     DumpExternalFragmentationInfo();
 
     DumpFile("KERNEL CPUFREQ", "/sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state");
@@ -3459,6 +3460,7 @@ Dumpstate::RunStatus Dumpstate::RunInternal(int32_t calling_uid,
     }
 
     MaybeTakeEarlyScreenshot();
+    MaybeSavePlaceholderScreenshot();
     MaybeWaitForSnapshotSystemTrace(std::move(snapshot_system_trace));
     onUiIntensiveBugreportDumpsFinished(calling_uid);
     MaybeCheckUserConsent(calling_uid, calling_package);
@@ -3556,6 +3558,26 @@ void Dumpstate::MaybeTakeEarlyScreenshot() {
     }
 
     TakeScreenshot();
+}
+
+void Dumpstate::MaybeSavePlaceholderScreenshot() {
+    if (options_->do_screenshot) {
+        // No need to save a placeholder screenshot if a real one will be taken.
+        return;
+    }
+    if (!options_->is_consent_deferred) {
+        return;
+    }
+
+    // When consent is deferred, a screenshot used to be taken even when one
+    // was not requested. The screenshot is not taken any more but a placeholder
+    // is saved for backwards compatibility.
+    std::string path = ds.GetPath(ds.CalledByApi() ? "-png.tmp" : ".png");
+    if (android::os::CopyFileToFile(DEFAULT_SCREENSHOT_PATH, path)) {
+        MYLOGD("Saved fallback screenshot on %s\n", path.c_str());
+    } else {
+        MYLOGE("Failed to save fallback screenshot on %s\n", path.c_str());
+    };
 }
 
 std::future<std::string> Dumpstate::MaybeSnapshotSystemTraceAsync() {

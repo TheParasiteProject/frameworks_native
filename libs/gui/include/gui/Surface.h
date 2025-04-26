@@ -17,7 +17,6 @@
 #ifndef ANDROID_GUI_SURFACE_H
 #define ANDROID_GUI_SURFACE_H
 
-#include <android/gui/FrameTimelineInfo.h>
 #include <com_android_graphics_libgui_flags.h>
 #include <gui/BufferQueueDefs.h>
 #include <gui/HdrMetadata.h>
@@ -39,6 +38,7 @@ namespace android {
 class GraphicBuffer;
 
 namespace gui {
+class FrameTimelineInfo;
 class ISurfaceComposer;
 } // namespace gui
 
@@ -283,9 +283,11 @@ public:
 protected:
     virtual ~Surface();
 
+#ifndef NO_BINDER
     // Virtual for testing.
     virtual sp<ISurfaceComposer> composerService() const;
     virtual sp<gui::ISurfaceComposer> composerServiceAIDL() const;
+#endif
     virtual nsecs_t now() const;
 
 private:
