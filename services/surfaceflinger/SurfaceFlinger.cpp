@@ -7783,7 +7783,6 @@ status_t SurfaceFlinger::setScreenshotDisplayState(ScreenshotArgs& args) {
         }
 
         Rect layerStackSpaceRect = display->getLayerStackSpaceRect();
-        args.displayIdVariant = display->getDisplayIdVariant();
         args.isSecure &= display->isSecure();
         args.snapshotRequest.layerStack = display->getLayerStack();
         args.sourceCrop = layerStackSpaceRect;
@@ -7809,7 +7808,6 @@ status_t SurfaceFlinger::setScreenshotDisplayState(ScreenshotArgs& args) {
         }
 
         Rect layerStackSpaceRect = display->getLayerStackSpaceRect();
-        args.displayIdVariant = display->getDisplayIdVariant();
         args.isSecure &= display->isSecure();
         args.snapshotRequest.layerStack = display->getLayerStack();
 
@@ -7851,6 +7849,7 @@ status_t SurfaceFlinger::setScreenshotDisplayState(ScreenshotArgs& args) {
         args.colorMode = state.colorMode;
         args.debugName.append(", ").append(display->getDisplayName());
         args.debugName.append(" (").append(to_string(display->getId())).append(")");
+        args.displayIdVariant = display->getDisplayIdVariant();
         return OK;
     }
     ALOGD("Display state not found");
