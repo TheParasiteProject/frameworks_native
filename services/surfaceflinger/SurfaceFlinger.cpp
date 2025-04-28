@@ -2745,9 +2745,7 @@ bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
                 mScheduler->getVsyncSchedule()->getTracker().onFrameMissed(
                         pacesetterFrameTarget.expectedPresentTime());
             }
-            const Duration slack = FlagManager::getInstance().allow_n_vsyncs_in_targeter()
-                    ? TimePoint::now() - pacesetterFrameTarget.frameBeginTime()
-                    : Duration::fromNs(0);
+            const Duration slack = TimePoint::now() - pacesetterFrameTarget.frameBeginTime();
             scheduleCommit(FrameHint::kNone, slack);
             return false;
         }
@@ -4620,9 +4618,7 @@ void SurfaceFlinger::sendNotifyExpectedPresentHint(PhysicalDisplayId displayId) 
 }
 
 void SurfaceFlinger::onCommitNotComposited() {
-    if (FlagManager::getInstance().commit_not_composited()) {
-        mFrameTimeline->onCommitNotComposited();
-    }
+    mFrameTimeline->onCommitNotComposited();
 }
 
 void SurfaceFlinger::initScheduler(const sp<const DisplayDevice>& display) {

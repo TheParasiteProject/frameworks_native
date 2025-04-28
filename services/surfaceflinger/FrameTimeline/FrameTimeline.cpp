@@ -916,9 +916,7 @@ FrameTimeline::FrameTimeline(std::shared_ptr<TimeStats> timeStats, pid_t surface
                              JankClassificationThresholds thresholds, bool useBootTimeClock,
                              bool filterFramesBeforeTraceStarts)
       : mUseBootTimeClock(useBootTimeClock),
-        mFilterFramesBeforeTraceStarts(
-                FlagManager::getInstance().filter_frames_before_trace_starts() &&
-                filterFramesBeforeTraceStarts),
+        mFilterFramesBeforeTraceStarts(filterFramesBeforeTraceStarts),
         mMaxDisplayFrames(kDefaultMaxDisplayFrames),
         mTimeStats(std::move(timeStats)),
         mSurfaceFlingerPid(surfaceFlingerPid),
