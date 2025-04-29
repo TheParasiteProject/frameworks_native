@@ -30,7 +30,7 @@
 #include <numeric>
 #include <unordered_set>
 
-#include "../Jank/JankTracker.h"
+#include "Jank/JankTracker.h"
 
 namespace android::frametimeline {
 

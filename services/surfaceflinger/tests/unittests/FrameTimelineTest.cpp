@@ -23,7 +23,7 @@
 #undef LOG_TAG
 #define LOG_TAG "LibSurfaceFlingerUnittests"
 
-#include <FrameTimeline/FrameTimeline.h>
+#include <Scheduler/FrameTimeline.h>
 #include <gtest/gtest.h>
 #include <log/log.h>
 #include <perfetto/trace/trace.pb.h>

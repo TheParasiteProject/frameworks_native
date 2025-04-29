@@ -18,7 +18,7 @@
 
 #include <gmock/gmock.h>
 
-#include "FrameTimeline/FrameTimeline.h"
+#include "Scheduler/FrameTimeline.h"
 
 namespace android::mock {
 

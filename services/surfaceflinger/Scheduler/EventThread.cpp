@@ -42,11 +42,11 @@
 
 #include <utils/Errors.h>
 
-#include <Scheduler/Scheduler.h>
 #include <common/FlagManager.h>
 #include <scheduler/FrameRateMode.h>
 #include <scheduler/VsyncConfig.h>
-#include "FrameTimeline/FrameTimeline.h"
+#include "FrameTimeline.h"
+#include "Scheduler.h"
 #include "VSyncDispatch.h"
 
 #include "EventThread.h"

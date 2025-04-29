@@ -64,12 +64,12 @@
 
 #include "DisplayDevice.h"
 #include "DisplayHardware/HWComposer.h"
-#include "FrameTimeline/FrameTimeline.h"
 #include "FrameTracer/FrameTracer.h"
 #include "FrontEnd/LayerCreationArgs.h"
 #include "FrontEnd/LayerHandle.h"
 #include "Layer.h"
 #include "LayerProtoHelper.h"
+#include "Scheduler/FrameTimeline.h"
 #include "SurfaceFlinger.h"
 #include "TimeStats/TimeStats.h"
 #include "TransactionCallbackInvoker.h"

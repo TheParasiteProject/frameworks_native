@@ -29,8 +29,8 @@
 
 #include "AsyncCallRecorder.h"
 #include "DisplayHardware/DisplayMode.h"
-#include "FrameTimeline/FrameTimeline.h"
 #include "Scheduler/EventThread.h"
+#include "Scheduler/FrameTimeline.h"
 #include "mock/MockVSyncDispatch.h"
 #include "mock/MockVSyncTracker.h"
 #include "mock/MockVsyncController.h"

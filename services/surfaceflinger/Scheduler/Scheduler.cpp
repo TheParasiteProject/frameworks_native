@@ -35,7 +35,6 @@
 #include <ui/DisplayMap.h>
 #include <utils/Timers.h>
 
-#include <FrameTimeline/FrameTimeline.h>
 #include <scheduler/interface/ICompositor.h>
 
 #include <cinttypes>
@@ -47,6 +46,7 @@
 #include <common/FlagManager.h>
 #include "EventThread.h"
 #include "FrameRateOverrideMappings.h"
+#include "FrameTimeline.h"
 #include "FrontEnd/LayerHandle.h"
 #include "Layer.h"
 #include "OneShotTimer.h"

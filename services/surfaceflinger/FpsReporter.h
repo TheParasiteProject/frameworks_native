@@ -23,8 +23,8 @@
 #include <unordered_map>
 
 #include "Clock.h"
-#include "FrameTimeline/FrameTimeline.h"
 #include "FrontEnd/LayerHierarchy.h"
+#include "Scheduler/FrameTimeline.h"
 #include "WpHash.h"
 
 namespace android {
