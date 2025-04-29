@@ -303,7 +303,7 @@ EventThread::~EventThread() = default;
 namespace impl {
 
 EventThread::EventThread(const char* name, std::shared_ptr<scheduler::VsyncSchedule> vsyncSchedule,
-                         android::frametimeline::TokenManager* tokenManager,
+                         android::scheduler::TokenManager* tokenManager,
                          IEventThreadCallback& callback, std::chrono::nanoseconds workDuration,
                          std::chrono::nanoseconds readyDuration)
       : mThreadName(name),

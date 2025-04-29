@@ -170,7 +170,7 @@ protected:
     std::unique_ptr<impl::EventThread> mThread;
     sp<MockEventThreadConnection> mConnection;
     sp<MockEventThreadConnection> mThrottledConnection;
-    std::unique_ptr<frametimeline::impl::TokenManager> mTokenManager;
+    std::unique_ptr<scheduler::impl::TokenManager> mTokenManager;
 
     nanos mVsyncPeriod;
 
@@ -227,7 +227,7 @@ void EventThreadTest::onExpectedPresentTimePosted(TimePoint expectedPresentTime)
 }
 
 void EventThreadTest::setupEventThread() {
-    mTokenManager = std::make_unique<frametimeline::impl::TokenManager>();
+    mTokenManager = std::make_unique<scheduler::impl::TokenManager>();
     mThread = std::make_unique<impl::EventThread>("EventThreadTest", mVsyncSchedule,
                                                   mTokenManager.get(), *this, kWorkDuration,
                                                   kReadyDuration);

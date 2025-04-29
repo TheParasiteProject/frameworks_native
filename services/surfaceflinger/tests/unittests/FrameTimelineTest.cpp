@@ -46,7 +46,7 @@ using ProtoJankType = perfetto::protos::FrameTimelineEvent_JankType;
 using ProtoJankSeverityType = perfetto::protos::FrameTimelineEvent_JankSeverityType;
 using ProtoPredictionType = perfetto::protos::FrameTimelineEvent_PredictionType;
 
-namespace android::frametimeline {
+namespace android::scheduler {
 
 static const std::string sLayerNameOne = "layer1";
 static const std::string sLayerNameTwo = "layer2";
@@ -2870,4 +2870,4 @@ TEST_F(FrameTimelineTest, surfaceFrameRenderRateUsingAppFrameRate) {
 
     EXPECT_EQ(surfaceFrame->getRenderRate().getPeriodNsecs(), 30);
 }
-} // namespace android::frametimeline
+} // namespace android::scheduler
