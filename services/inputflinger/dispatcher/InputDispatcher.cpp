@@ -5223,7 +5223,7 @@ ui::Transform InputDispatcher::DispatcherWindowInfo::getRawTransform(
         std::optional<ui::LogicalDisplayId> pointerDisplayId) const {
     // TODO(b/383092013): Handle TOPOLOGY_AWARE window flag.
     // For now, we assume all windows are topology-aware and can handle cross-display streams.
-    if (com::android::input::flags::connected_displays_cursor() && pointerDisplayId.has_value() &&
+    if (InputFlags::connectedDisplaysCursorEnabled() && pointerDisplayId.has_value() &&
         *pointerDisplayId != windowInfo.displayId) {
         // Sending pointer to a different display than the window. This is a
         // cross-display drag gesture, so always use the new display's transform.
