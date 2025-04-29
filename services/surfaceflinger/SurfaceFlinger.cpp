@@ -8553,6 +8553,19 @@ std::shared_ptr<renderengine::ExternalTexture> SurfaceFlinger::getExternalTextur
         return nullptr;
     }
 
+    if (bufferData.buffer && bufferData.buffer->getLayerCount() != 1) {
+        std::string errorMessage =
+                base::StringPrintf("Attempted to create an ExternalTexture with layer count (%u)"
+                                   " != 1 for layer %s",
+                                   bufferData.buffer->getLayerCount(), layerName);
+        ALOGD("%s", errorMessage.c_str());
+        if (bufferData.releaseBufferListener) {
+            bufferData.releaseBufferListener->onTransactionQueueStalled(
+                    String8(errorMessage.c_str()));
+        }
+        return nullptr;
+    }
+
     bool cachedBufferChanged =
             bufferData.flags.test(BufferData::BufferDataChange::cachedBufferChanged);
     if (cachedBufferChanged && bufferData.buffer) {
