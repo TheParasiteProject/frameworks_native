@@ -128,15 +128,18 @@ ScreenCaptureOutput::generateLuts() {
             }
         }
 
-        std::vector<aidl::android::hardware::graphics::composer3::Luts> luts;
-        if (const auto physicalDisplayId = mDisplayIdVariant.and_then(asPhysicalDisplayId)) {
-            auto& hwc = getCompositionEngine().getHwComposer();
-            hwc.getLuts(*physicalDisplayId, buffers, &luts);
-        }
+        // only call getLuts if buffers are not empty
+        if (!buffers.empty()) {
+            std::vector<aidl::android::hardware::graphics::composer3::Luts> luts;
+            if (const auto physicalDisplayId = mDisplayIdVariant.and_then(asPhysicalDisplayId)) {
+                auto& hwc = getCompositionEngine().getHwComposer();
+                hwc.getLuts(*physicalDisplayId, buffers, &luts);
+            }
 
-        if (buffers.size() == luts.size()) {
-            for (size_t i = 0; i < luts.size(); i++) {
-                lutsMapper[layerIds[i]] = std::move(luts[i]);
+            if (buffers.size() == luts.size()) {
+                for (size_t i = 0; i < luts.size(); i++) {
+                    lutsMapper[layerIds[i]] = std::move(luts[i]);
+                }
             }
         }
     }
