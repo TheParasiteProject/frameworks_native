@@ -701,6 +701,8 @@ private:
     void onCommitNotComposited() override
             REQUIRES(kMainThreadContext);
     void vrrDisplayIdle(PhysicalDisplayId displayId, bool idle) override;
+    void enableLayerCachingTexturePool(PhysicalDisplayId, bool enable) override
+            REQUIRES(kMainThreadContext);
 
     // ICEPowerCallback overrides:
     void notifyCpuLoadUp() override;
