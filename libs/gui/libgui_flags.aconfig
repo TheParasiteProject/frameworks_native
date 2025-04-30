@@ -49,17 +49,6 @@ flag {
 } # bq_extendedallocate
 
 flag {
-  name: "trace_frame_rate_override"
-  namespace: "core_graphics"
-  description: "Trace FrameRateOverride fps"
-  bug: "347314033"
-  is_fixed_read_only: true
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-} # trace_frame_rate_override
-
-flag {
   name: "wb_consumer_base_owns_bq"
   namespace: "core_graphics"
   description: "ConsumerBase-based classes now own their own bufferqueue"
