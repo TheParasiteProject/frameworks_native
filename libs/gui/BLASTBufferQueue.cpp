@@ -172,7 +172,6 @@ void BLASTBufferItemConsumer::onSidebandStreamChanged() {
     }
 }
 
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BQ_SETFRAMERATE)
 void BLASTBufferItemConsumer::onSetFrameRate(float frameRate, int8_t compatibility,
                                              int8_t changeFrameRateStrategy) {
     sp<BLASTBufferQueue> bbq = mBLASTBufferQueue.promote();
@@ -180,7 +179,6 @@ void BLASTBufferItemConsumer::onSetFrameRate(float frameRate, int8_t compatibili
         bbq->setFrameRate(frameRate, compatibility, changeFrameRateStrategy);
     }
 }
-#endif
 
 void BLASTBufferItemConsumer::resizeFrameEventHistory(size_t newSize) {
     Mutex::Autolock lock(mMutex);
@@ -956,23 +954,6 @@ public:
                                  reqFormat, reqUsage);
         });
         allocateThread.detach();
-    }
-
-    status_t setFrameRate(float frameRate, int8_t compatibility,
-                          int8_t changeFrameRateStrategy) override {
-        if (flags::bq_setframerate()) {
-            return Surface::setFrameRate(frameRate, compatibility, changeFrameRateStrategy);
-        }
-
-        std::lock_guard _lock{mMutex};
-        if (mDestroyed) {
-            return DEAD_OBJECT;
-        }
-        if (!ValidateFrameRate(frameRate, compatibility, changeFrameRateStrategy,
-                               "BBQSurface::setFrameRate")) {
-            return BAD_VALUE;
-        }
-        return mBbq->setFrameRate(frameRate, compatibility, changeFrameRateStrategy);
     }
 
     status_t setFrameTimelineInfo(uint64_t frameNumber,

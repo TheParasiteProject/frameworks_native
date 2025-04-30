@@ -371,10 +371,8 @@ protected:
     /**
      * onSetFrameRate Notifies the consumer of a setFrameRate call from the producer side.
      */
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BQ_SETFRAMERATE)
     void onSetFrameRate(float frameRate, int8_t compatibility,
                         int8_t changeFrameRateStrategy) override;
-#endif
 
     /**
      * The default consumer usage flags that SurfaceTexture always sets on its

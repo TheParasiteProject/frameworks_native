@@ -2954,25 +2954,11 @@ void Surface::ProducerListenerProxy::onBuffersDiscarded(const std::vector<int32_
 
 status_t Surface::setFrameRate(float frameRate, int8_t compatibility,
                                int8_t changeFrameRateStrategy) {
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BQ_SETFRAMERATE)
-    if (flags::bq_setframerate()) {
-        status_t err = mGraphicBufferProducer->setFrameRate(frameRate, compatibility,
-                                                            changeFrameRateStrategy);
-        ALOGE_IF(err, "IGraphicBufferProducer::setFrameRate(%.2f) returned %s", frameRate,
-                 strerror(-err));
-        return err;
-    }
-#else
-    static_cast<void>(frameRate);
-    static_cast<void>(compatibility);
-    static_cast<void>(changeFrameRateStrategy);
-#endif
-
-    ALOGI("Surface::setFrameRate is deprecated, setFrameRate hint is dropped as destination is not "
-          "SurfaceFlinger");
-    // ISurfaceComposer no longer supports setFrameRate, we will return NO_ERROR when the api is
-    // called to avoid apps crashing, as BAD_VALUE can generate fatal exception in apps.
-    return NO_ERROR;
+    status_t err = mGraphicBufferProducer->setFrameRate(frameRate, compatibility,
+                                                        changeFrameRateStrategy);
+    ALOGE_IF(err, "IGraphicBufferProducer::setFrameRate(%.2f) returned %s", frameRate,
+                strerror(-err));
+    return err;
 }
 
 status_t Surface::setFrameTimelineInfo(uint64_t /*frameNumber*/,
