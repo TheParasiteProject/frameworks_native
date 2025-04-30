@@ -24,7 +24,10 @@
 #include <binder/RpcServerTrusty.h>
 #include <binder/RpcThreads.h>
 #include <binder/RpcTransportTipcTrusty.h>
+#include <lk/macros.h>
 #include <log/log.h>
+
+#include <lib/tipc/tipc.h>
 
 #include "../FdTrigger.h"
 #include "../RpcState.h"
@@ -54,7 +57,8 @@ sp<RpcServerTrusty> RpcServerTrusty::make(
         return nullptr;
     }
 
-    int rc = tipc_add_service(handleSet, &srv->mTipcPort, 1, 0, &kTipcOps);
+    int rc =
+            tipc_add_service_ports(handleSet, &srv->mTipcPort, 1, 0, &kTipcOps, &srv->mTipcPortCtx);
     if (rc != NO_ERROR) {
         ALOGE("Failed to create RpcServerTrusty: can't add service: %d", rc);
         return nullptr;
@@ -147,6 +151,53 @@ void RpcServerTrusty::setPerSessionRootObjectInternal(
                               peer_len);
     };
     server->setPerSessionRootObject(std::move(wrap_create_session));
+}
+
+status_t RpcServerTrusty::queueConnect(unique_fd chan, const trusty_peer_id& peer,
+                                       size_t peer_len) {
+    struct AddConnectionTodo {
+        struct tipc_work_todo todo;
+        struct tipc_port_ctx* port;
+        unique_fd chan;
+        struct trusty_peer_id_storage peer;
+        size_t peer_len;
+
+        static int DoWork(struct tipc_work_todo* todo) {
+            AddConnectionTodo* self = containerof(todo, AddConnectionTodo, todo);
+            handle_t chan = self->chan.release();
+            int rc = tipc_add_connection(self->port, chan,
+                                         &reinterpret_cast<const trusty_peer_id&>(self->peer),
+                                         self->peer_len);
+            if (rc != NO_ERROR) {
+                close(chan);
+            }
+
+            delete self;
+            return rc;
+        }
+    };
+
+    if (peer_len > sizeof(trusty_peer_id_storage)) {
+        ALOGE("Tried to queue connection, but peer ID (kind %" PRIx64 ", %zu"
+              "bytes) is too big to fit in trusty_peer_id_storage (%zu bytes)",
+              peer.kind, peer_len, sizeof(trusty_peer_id_storage));
+        return BAD_VALUE;
+    }
+
+    auto* add_conn = new (std::nothrow) AddConnectionTodo{
+            .todo = TIPC_WORK_TODO_INITIAL_VALUE(add_conn->todo, AddConnectionTodo::DoWork),
+            .port = mTipcPortCtx,
+            .chan = std::move(chan),
+            .peer = TRUSTY_PEER_ID_STORAGE_INITIAL_VALUE(),
+            .peer_len = peer_len,
+    };
+    if (add_conn == nullptr) {
+        return NO_MEMORY;
+    }
+    std::memcpy(&add_conn->peer, &peer, peer_len);
+
+    tipc_queue_work(tipc_get_hset(mTipcPortCtx), &add_conn->todo);
+    return OK;
 }
 
 int RpcServerTrusty::handleConnect(const tipc_port* port, handle_t chan, const trusty_peer_id* peer,

@@ -83,6 +83,7 @@ public:
 
     sp<IBinder> getRootObject() { return mRpcServer->getRootObject(); }
 
+    status_t queueConnect(binder::unique_fd chan, const trusty_peer_id& peer, size_t peer_len);
     /**
      * For debugging!
      */
@@ -165,6 +166,7 @@ private:
     std::vector<const uuid*> mUuidPtrs;
     tipc_port_acl mTipcPortAcl;
     tipc_port mTipcPort;
+    tipc_port_ctx* mTipcPortCtx;
 };
 
 } // namespace android
