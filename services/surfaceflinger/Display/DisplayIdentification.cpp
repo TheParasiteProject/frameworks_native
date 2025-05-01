@@ -17,6 +17,8 @@
 #undef LOG_TAG
 #define LOG_TAG "DisplayIdentification"
 
+#include "DisplayIdentification.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -29,10 +31,9 @@
 #include <ftl/concat.h>
 #include <ftl/hash.h>
 #include <log/log.h>
-#include <ui/DisplayIdentification.h>
 #include <ui/Size.h>
 
-namespace android {
+namespace android::display {
 namespace {
 
 using byte_view = std::span<const uint8_t>;
@@ -450,4 +451,4 @@ PhysicalDisplayId generateEdidDisplayId(const Edid& edid) {
     return PhysicalDisplayId::fromValue(id);
 }
 
-} // namespace android
+} // namespace android::display

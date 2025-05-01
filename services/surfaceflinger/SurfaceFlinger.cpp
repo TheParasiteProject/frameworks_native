@@ -125,11 +125,11 @@
 #include <gui/LayerStatePermissions.h>
 #include <gui/SchedulingPolicy.h>
 #include <gui/SyncScreenCaptureListener.h>
-#include <ui/DisplayIdentification.h>
 #include "BackgroundExecutor.h"
 #include "Client.h"
 #include "ClientCache.h"
 #include "Colorizer.h"
+#include "Display/DisplayIdentification.h"
 #include "DisplayDevice.h"
 #include "DisplayHardware/ComposerHal.h"
 #include "DisplayHardware/FramebufferSurface.h"
@@ -3769,11 +3769,10 @@ bool SurfaceFlinger::configureLocked() {
     return !events.empty();
 }
 
-std::optional<DisplayModeId> SurfaceFlinger::processHotplugConnect(PhysicalDisplayId displayId,
-                                                                   hal::HWDisplayId hwcDisplayId,
-                                                                   DisplayIdentificationInfo&& info,
-                                                                   const char* displayString,
-                                                                   HWComposer::HotplugEvent event) {
+std::optional<DisplayModeId> SurfaceFlinger::processHotplugConnect(
+        PhysicalDisplayId displayId, hal::HWDisplayId hwcDisplayId,
+        display::DisplayIdentificationInfo&& info, const char* displayString,
+        HWComposer::HotplugEvent event) {
     auto [displayModes, activeMode] = loadDisplayModes(displayId);
     if (!activeMode) {
         ALOGE("Failed to hotplug %s", displayString);
@@ -6133,7 +6132,7 @@ void SurfaceFlinger::dumpDisplayIdentificationData(std::string& result) const {
                       *hwcDisplayId);
 
         uint8_t port;
-        DisplayIdentificationData data;
+        display::DisplayIdentificationData data;
         android::ScreenPartStatus screenPartStatus;
         if (!getHwComposer().getDisplayIdentificationData(*hwcDisplayId, &port, &data,
                                                           &screenPartStatus)) {
@@ -6146,12 +6145,12 @@ void SurfaceFlinger::dumpDisplayIdentificationData(std::string& result) const {
             continue;
         }
 
-        if (!isEdid(data)) {
+        if (!display::isEdid(data)) {
             result.append("unknown format for display identification data\n");
             continue;
         }
 
-        const auto edid = parseEdid(data);
+        const auto edid = display::parseEdid(data);
         if (!edid) {
             result.append("invalid EDID\n");
             continue;
@@ -6181,7 +6180,7 @@ void SurfaceFlinger::dumpRawDisplayIdentificationData(const DumpArgs& args,
                                                       std::string& result) const {
     hal::HWDisplayId hwcDisplayId;
     uint8_t port;
-    DisplayIdentificationData data;
+    display::DisplayIdentificationData data;
     android::ScreenPartStatus screenPartStatus;
 
     if (args.size() > 1 && base::ParseUint(String8(args[1]), &hwcDisplayId) &&

@@ -31,7 +31,7 @@
 #define LEGACY_DISPLAY_TYPE_PRIMARY 0
 #define LEGACY_DISPLAY_TYPE_EXTERNAL 1
 
-namespace android {
+namespace android::display {
 
 using DisplayIdentificationData = std::vector<uint8_t>;
 
@@ -98,4 +98,4 @@ PhysicalDisplayId getVirtualDisplayId(uint32_t id);
 // display's parsed EDID fields.
 PhysicalDisplayId generateEdidDisplayId(const Edid& edid);
 
-} // namespace android
+} // namespace android::display

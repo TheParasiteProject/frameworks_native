@@ -1129,7 +1129,7 @@ private:
 
     // Returns the active mode ID, or nullopt on hotplug failure.
     std::optional<DisplayModeId> processHotplugConnect(PhysicalDisplayId, hal::HWDisplayId,
-                                                       DisplayIdentificationInfo&&,
+                                                       display::DisplayIdentificationInfo&&,
                                                        const char* displayString,
                                                        HWComposer::HotplugEvent event)
             REQUIRES(mStateLock, kMainThreadContext);
