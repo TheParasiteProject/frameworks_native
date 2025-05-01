@@ -6158,8 +6158,7 @@ void SurfaceFlinger::dumpDisplayIdentificationData(std::string& result) const {
         }
 
         StringAppendF(&result, "port=%u pnpId=%s screenPartStatus=%s displayName=\"", port,
-                      edid->pnpId.data(),
-                      android::ScreenPartStatusToString(screenPartStatus).c_str());
+                      edid->pnpId.data(), ftl::enum_string(screenPartStatus).c_str());
         result.append(edid->displayName.data(), edid->displayName.length());
         result.append("\"\n");
     }
