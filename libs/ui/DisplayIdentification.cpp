@@ -206,9 +206,10 @@ std::optional<Edid> parseEdid(const DisplayIdentificationData& edid) {
         ALOGE("Invalid EDID: block zero S/N is truncated.");
         return {};
     }
-    const uint32_t blockZeroSerialNumber = edid[kSerialNumberOffset] +
-            (edid[kSerialNumberOffset + 1] << 8) + (edid[kSerialNumberOffset + 2] << 16) +
-            (edid[kSerialNumberOffset + 3] << 24);
+    const uint32_t blockZeroSerialNumber = static_cast<uint32_t>(edid[kSerialNumberOffset]) |
+            (static_cast<uint32_t>(edid[kSerialNumberOffset + 1]) << 8) |
+            (static_cast<uint32_t>(edid[kSerialNumberOffset + 2]) << 16) |
+            (static_cast<uint32_t>(edid[kSerialNumberOffset + 3]) << 24);
     const auto hashedBlockZeroSNOpt = blockZeroSerialNumber == 0
             ? std::nullopt
             : ftl::stable_hash(std::string_view(std::to_string(blockZeroSerialNumber)));
