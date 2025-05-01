@@ -35,7 +35,6 @@
 #include <ui/DisplayMap.h>
 #include <utils/Timers.h>
 
-#include <FrameTimeline/FrameTimeline.h>
 #include <scheduler/interface/ICompositor.h>
 
 #include <cinttypes>
@@ -47,6 +46,7 @@
 #include <common/FlagManager.h>
 #include "EventThread.h"
 #include "FrameRateOverrideMappings.h"
+#include "FrameTimeline.h"
 #include "FrontEnd/LayerHandle.h"
 #include "Layer.h"
 #include "OneShotTimer.h"
@@ -83,8 +83,7 @@ Scheduler::~Scheduler() {
     demotePacesetterDisplay({.toggleIdleTimer = true});
 }
 
-void Scheduler::initVsync(frametimeline::TokenManager& tokenManager,
-                          std::chrono::nanoseconds workDuration) {
+void Scheduler::initVsync(TokenManager& tokenManager, std::chrono::nanoseconds workDuration) {
     Impl::initVsyncInternal(getVsyncSchedule()->getDispatch(), tokenManager, workDuration);
 }
 
@@ -362,7 +361,7 @@ void Scheduler::onExpectedPresentTimePosted(TimePoint expectedPresentTime) {
     }
 }
 
-void Scheduler::createEventThread(Cycle cycle, frametimeline::TokenManager* tokenManager,
+void Scheduler::createEventThread(Cycle cycle, TokenManager* tokenManager,
                                   std::chrono::nanoseconds workDuration,
                                   std::chrono::nanoseconds readyDuration) {
     auto eventThread =

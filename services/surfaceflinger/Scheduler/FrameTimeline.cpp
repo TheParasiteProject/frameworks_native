@@ -30,9 +30,9 @@
 #include <numeric>
 #include <unordered_set>
 
-#include "../Jank/JankTracker.h"
+#include "Jank/JankTracker.h"
 
-namespace android::frametimeline {
+namespace android::scheduler {
 
 using base::StringAppendF;
 using FrameTimelineEvent = perfetto::protos::pbzero::FrameTimelineEvent;
@@ -338,7 +338,7 @@ int64_t TraceCookieCounter::getCookieForTracing() {
 SurfaceFrame::SurfaceFrame(const FrameTimelineInfo& frameTimelineInfo, pid_t ownerPid,
                            uid_t ownerUid, int32_t layerId, std::string layerName,
                            std::string debugName, PredictionState predictionState,
-                           frametimeline::TimelineItem&& predictions,
+                           scheduler::TimelineItem&& predictions,
                            std::shared_ptr<TimeStats> timeStats,
                            JankClassificationThresholds thresholds,
                            TraceCookieCounter* traceCookieCounter, bool isBuffer, GameMode gameMode)
@@ -1667,4 +1667,4 @@ void FrameTimeline::reset() {
 }
 
 } // namespace impl
-} // namespace android::frametimeline
+} // namespace android::scheduler
