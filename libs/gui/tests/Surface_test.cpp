@@ -2283,8 +2283,6 @@ TEST_F(SurfaceTest, BatchIllegalOperations) {
     ASSERT_EQ(NO_ERROR, surface->disconnect(NATIVE_WINDOW_API_CPU));
 }
 
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(WB_PLATFORM_API_IMPROVEMENTS)
-
 TEST_F(SurfaceTest, PlatformBufferMethods) {
     sp<CpuConsumer> cpuConsumer = sp<CpuConsumer>::make(1);
     sp<Surface> surface = cpuConsumer->getSurface();
@@ -2564,7 +2562,6 @@ TEST_F(SurfaceTest, QueueBufferOutput_TracksReplacements_Plural) {
     EXPECT_TRUE(outputs[0].bufferReplaced);
     EXPECT_TRUE(outputs[1].bufferReplaced);
 }
-#endif // COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(WB_PLATFORM_API_IMPROVEMENTS)
 
 #if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(WB_UNLIMITED_SLOTS)
 TEST_F(SurfaceTest, UnlimitedSlots_FailsOnIncompatibleConsumer) {
