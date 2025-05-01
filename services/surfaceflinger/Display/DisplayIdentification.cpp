@@ -28,6 +28,7 @@
 #include <string>
 #include <string_view>
 
+#include <common/FlagManager.h>
 #include <ftl/concat.h>
 #include <ftl/hash.h>
 #include <log/log.h>
@@ -418,7 +419,9 @@ std::optional<DisplayIdentificationInfo> parseDisplayIdentificationData(
         return {};
     }
 
-    const auto displayId = PhysicalDisplayId::fromEdid(port, edid->manufacturerId, edid->modelHash);
+    const auto displayId = FlagManager::getInstance().stable_edid_ids()
+            ? generateEdidDisplayId(*edid)
+            : PhysicalDisplayId::fromEdid(port, edid->manufacturerId, edid->modelHash);
     return DisplayIdentificationInfo{
             .id = displayId,
             .name = std::string(edid->displayName),
