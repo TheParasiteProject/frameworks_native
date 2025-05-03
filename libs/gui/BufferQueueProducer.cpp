@@ -1950,7 +1950,6 @@ status_t BufferQueueProducer::setAutoPrerotation(bool autoPrerotation) {
     return NO_ERROR;
 }
 
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BQ_SETFRAMERATE)
 status_t BufferQueueProducer::setFrameRate(float frameRate, int8_t compatibility,
                                            int8_t changeFrameRateStrategy) {
     ATRACE_CALL();
@@ -1971,7 +1970,6 @@ status_t BufferQueueProducer::setFrameRate(float frameRate, int8_t compatibility
     }
     return NO_ERROR;
 }
-#endif
 
 #if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BQ_EXTENDEDALLOCATE)
 status_t BufferQueueProducer::setAdditionalOptions(

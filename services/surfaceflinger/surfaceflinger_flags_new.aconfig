@@ -4,6 +4,16 @@ package: "com.android.graphics.surfaceflinger.flags"
 container: "system"
 
 flag {
+  name: "adpf_cpu_effects_loadup"
+  namespace: "window_surfaces"
+  description: "Enables CPU loadup hints for effects using client composition"
+  bug: "409887260"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+} # adpf_cpu_effects_loadup
+
+flag {
   name: "adpf_fmq_sf"
   namespace: "game"
   description: "Guards use of the ADPF FMQ system specifically for SurfaceFlinger"
@@ -58,17 +68,6 @@ flag {
   bug: "362510107"
   is_fixed_read_only: true
 } # begone_bright_hlg
-
-flag {
-  name: "commit_not_composited"
-  namespace: "core_graphics"
-  description: "mark frames as non janky if the transaction resulted in no composition"
-  bug: "340633280"
-  is_fixed_read_only: true
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-} # commit_not_composited
 
 flag {
   name: "connected_display_hdr"
@@ -140,17 +139,6 @@ flag {
   bug: "374184110"
   is_fixed_read_only: true
 } # display_config_error_hal
-
-flag {
-  name: "filter_frames_before_trace_starts"
-  namespace: "core_graphics"
-  description: "Do not trace FrameTimeline events for frames started before the trace started"
-  bug: "364194637"
-  is_fixed_read_only: true
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-} # filter_frames_before_trace_starts
 
 flag {
   name: "flush_buffer_slots_to_uncache"

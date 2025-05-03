@@ -207,7 +207,6 @@ filegroup {
         "DisplayDevice.cpp",
         "Effects/Daltonizer.cpp",
         "FpsReporter.cpp",
-        "FrameTimeline/FrameTimeline.cpp",
         "FrameTracer/FrameTracer.cpp",
         "FrameTracker.cpp",
         "FrontEnd/LayerCreationArgs.cpp",
@@ -230,6 +229,7 @@ filegroup {
         "RegionSamplingThread.cpp",
         "Scheduler/EventThread.cpp",
         "Scheduler/FrameRateOverrideMappings.cpp",
+        "Scheduler/FrameTimeline.cpp",
         "Scheduler/LayerHistory.cpp",
         "Scheduler/LayerInfo.cpp",
         "Scheduler/MessageQueue.cpp",
@@ -351,7 +351,6 @@ cc_library {
     generated_headers: ["statslog_surfaceflinger_bootstrap.h"],
     export_generated_headers: ["statslog_surfaceflinger_bootstrap.h"],
     shared_libs: [
-        "android.os.statsbootstrap_aidl-cpp",
         "libbinder",
         "libstatsbootstrap",
         "libutils",

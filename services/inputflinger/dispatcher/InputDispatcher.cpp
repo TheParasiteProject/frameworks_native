@@ -1650,7 +1650,7 @@ bool InputDispatcher::dispatchDeviceResetLocked(nsecs_t currentTime,
                                                 const DeviceResetEntry& entry) {
     LOG_IF(INFO, DEBUG_OUTBOUND_EVENT_DETAILS)
             << "dispatchDeviceReset - eventTime=" << entry.eventTime
-            << ", deviceId=" << entry.deviceId;
+            << "ns, deviceId=" << entry.deviceId;
 
     // Reset key repeating in case a keyboard device was disabled or enabled.
     if (mKeyRepeatState.lastKeyEntry && mKeyRepeatState.lastKeyEntry->deviceId == entry.deviceId) {
@@ -2004,13 +2004,13 @@ void InputDispatcher::findAndDispatchFallbackEvent(nsecs_t currentTime,
 
 void InputDispatcher::logOutboundKeyDetails(const char* prefix, const KeyEntry& entry) {
     LOG_IF(INFO, DEBUG_OUTBOUND_EVENT_DETAILS)
-            << prefix << "eventTime=" << entry.eventTime << ", deviceId=" << entry.deviceId
+            << prefix << "eventTime=" << entry.eventTime << "ns, deviceId=" << entry.deviceId
             << ", source=0x" << std::hex << entry.source
             << ", displayId=" << entry.displayId.toString() << ", policyFlags=0x"
             << entry.policyFlags << ", action=0x" << entry.action << ", flags=0x" << entry.flags
             << ", keyCode=0x" << entry.keyCode << ", scanCode=0x" << entry.scanCode
             << ", metaState=0x" << entry.metaState << ", repeatCount=" << std::dec
-            << entry.repeatCount << ", downTime=" << entry.downTime;
+            << entry.repeatCount << ", downTime=" << entry.downTime << "ns";
 }
 
 void InputDispatcher::dispatchSensorLocked(nsecs_t currentTime,
@@ -2018,7 +2018,7 @@ void InputDispatcher::dispatchSensorLocked(nsecs_t currentTime,
                                            DropReason* dropReason, nsecs_t& nextWakeupTime) {
     LOG_IF(INFO, DEBUG_OUTBOUND_EVENT_DETAILS)
             << "notifySensorEvent eventTime=" << entry->eventTime
-            << ", hwTimestamp=" << entry->hwTimestamp << ", deviceId=" << entry->deviceId
+            << "ns, hwTimestamp=" << entry->hwTimestamp << ", deviceId=" << entry->deviceId
             << ", source=0x" << std::hex << entry->source << std::dec
             << ", sensorType=" << ftl::enum_string(entry->sensorType);
     auto command = [this, entry]() REQUIRES(mLock) {
@@ -2174,9 +2174,9 @@ void InputDispatcher::dispatchDragLocked(nsecs_t currentTime,
 
 void InputDispatcher::logOutboundMotionDetails(const char* prefix, const MotionEntry& entry) {
     if (DEBUG_OUTBOUND_EVENT_DETAILS) {
-        ALOGD("%seventTime=%" PRId64 ", deviceId=%d, source=%s, displayId=%s, policyFlags=0x%x, "
+        ALOGD("%seventTime=%" PRId64 "ns, deviceId=%d, source=%s, displayId=%s, policyFlags=0x%x, "
               "action=%s, actionButton=0x%x, flags=0x%x, "
-              "metaState=0x%x, buttonState=0x%x, downTime=%" PRId64,
+              "metaState=0x%x, buttonState=0x%x, downTime=%" PRId64 "ns",
               prefix, entry.eventTime, entry.deviceId,
               inputEventSourceToString(entry.source).c_str(), entry.displayId.toString().c_str(),
               entry.policyFlags, MotionEvent::actionToString(entry.action).c_str(),
@@ -4366,7 +4366,7 @@ std::unique_ptr<MotionEntry> InputDispatcher::splitMotionEvent(
     if (action == AMOTION_EVENT_ACTION_DOWN && splitDownTime != originalMotionEntry.eventTime) {
         logDispatchStateLocked();
         LOG_ALWAYS_FATAL("Split motion event has mismatching downTime and eventTime for "
-                         "ACTION_DOWN, motionEntry=%s, splitDownTime=%" PRId64,
+                         "ACTION_DOWN, motionEntry=%s, splitDownTime=%" PRId64 "ns",
                          originalMotionEntry.getDescription().c_str(), splitDownTime);
     }
 
@@ -4409,13 +4409,13 @@ void InputDispatcher::notifyInputDevicesChanged(const NotifyInputDevicesChangedA
 void InputDispatcher::notifyKey(const NotifyKeyArgs& args) {
     LOG_IF(INFO, debugInboundEventDetails())
             << "notifyKey - id=" << args.id << ", eventTime=" << args.eventTime
-            << ", deviceId=" << args.deviceId
+            << "ns, deviceId=" << args.deviceId
             << ", source=" << inputEventSourceToString(args.source)
             << ", displayId=" << args.displayId.toString() << ", policyFlags=0x" << std::hex
             << args.policyFlags << ", action=" << KeyEvent::actionToString(args.action)
             << ", flags=0x" << args.flags << ", keyCode=" << KeyEvent::getLabel(args.keyCode)
             << ", scanCode=0x" << args.scanCode << ", metaState=0x" << args.metaState
-            << ", downTime=" << std::dec << args.downTime;
+            << ", downTime=" << std::dec << args.downTime << "ns";
     Result<void> keyCheck = validateKeyEvent(args.action);
     if (!keyCheck.ok()) {
         LOG(ERROR) << "invalid key event: " << keyCheck.error();
@@ -4502,10 +4502,10 @@ bool InputDispatcher::shouldSendKeyToInputFilterLocked(const NotifyKeyArgs& args
 
 void InputDispatcher::notifyMotion(const NotifyMotionArgs& args) {
     if (debugInboundEventDetails()) {
-        ALOGD("notifyMotion - id=%" PRIx32 " eventTime=%" PRId64 ", deviceId=%d, source=%s, "
+        ALOGD("notifyMotion - id=%" PRIx32 " eventTime=%" PRId64 "ns, deviceId=%d, source=%s, "
               "displayId=%s, policyFlags=0x%x, "
               "action=%s, actionButton=0x%x, flags=0x%x, metaState=0x%x, buttonState=0x%x, "
-              "xCursorPosition=%f, yCursorPosition=%f, downTime=%" PRId64,
+              "xCursorPosition=%f, yCursorPosition=%f, downTime=%" PRId64 "ns",
               args.id, args.eventTime, args.deviceId, inputEventSourceToString(args.source).c_str(),
               args.displayId.toString().c_str(), args.policyFlags,
               MotionEvent::actionToString(args.action).c_str(), args.actionButton, args.flags,
@@ -4627,7 +4627,7 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs& args) {
 void InputDispatcher::notifySensor(const NotifySensorArgs& args) {
     LOG_IF(INFO, debugInboundEventDetails())
             << "notifySensor - id=" << args.id << " eventTime=" << args.eventTime
-            << ", deviceId=" << args.deviceId << ", source=0x" << std::hex << args.source
+            << "ns, deviceId=" << args.deviceId << ", source=0x" << std::hex << args.source
             << std::dec << ", sensorType=" << ftl::enum_string(args.sensorType);
 
     bool needWake = false;
@@ -4651,8 +4651,8 @@ void InputDispatcher::notifySensor(const NotifySensorArgs& args) {
 
 void InputDispatcher::notifyVibratorState(const NotifyVibratorStateArgs& args) {
     LOG_IF(INFO, debugInboundEventDetails())
-            << "notifyVibratorState - eventTime=" << args.eventTime << ", device=" << args.deviceId
-            << ", isOn=" << args.isOn;
+            << "notifyVibratorState - eventTime=" << args.eventTime
+            << "ns, deviceId=" << args.deviceId << ", isOn=" << args.isOn;
     mPolicy.notifyVibratorState(args.deviceId, args.isOn);
 }
 
@@ -4662,7 +4662,7 @@ bool InputDispatcher::shouldSendMotionToInputFilterLocked(const NotifyMotionArgs
 
 void InputDispatcher::notifySwitch(const NotifySwitchArgs& args) {
     LOG_IF(INFO, debugInboundEventDetails())
-            << "notifySwitch - eventTime=" << args.eventTime << ", policyFlags=0x" << std::hex
+            << "notifySwitch - eventTime=" << args.eventTime << "ns, policyFlags=0x" << std::hex
             << args.policyFlags << ", switchValues=0x" << std::setfill('0') << std::setw(8)
             << args.switchValues << ", switchMask=0x" << std::setw(8) << args.switchMask;
 
@@ -4674,7 +4674,8 @@ void InputDispatcher::notifySwitch(const NotifySwitchArgs& args) {
 void InputDispatcher::notifyDeviceReset(const NotifyDeviceResetArgs& args) {
     // TODO(b/308677868) Remove device reset from the InputListener interface
     LOG_IF(INFO, debugInboundEventDetails())
-            << "notifyDeviceReset - eventTime=" << args.eventTime << ", deviceId=" << args.deviceId;
+            << "notifyDeviceReset - eventTime=" << args.eventTime
+            << "ns, deviceId=" << args.deviceId;
 
     bool needWake = false;
     { // acquire lock
@@ -4697,7 +4698,7 @@ void InputDispatcher::notifyDeviceReset(const NotifyDeviceResetArgs& args) {
 void InputDispatcher::notifyPointerCaptureChanged(const NotifyPointerCaptureChangedArgs& args) {
     LOG_IF(INFO, debugInboundEventDetails())
             << "notifyPointerCaptureChanged - eventTime=%" << args.eventTime
-            << ", enabled=" << toString(args.request.isEnable());
+            << "ns, enabled=" << toString(args.request.isEnable());
 
     bool needWake = false;
     { // acquire lock
@@ -5223,7 +5224,7 @@ ui::Transform InputDispatcher::DispatcherWindowInfo::getRawTransform(
         std::optional<ui::LogicalDisplayId> pointerDisplayId) const {
     // TODO(b/383092013): Handle TOPOLOGY_AWARE window flag.
     // For now, we assume all windows are topology-aware and can handle cross-display streams.
-    if (com::android::input::flags::connected_displays_cursor() && pointerDisplayId.has_value() &&
+    if (InputFlags::connectedDisplaysCursorEnabled() && pointerDisplayId.has_value() &&
         *pointerDisplayId != windowInfo.displayId) {
         // Sending pointer to a different display than the window. This is a
         // cross-display drag gesture, so always use the new display's transform.

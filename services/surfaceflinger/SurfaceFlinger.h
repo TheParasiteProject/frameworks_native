@@ -147,7 +147,7 @@ using gui::IRegionSamplingListener;
 using gui::LayerCaptureArgs;
 using gui::ScreenCaptureResults;
 
-namespace frametimeline {
+namespace scheduler {
 class FrameTimeline;
 }
 
@@ -701,6 +701,8 @@ private:
     void onCommitNotComposited() override
             REQUIRES(kMainThreadContext);
     void vrrDisplayIdle(PhysicalDisplayId displayId, bool idle) override;
+    void enableLayerCachingTexturePool(PhysicalDisplayId, bool enable) override
+            REQUIRES(kMainThreadContext);
 
     // ICEPowerCallback overrides:
     void notifyCpuLoadUp() override;
@@ -1427,7 +1429,7 @@ private:
 
     const std::shared_ptr<TimeStats> mTimeStats;
     const std::unique_ptr<FrameTracer> mFrameTracer;
-    const std::unique_ptr<frametimeline::FrameTimeline> mFrameTimeline;
+    const std::unique_ptr<scheduler::FrameTimeline> mFrameTimeline;
 
     VsyncId mLastCommittedVsyncId;
 

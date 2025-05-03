@@ -137,7 +137,6 @@
 #include "DisplayHardware/VirtualDisplaySurface.h"
 #include "Effects/Daltonizer.h"
 #include "FpsReporter.h"
-#include "FrameTimeline/FrameTimeline.h"
 #include "FrameTracer/FrameTracer.h"
 #include "FrontEnd/LayerCreationArgs.h"
 #include "FrontEnd/LayerHandle.h"
@@ -155,6 +154,7 @@
 #include "PowerAdvisor/Workload.h"
 #include "RegionSamplingThread.h"
 #include "Scheduler/EventThread.h"
+#include "Scheduler/FrameTimeline.h"
 #include "Scheduler/LayerHistory.h"
 #include "Scheduler/Scheduler.h"
 #include "Scheduler/VsyncConfiguration.h"
@@ -2746,9 +2746,7 @@ bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
                 mScheduler->getVsyncSchedule()->getTracker().onFrameMissed(
                         pacesetterFrameTarget.expectedPresentTime());
             }
-            const Duration slack = FlagManager::getInstance().allow_n_vsyncs_in_targeter()
-                    ? TimePoint::now() - pacesetterFrameTarget.frameBeginTime()
-                    : Duration::fromNs(0);
+            const Duration slack = TimePoint::now() - pacesetterFrameTarget.frameBeginTime();
             scheduleCommit(FrameHint::kNone, slack);
             return false;
         }
@@ -4033,7 +4031,6 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
                  "adding a supported display, but rendering "
                  "surface is provided (%p), ignoring it",
                  state.surface.get());
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(WB_CONSUMER_BASE_OWNS_BQ)
         const auto frameBufferSurface =
                 sp<FramebufferSurface>::make(getHwComposer(), state.physical->id, bqProducer,
                                              bqConsumer,
@@ -4041,13 +4038,6 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
                                              ui::Size(maxGraphicsWidth, maxGraphicsHeight));
         displaySurface = frameBufferSurface;
         producer = frameBufferSurface->getSurface()->getIGraphicBufferProducer();
-#else
-        displaySurface =
-                sp<FramebufferSurface>::make(getHwComposer(), state.physical->id, bqConsumer,
-                                             state.physical->activeMode->getResolution(),
-                                             ui::Size(maxGraphicsWidth, maxGraphicsHeight));
-        producer = bqProducer;
-#endif // COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(WB_CONSUMER_BASE_OWNS_BQ)
     }
 
     LOG_FATAL_IF(!displaySurface);
@@ -4618,9 +4608,7 @@ void SurfaceFlinger::sendNotifyExpectedPresentHint(PhysicalDisplayId displayId) 
 }
 
 void SurfaceFlinger::onCommitNotComposited() {
-    if (FlagManager::getInstance().commit_not_composited()) {
-        mFrameTimeline->onCommitNotComposited();
-    }
+    mFrameTimeline->onCommitNotComposited();
 }
 
 void SurfaceFlinger::initScheduler(const sp<const DisplayDevice>& display) {
@@ -7261,6 +7249,12 @@ void SurfaceFlinger::vrrDisplayIdle(PhysicalDisplayId displayId, bool idle) {
     }));
 }
 
+void SurfaceFlinger::enableLayerCachingTexturePool(PhysicalDisplayId displayId, bool enable) {
+    if (const auto display = FTL_FAKE_GUARD(mStateLock, getDisplayDeviceLocked(displayId))) {
+        display->getCompositionDisplay()->setLayerCachingTexturePoolEnabled(enable);
+    }
+}
+
 auto SurfaceFlinger::getKernelIdleTimerProperties(PhysicalDisplayId displayId)
         -> std::pair<std::optional<KernelIdleTimerController>, std::chrono::milliseconds> {
     const bool isKernelIdleTimerHwcSupported = getHwComposer().getComposer()->isSupported(
@@ -7783,7 +7777,6 @@ status_t SurfaceFlinger::setScreenshotDisplayState(ScreenshotArgs& args) {
         }
 
         Rect layerStackSpaceRect = display->getLayerStackSpaceRect();
-        args.displayIdVariant = display->getDisplayIdVariant();
         args.isSecure &= display->isSecure();
         args.snapshotRequest.layerStack = display->getLayerStack();
         args.sourceCrop = layerStackSpaceRect;
@@ -7809,7 +7802,6 @@ status_t SurfaceFlinger::setScreenshotDisplayState(ScreenshotArgs& args) {
         }
 
         Rect layerStackSpaceRect = display->getLayerStackSpaceRect();
-        args.displayIdVariant = display->getDisplayIdVariant();
         args.isSecure &= display->isSecure();
         args.snapshotRequest.layerStack = display->getLayerStack();
 
@@ -7851,6 +7843,7 @@ status_t SurfaceFlinger::setScreenshotDisplayState(ScreenshotArgs& args) {
         args.colorMode = state.colorMode;
         args.debugName.append(", ").append(display->getDisplayName());
         args.debugName.append(" (").append(to_string(display->getId())).append(")");
+        args.displayIdVariant = display->getDisplayIdVariant();
         return OK;
     }
     ALOGD("Display state not found");
@@ -8446,12 +8439,14 @@ void SurfaceFlinger::onNewFrontInternalDisplay(const DisplayDevice* oldFrontInte
     sFrontInternalDisplayRotationFlags =
             ui::Transform::toRotationFlags(newFrontInternalDisplay.getOrientation());
 
-    if (oldFrontInternalDisplayPtr) {
-        oldFrontInternalDisplayPtr->getCompositionDisplay()->setLayerCachingTexturePoolEnabled(
-                false);
-    }
+    if (!FlagManager::getInstance().pacesetter_selection()) {
+        if (oldFrontInternalDisplayPtr) {
+            oldFrontInternalDisplayPtr->getCompositionDisplay()->setLayerCachingTexturePoolEnabled(
+                    false);
+        }
 
-    newFrontInternalDisplay.getCompositionDisplay()->setLayerCachingTexturePoolEnabled(true);
+        newFrontInternalDisplay.getCompositionDisplay()->setLayerCachingTexturePoolEnabled(true);
+    }
 
     // TODO(b/255635711): Check for pending mode changes on other displays.
     mScheduler->setModeChangePending(false);
@@ -8545,6 +8540,19 @@ std::shared_ptr<renderengine::ExternalTexture> SurfaceFlinger::getExternalTextur
                                    "layer %s that exceeds render target size limit of %u.",
                                    bufferData.buffer->getWidth(), bufferData.buffer->getHeight(),
                                    layerName, static_cast<uint32_t>(mMaxRenderTargetSize));
+        ALOGD("%s", errorMessage.c_str());
+        if (bufferData.releaseBufferListener) {
+            bufferData.releaseBufferListener->onTransactionQueueStalled(
+                    String8(errorMessage.c_str()));
+        }
+        return nullptr;
+    }
+
+    if (bufferData.buffer && bufferData.buffer->getLayerCount() != 1) {
+        std::string errorMessage =
+                base::StringPrintf("Attempted to create an ExternalTexture with layer count (%u)"
+                                   " != 1 for layer %s",
+                                   bufferData.buffer->getLayerCount(), layerName);
         ALOGD("%s", errorMessage.c_str());
         if (bufferData.releaseBufferListener) {
             bufferData.releaseBufferListener->onTransactionQueueStalled(

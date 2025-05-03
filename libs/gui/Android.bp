@@ -297,6 +297,11 @@ filegroup {
 cc_defaults {
     name: "libgui-defaults",
     defaults: ["libgui_bufferqueue-defaults"],
+    tidy: true,
+    tidy_flags: [
+        // Only check our headers
+        "--header-filter=^.*frameworks/native/libs/gui/.*.h$",
+    ],
     static_libs: [
         "libgui_aidl_static",
         "libgui_window_info_static",
@@ -352,7 +357,7 @@ cc_library_shared {
     ],
 
     shared_libs: [
-       "libaconfig_storage_read_api_cc",
+        "libaconfig_storage_read_api_cc",
     ],
 
     afdo: true,
