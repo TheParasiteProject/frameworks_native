@@ -833,7 +833,9 @@ status_t RpcState::processCommand(
     // to understand where the current command ends and the next one begins. We
     // also can't consider it a fatal error because this would allow any client
     // to kill us, so ending the session for misbehaving client.
-    ALOGE("Unknown RPC command %d - terminating session", command.command);
+    ALOGE("Unknown RPC command %d - terminating session. Header: %s. CommandType: %d. numFds: %zu",
+          command.command, HexString(&command, sizeof(command)).c_str(), static_cast<int>(type),
+          ancillaryFds.size());
     (void)session->shutdownAndWait(false);
     return DEAD_OBJECT;
 }
