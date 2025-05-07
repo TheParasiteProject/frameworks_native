@@ -702,7 +702,10 @@ status_t BLASTBufferQueue::acquireNextBufferLocked(
     mergePendingTransactions(t, bufferItem.mFrameNumber);
     if (applyTransaction) {
         // All transactions on our apply token are one-way. See comment on mAppliedLastTransaction
-        t->setApplyToken(mApplyToken).apply(false, true);
+        status_t status = t->setApplyToken(mApplyToken).apply(false, true);
+        LOG_ALWAYS_FATAL_IF(status != OK,
+                            "[%s] acquireNextBufferLocked failed to apply transaction. status=%d",
+                            mName.c_str(), status);
         mAppliedLastTransaction = true;
         mLastAppliedFrameNumber = bufferItem.mFrameNumber;
     } else {
