@@ -538,7 +538,16 @@ status_t RpcState::transact(const sp<RpcSession::RpcConnection>& connection,
     uint64_t address;
     if (status_t status = onBinderLeaving(session, binder, &address); status != OK) return status;
 
-    return transactAddress(connection, address, code, data, session, reply, flags);
+    if (status_t status = transactAddress(connection, address, code, data, session, reply, flags);
+        status != OK) {
+        // TODO(b/414720799): this log is added to debug this bug, but it could be a bit noisy, and
+        // we may only want to log it from some cases moving forward.
+        ALOGE("RPC protocol error during call to binder: %p code: %" PRIu32 " transaction: %s",
+              binder.get(), code, statusToString(status).c_str());
+        return status;
+    }
+
+    return OK;
 }
 
 status_t RpcState::transactAddress(const sp<RpcSession::RpcConnection>& connection,
