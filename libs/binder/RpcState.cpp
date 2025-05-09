@@ -953,7 +953,8 @@ processTransactInternalTailCall:
                 // we need to process some other asynchronous transaction
                 // first
                 it->second.asyncTodo.push(BinderNode::AsyncTodo{
-                        .ref = target,
+                        // checked above
+                        .ref = sp<BBinder>::fromExisting(target->localBinder()),
                         .data = std::move(transactionData),
                         .ancillaryFds = std::move(ancillaryFds),
                         .asyncNumber = transaction->asyncNumber,
