@@ -249,6 +249,7 @@ public:
 private:
     friend RpcServerTrusty;
     friend sp<RpcServer>;
+    friend wp<EventListener>;
     explicit RpcServer(std::unique_ptr<RpcTransportCtx> ctx);
 
     void onSessionAllIncomingThreadsEnded(const sp<RpcSession>& session) override;
