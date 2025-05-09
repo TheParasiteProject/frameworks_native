@@ -358,7 +358,19 @@ RpcState::CommandData::CommandData(size_t size) : mSize(size) {
     } else if (size > binder::kLogTransactionsOverBytes) {
         ALOGW("Transaction too large: inefficient and in danger of breaking: %zu bytes.", size);
     }
-    mData.reset(new (std::nothrow) uint8_t[size]);
+
+    // must always be written over
+    uint8_t* data = new (std::nothrow) uint8_t[size];
+
+    if (!data) {
+        // For helping debug b/404210068. If we are running out of memory,
+        // then, as Android is today, it's going down no matter what we do.
+        // However, if we can get data out of this process, go ahead and log
+        // to help us debug this bug.
+        ALOGE("Failed to allocate %zu data.", size);
+    }
+
+    mData.reset(data);
 }
 
 status_t RpcState::rpcSend(const sp<RpcSession::RpcConnection>& connection,
