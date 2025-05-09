@@ -25,6 +25,7 @@
 
 #include "Constants.h"
 #include "Debug.h"
+#include "FdTrigger.h"
 #include "RpcWireFormat.h"
 #include "Utils.h"
 
@@ -866,24 +867,36 @@ status_t RpcState::processCommand(
     });
 #endif // BINDER_WITH_KERNEL_IPC
 
+    status_t result = NO_INIT;
+
     switch (command.command) {
         case RPC_COMMAND_TRANSACT:
             if (type != CommandType::ANY) return BAD_TYPE;
-            return processTransact(connection, session, command, std::move(ancillaryFds));
+            result = processTransact(connection, session, command, std::move(ancillaryFds));
+            break;
         case RPC_COMMAND_DEC_STRONG:
-            return processDecStrong(connection, session, command);
+            result = processDecStrong(connection, session, command);
+            break;
+        default:
+            // We should always know the version of the opposing side, and since the
+            // RPC-binder-level wire protocol is not self synchronizing, we have no way
+            // to understand where the current command ends and the next one begins. We
+            // also can't consider it a fatal error because this would allow any client
+            // to kill us, so ending the session for misbehaving client.
+            ALOGE("Unknown RPC command %d - terminating session. Header: %s. CommandType: %d. "
+                  "numFds: %zu",
+                  command.command, HexString(&command, sizeof(command)).c_str(),
+                  static_cast<int>(type), ancillaryFds.size());
+            (void)session->shutdownAndWait(false);
+            return DEAD_OBJECT;
     }
 
-    // We should always know the version of the opposing side, and since the
-    // RPC-binder-level wire protocol is not self synchronizing, we have no way
-    // to understand where the current command ends and the next one begins. We
-    // also can't consider it a fatal error because this would allow any client
-    // to kill us, so ending the session for misbehaving client.
-    ALOGE("Unknown RPC command %d - terminating session. Header: %s. CommandType: %d. numFds: %zu",
-          command.command, HexString(&command, sizeof(command)).c_str(), static_cast<int>(type),
-          ancillaryFds.size());
-    (void)session->shutdownAndWait(false);
-    return DEAD_OBJECT;
+    if (result != OK) {
+        LOG_ALWAYS_FATAL_IF(!session->mShutdownTrigger->isTriggered(),
+                            "Error during processing command must trigger shutdown! %s",
+                            statusToString(result).c_str());
+    }
+    return result;
 }
 
 // THIS FUNCTION MUST SHUTDOWN IF IT ERRORS, ACCORDING TO processCommand.
