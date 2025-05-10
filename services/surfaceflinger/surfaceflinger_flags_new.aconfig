@@ -285,6 +285,16 @@ flag {
 } # override_trusted_overlay
 
 flag {
+    name: "unify_refresh_rate_callbacks"
+    namespace: "core_graphics"
+    description: "Unifies mode changed and FrameRateOverride callbacks"
+    bug: "399482301"
+    metadata {
+        purpose: PURPOSE_BUGFIX
+    }
+} # unify_refresh_rate_callbacks
+
+flag {
   name: "vsync_predictor_rate_change_with_aligned_sequence"
   namespace: "core_graphics"
   description: "Render rate changes where all the frame rate overrides align"
