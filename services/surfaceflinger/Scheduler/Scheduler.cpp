@@ -91,11 +91,7 @@ void Scheduler::startTimers() {
     using namespace sysprop;
     using namespace std::string_literals;
 
-    const int32_t defaultTouchTimerValue =
-            FlagManager::getInstance().enable_fro_dependent_features() &&
-                    sysprop::enable_frame_rate_override(true)
-            ? 200
-            : 0;
+    const int32_t defaultTouchTimerValue = sysprop::enable_frame_rate_override(true) ? 200 : 0;
     if (const int32_t millis = set_touch_timer_ms(defaultTouchTimerValue); millis > 0) {
         // Touch events are coming to SF every 100ms, so the timer needs to be higher than that
         mTouchTimer.emplace(
@@ -742,8 +738,24 @@ void Scheduler::recordLayerHistory(int32_t id, const LayerProps& layerProps, nse
     }
 }
 
-void Scheduler::setModeChangePending(bool pending) {
-    mLayerHistory.setModeChangePending(pending);
+void Scheduler::setModeChangePending(PhysicalDisplayId displayId, bool pending) {
+    if (!FlagManager::getInstance().pacesetter_selection()) {
+        mLayerHistory.setModeChangePending(pending);
+        return;
+    }
+
+    std::scoped_lock lock(mDisplayLock);
+    ftl::FakeGuard guard(kMainThreadContext);
+    const auto displayOpt = mDisplays.get(displayId);
+    if (!displayOpt) {
+        ALOGW("%s: Invalid display %s!", __func__, to_string(displayId).c_str());
+        return;
+    }
+    displayOpt->get().isModeChangePending = pending;
+
+    mLayerHistory.setModeChangePending(
+            std::any_of(mDisplays.cbegin(), mDisplays.cend(),
+                        [](const auto& display) { return display.second.isModeChangePending; }));
 }
 
 void Scheduler::setDefaultFrameRateCompatibility(
@@ -957,6 +969,7 @@ void Scheduler::dump(utils::Dumper& dumper) const {
 
         display.selectorPtr->dump(dumper);
         display.targeterPtr->dump(dumper);
+        dumper.dump("isModeChangePending"sv, display.isModeChangePending);
         dumper.eol();
     }
 }

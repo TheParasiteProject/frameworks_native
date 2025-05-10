@@ -125,11 +125,11 @@
 #include <gui/LayerStatePermissions.h>
 #include <gui/SchedulingPolicy.h>
 #include <gui/SyncScreenCaptureListener.h>
-#include <ui/DisplayIdentification.h>
 #include "BackgroundExecutor.h"
 #include "Client.h"
 #include "ClientCache.h"
 #include "Colorizer.h"
+#include "Display/DisplayIdentification.h"
 #include "DisplayDevice.h"
 #include "DisplayHardware/ComposerHal.h"
 #include "DisplayHardware/FramebufferSurface.h"
@@ -1008,6 +1008,14 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
     // initialize our drawing state
     mDrawingState = mCurrentState;
 
+    if (FlagManager::getInstance().pacesetter_selection()) {
+        // No need to trigger update for pacesetter via Scheduler::setPacesetterDisplay() as it is
+        // done as part of adding the `display` in initScheduler().
+
+        const auto pacesetter = getPacesetterDisplayLocked();
+        applyRefreshRateSelectorPolicy(pacesetter->getPhysicalId(),
+                                       pacesetter->refreshRateSelector());
+    }
     onNewFrontInternalDisplay(nullptr, *display);
 
     static_cast<void>(mScheduler->schedule(
@@ -1398,7 +1406,7 @@ void SurfaceFlinger::setDesiredMode(display::DisplayModeRequest&& desiredMode) {
             mScheduler->modulateVsync(displayId, &VsyncModulator::onRefreshRateChangeInitiated);
 
             mScheduler->updatePhaseConfiguration(displayId, mode.fps);
-            mScheduler->setModeChangePending(true);
+            mScheduler->setModeChangePending(displayId, true);
 
             // The mode set to switch resolution is not initiated until the display transaction that
             // resizes the display. DM sends this transaction in response to a mode change event, so
@@ -1522,9 +1530,8 @@ bool SurfaceFlinger::finalizeDisplayModeChange(PhysicalDisplayId displayId) {
 
 void SurfaceFlinger::dropModeRequest(PhysicalDisplayId displayId) {
     mDisplayModeController.clearDesiredMode(displayId);
-    if (displayId == mFrontInternalDisplayId) {
-        // TODO(b/255635711): Check for pending mode changes on other displays.
-        mScheduler->setModeChangePending(false);
+    if (displayId == mFrontInternalDisplayId || FlagManager::getInstance().pacesetter_selection()) {
+        mScheduler->setModeChangePending(displayId, false);
     }
 }
 
@@ -3767,11 +3774,10 @@ bool SurfaceFlinger::configureLocked() {
     return !events.empty();
 }
 
-std::optional<DisplayModeId> SurfaceFlinger::processHotplugConnect(PhysicalDisplayId displayId,
-                                                                   hal::HWDisplayId hwcDisplayId,
-                                                                   DisplayIdentificationInfo&& info,
-                                                                   const char* displayString,
-                                                                   HWComposer::HotplugEvent event) {
+std::optional<DisplayModeId> SurfaceFlinger::processHotplugConnect(
+        PhysicalDisplayId displayId, hal::HWDisplayId hwcDisplayId,
+        display::DisplayIdentificationInfo&& info, const char* displayString,
+        HWComposer::HotplugEvent event) {
     auto [displayModes, activeMode] = loadDisplayModes(displayId);
     if (!activeMode) {
         ALOGE("Failed to hotplug %s", displayString);
@@ -4159,6 +4165,13 @@ void SurfaceFlinger::processDisplayChanged(const wp<IBinder>& displayToken,
             }
 
             if (display->getPhysicalId() == mFrontInternalDisplayId) {
+                if (FlagManager::getInstance().pacesetter_selection()) {
+                    mScheduler->setPacesetterDisplay(mFrontInternalDisplayId);
+
+                    const auto pacesetter = getPacesetterDisplayLocked();
+                    applyRefreshRateSelectorPolicy(pacesetter->getPhysicalId(),
+                                                   pacesetter->refreshRateSelector());
+                }
                 onNewFrontInternalDisplay(nullptr, *display);
             }
         }
@@ -4621,9 +4634,7 @@ void SurfaceFlinger::initScheduler(const sp<const DisplayDevice>& display) {
 
     FeatureFlags features;
 
-    const auto defaultContentDetectionValue =
-            FlagManager::getInstance().enable_fro_dependent_features() &&
-            sysprop::enable_frame_rate_override(true);
+    const auto defaultContentDetectionValue = sysprop::enable_frame_rate_override(true);
     if (sysprop::use_content_detection_for_refresh_rate(defaultContentDetectionValue)) {
         features |= Feature::kContentDetection;
         if (FlagManager::getInstance().enable_small_area_detection()) {
@@ -5742,6 +5753,10 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
     } else if (mode == hal::PowerMode::OFF) {
         const bool currentModeNotDozeSuspend = (currentMode != hal::PowerMode::DOZE_SUSPEND);
         // Turn off the display
+        if (FlagManager::getInstance().pacesetter_selection()) {
+            mScheduler->setModeChangePending(displayId, false);
+        }
+
         if (displayId == mFrontInternalDisplayId) {
             if (const auto display = findFrontInternalDisplay()) {
                 const auto frontInternalDisplay = getFrontInternalDisplayLocked();
@@ -5807,6 +5822,19 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
     }
 
     mScheduler->setDisplayPowerMode(displayId, mode);
+    if (FlagManager::getInstance().pacesetter_selection()) {
+        // TODO: b/389983418 - Update pacesetter designation inside
+        // Scheduler::setDisplayPowerMode().
+        mScheduler->setPacesetterDisplay(mFrontInternalDisplayId);
+
+        // Whether or not the policy of the new pacesetter display changed while it was powered off
+        // (in which case its preferred mode has already been propagated to HWC via setDesiredMode),
+        // the Scheduler's emittedModeOpt must be initialized to the newly active mode, and the
+        // kernel idle timer of the pacesetter display must be toggled.
+        const auto pacesetter = getPacesetterDisplayLocked();
+        applyRefreshRateSelectorPolicy(pacesetter->getPhysicalId(),
+                                       pacesetter->refreshRateSelector());
+    }
 
     ALOGD("Finished setting power mode %d on physical display %s", mode,
           to_string(displayId).c_str());
@@ -6121,7 +6149,7 @@ void SurfaceFlinger::dumpDisplayIdentificationData(std::string& result) const {
                       *hwcDisplayId);
 
         uint8_t port;
-        DisplayIdentificationData data;
+        display::DisplayIdentificationData data;
         android::ScreenPartStatus screenPartStatus;
         if (!getHwComposer().getDisplayIdentificationData(*hwcDisplayId, &port, &data,
                                                           &screenPartStatus)) {
@@ -6134,20 +6162,19 @@ void SurfaceFlinger::dumpDisplayIdentificationData(std::string& result) const {
             continue;
         }
 
-        if (!isEdid(data)) {
+        if (!display::isEdid(data)) {
             result.append("unknown format for display identification data\n");
             continue;
         }
 
-        const auto edid = parseEdid(data);
+        const auto edid = display::parseEdid(data);
         if (!edid) {
             result.append("invalid EDID\n");
             continue;
         }
 
         StringAppendF(&result, "port=%u pnpId=%s screenPartStatus=%s displayName=\"", port,
-                      edid->pnpId.data(),
-                      android::ScreenPartStatusToString(screenPartStatus).c_str());
+                      edid->pnpId.data(), ftl::enum_string(screenPartStatus).c_str());
         result.append(edid->displayName.data(), edid->displayName.length());
         result.append("\"\n");
     }
@@ -6170,7 +6197,7 @@ void SurfaceFlinger::dumpRawDisplayIdentificationData(const DumpArgs& args,
                                                       std::string& result) const {
     hal::HWDisplayId hwcDisplayId;
     uint8_t port;
-    DisplayIdentificationData data;
+    display::DisplayIdentificationData data;
     android::ScreenPartStatus screenPartStatus;
 
     if (args.size() > 1 && base::ParseUint(String8(args[1]), &hwcDisplayId) &&
@@ -6413,7 +6440,6 @@ void SurfaceFlinger::dumpAll(const DumpArgs& args, const std::string& compositio
      * Dump the visible layer list
      */
     colorizer.bold(result);
-    StringAppendF(&result, "SurfaceFlinger New Frontend Enabled:%s\n", "true");
     StringAppendF(&result, "Active Layers - layers with client handles (count = %zu)\n",
                   mNumLayers.load());
     colorizer.reset(result);
@@ -8443,22 +8469,20 @@ void SurfaceFlinger::onNewFrontInternalDisplay(const DisplayDevice* oldFrontInte
         if (oldFrontInternalDisplayPtr) {
             oldFrontInternalDisplayPtr->getCompositionDisplay()->setLayerCachingTexturePoolEnabled(
                     false);
+            mScheduler->setModeChangePending(oldFrontInternalDisplayPtr->getPhysicalId(), false);
         }
 
         newFrontInternalDisplay.getCompositionDisplay()->setLayerCachingTexturePoolEnabled(true);
+
+        mScheduler->setPacesetterDisplay(mFrontInternalDisplayId);
+
+        // Whether or not the policy of the new front internal display changed while it was powered
+        // off (in which case its preferred mode has already been propagated to HWC via
+        // setDesiredMode), the Scheduler's emittedModeOpt must be initialized to the newly
+        // active mode, and the kernel idle timer of the front internal display must be toggled.
+        applyRefreshRateSelectorPolicy(mFrontInternalDisplayId,
+                                       newFrontInternalDisplay.refreshRateSelector());
     }
-
-    // TODO(b/255635711): Check for pending mode changes on other displays.
-    mScheduler->setModeChangePending(false);
-
-    mScheduler->setPacesetterDisplay(mFrontInternalDisplayId);
-
-    // Whether or not the policy of the new front internal display changed while it was powered off
-    // (in which case its preferred mode has already been propagated to HWC via setDesiredMode), the
-    // Scheduler's cachedModeChangedParams must be initialized to the newly active mode, and
-    // the kernel idle timer of the front internal display must be toggled.
-    applyRefreshRateSelectorPolicy(mFrontInternalDisplayId,
-                                   newFrontInternalDisplay.refreshRateSelector());
 }
 
 status_t SurfaceFlinger::addWindowInfosListener(const sp<IWindowInfosListener>& windowInfosListener,
@@ -8832,17 +8856,15 @@ binder::Status SurfaceComposerAIDL::createDisplayEventConnection(
 
 binder::Status SurfaceComposerAIDL::createConnection(sp<gui::ISurfaceComposerClient>* outClient) {
     const sp<Client> client = sp<Client>::make(mFlinger);
-    if (client->initCheck() == NO_ERROR) {
-        *outClient = client;
-        if (FlagManager::getInstance().misc1()) {
-            const int policy = SCHED_FIFO;
-            client->setMinSchedulerPolicy(policy, sched_get_priority_min(policy));
-        }
-        return binder::Status::ok();
-    } else {
+    if (client->initCheck() != NO_ERROR) {
         *outClient = nullptr;
         return binderStatusFromStatusT(BAD_VALUE);
     }
+
+    *outClient = client;
+    const int policy = SCHED_FIFO;
+    client->setMinSchedulerPolicy(policy, sched_get_priority_min(policy));
+    return binder::Status::ok();
 }
 
 binder::Status SurfaceComposerAIDL::createVirtualDisplay(

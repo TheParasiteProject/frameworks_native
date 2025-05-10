@@ -358,7 +358,19 @@ RpcState::CommandData::CommandData(size_t size) : mSize(size) {
     } else if (size > binder::kLogTransactionsOverBytes) {
         ALOGW("Transaction too large: inefficient and in danger of breaking: %zu bytes.", size);
     }
-    mData.reset(new (std::nothrow) uint8_t[size]);
+
+    // must always be written over
+    uint8_t* data = new (std::nothrow) uint8_t[size];
+
+    if (!data) {
+        // For helping debug b/404210068. If we are running out of memory,
+        // then, as Android is today, it's going down no matter what we do.
+        // However, if we can get data out of this process, go ahead and log
+        // to help us debug this bug.
+        ALOGE("Failed to allocate %zu data.", size);
+    }
+
+    mData.reset(data);
 }
 
 status_t RpcState::rpcSend(const sp<RpcSession::RpcConnection>& connection,
@@ -538,7 +550,16 @@ status_t RpcState::transact(const sp<RpcSession::RpcConnection>& connection,
     uint64_t address;
     if (status_t status = onBinderLeaving(session, binder, &address); status != OK) return status;
 
-    return transactAddress(connection, address, code, data, session, reply, flags);
+    if (status_t status = transactAddress(connection, address, code, data, session, reply, flags);
+        status != OK) {
+        // TODO(b/414720799): this log is added to debug this bug, but it could be a bit noisy, and
+        // we may only want to log it from some cases moving forward.
+        ALOGE("RPC protocol error during call to binder: %p code: %" PRIu32 " transaction: %s",
+              binder.get(), code, statusToString(status).c_str());
+        return status;
+    }
+
+    return OK;
 }
 
 status_t RpcState::transactAddress(const sp<RpcSession::RpcConnection>& connection,
@@ -688,7 +709,13 @@ status_t RpcState::waitForReply(const sp<RpcSession::RpcConnection>& connection,
     memset(&rpcReply, 0, sizeof(RpcWireReply)); // zero because of potential short read
 
     CommandData data(command.bodySize - rpcReplyWireSize);
-    if (!data.valid()) return NO_MEMORY;
+    if (!data.valid()) {
+        // b/404210068 - if we run out of memory, the wire protocol gets messed up.
+        // so shutdown. We would need to read all the transaction data anyway and
+        // send a reply still to gracefully recover.
+        (void)session->shutdownAndWait(false);
+        return NO_MEMORY;
+    }
 
     iovec iovs[]{
             {&rpcReply, rpcReplyWireSize},
@@ -833,7 +860,9 @@ status_t RpcState::processCommand(
     // to understand where the current command ends and the next one begins. We
     // also can't consider it a fatal error because this would allow any client
     // to kill us, so ending the session for misbehaving client.
-    ALOGE("Unknown RPC command %d - terminating session", command.command);
+    ALOGE("Unknown RPC command %d - terminating session. Header: %s. CommandType: %d. numFds: %zu",
+          command.command, HexString(&command, sizeof(command)).c_str(), static_cast<int>(type),
+          ancillaryFds.size());
     (void)session->shutdownAndWait(false);
     return DEAD_OBJECT;
 }
@@ -845,6 +874,10 @@ status_t RpcState::processTransact(
 
     CommandData transactionData(command.bodySize);
     if (!transactionData.valid()) {
+        // b/404210068 - if we run out of memory, the wire protocol gets messed up.
+        // so shutdown. We would need to read all the transaction data anyway and
+        // send a reply still to gracefully recover.
+        (void)session->shutdownAndWait(false);
         return NO_MEMORY;
     }
     iovec iov{transactionData.data(), transactionData.size()};
@@ -1231,36 +1264,18 @@ status_t RpcState::validateParcel(const sp<RpcSession>& session, const Parcel& p
     }
 
     if (rpcFields->mFds && !rpcFields->mFds->empty()) {
-        switch (session->getFileDescriptorTransportMode()) {
-            case RpcSession::FileDescriptorTransportMode::NONE:
-                *errorMsg =
-                        "Parcel has file descriptors, but no file descriptor transport is enabled";
-                return FDS_NOT_ALLOWED;
-            case RpcSession::FileDescriptorTransportMode::UNIX: {
-                constexpr size_t kMaxFdsPerMsg = 253;
-                if (rpcFields->mFds->size() > kMaxFdsPerMsg) {
-                    std::stringstream ss;
-                    ss << "Too many file descriptors in Parcel for unix domain socket: "
-                       << rpcFields->mFds->size() << " (max is " << kMaxFdsPerMsg << ")";
-                    *errorMsg = ss.str();
-                    return BAD_VALUE;
-                }
-                break;
-            }
-            case RpcSession::FileDescriptorTransportMode::TRUSTY: {
-                // Keep this in sync with trusty_ipc.h!!!
-                // We could import that file here on Trusty, but it's not
-                // available on Android
-                constexpr size_t kMaxFdsPerMsg = 8;
-                if (rpcFields->mFds->size() > kMaxFdsPerMsg) {
-                    std::stringstream ss;
-                    ss << "Too many file descriptors in Parcel for Trusty IPC connection: "
-                       << rpcFields->mFds->size() << " (max is " << kMaxFdsPerMsg << ")";
-                    *errorMsg = ss.str();
-                    return BAD_VALUE;
-                }
-                break;
-            }
+        auto fileDescriptorTransportMode = session->getFileDescriptorTransportMode();
+        size_t maxFdsPerMsg = getRpcTransportModeMaxFds(fileDescriptorTransportMode);
+        if (RpcSession::FileDescriptorTransportMode::NONE == fileDescriptorTransportMode) {
+            *errorMsg = "Parcel has file descriptors, but no file descriptor transport is enabled";
+            return FDS_NOT_ALLOWED;
+        }
+        if (rpcFields->mFds->size() > maxFdsPerMsg) {
+            std::stringstream ss;
+            ss << "Too many file descriptors in Parcel: " << rpcFields->mFds->size() << " (max is "
+               << maxFdsPerMsg << ")";
+            *errorMsg = ss.str();
+            return BAD_VALUE;
         }
     }
 
