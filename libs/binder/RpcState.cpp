@@ -746,6 +746,7 @@ status_t RpcState::waitForReply(const sp<RpcSession::RpcConnection>& connection,
                   " sizeofHeader=%zu parcelSize=%" PRId32 " objectTableBytesSize=%zu. Terminating!",
                   command.bodySize, rpcReplyWireSize, rpcReply.parcelDataSize,
                   objectTableBytes->size);
+            (void)session->shutdownAndWait(false);
             return BAD_VALUE;
         }
         objectTableSpan = *maybeSpan;
