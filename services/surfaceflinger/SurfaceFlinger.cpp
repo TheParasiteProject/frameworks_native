@@ -135,6 +135,7 @@
 #include "DisplayHardware/ComposerHal.h"
 #include "DisplayHardware/FramebufferSurface.h"
 #include "DisplayHardware/Hal.h"
+#include "DisplayHardware/VirtualDisplay/VirtualDisplaySurface2.h"
 #include "DisplayHardware/VirtualDisplaySurface.h"
 #include "Effects/Daltonizer.h"
 #include "FpsReporter.h"
@@ -4063,11 +4064,21 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
 
     if (state.isVirtual()) {
         LOG_FATAL_IF(!virtualDisplayIdVariantOpt);
-        auto surface = sp<VirtualDisplaySurface>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
-                                                       state.surface, bqProducer, bqConsumer,
-                                                       state.displayName);
-        displaySurface = surface;
-        producer = std::move(surface);
+        if (FlagManager::getInstance().wb_virtualdisplay2()) {
+            auto surface =
+                    sp<VirtualDisplaySurface2>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
+                                                     state.displayName,
+                                                     sp<Surface>::make(state.surface));
+            displaySurface = surface;
+            producer = surface->getCompositionSurface()->getIGraphicBufferProducer();
+        } else {
+            auto surface =
+                    sp<VirtualDisplaySurface>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
+                                                    state.surface, bqProducer, bqConsumer,
+                                                    state.displayName);
+            displaySurface = surface;
+            producer = std::move(surface);
+        }
     } else {
         ALOGE_IF(state.surface != nullptr,
                  "adding a supported display, but rendering "
