@@ -533,7 +533,8 @@ SurfaceFlinger::SurfaceFlinger(Factory& factory) : SurfaceFlinger(factory, SkipI
     mRefreshRateOverlayShowInMiddle =
             property_get_bool("debug.sf.show_refresh_rate_overlay_in_middle", 0);
 
-    if (!mIsUserBuild && base::GetBoolProperty("debug.sf.enable_transaction_tracing"s, true)) {
+    if (base::GetBoolProperty("ro.debuggable", false) &&
+        base::GetBoolProperty("debug.sf.enable_transaction_tracing"s, true)) {
         mTransactionTracing.emplace();
         mLayerTracing.setTransactionTracing(*mTransactionTracing);
     }
