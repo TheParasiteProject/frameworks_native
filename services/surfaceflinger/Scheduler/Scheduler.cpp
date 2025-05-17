@@ -123,6 +123,7 @@ void Scheduler::setPacesetterDisplay(PhysicalDisplayId pacesetterId) {
         std::scoped_lock lock{mVsyncConfigLock};
         mVsyncConfiguration->reset();
     }
+
     updatePhaseConfiguration(pacesetterId, pacesetterSelectorPtr()->getActiveMode().fps);
 }
 
@@ -989,6 +990,8 @@ void Scheduler::dumpVsync(std::string& out) const {
         base::StringAppendF(&out, "VsyncSchedule for follower %s:\n", to_string(id).c_str());
         display.schedulePtr->dump(out);
     }
+
+    mVsyncModulator->dump(out);
 }
 
 #pragma clang diagnostic push
@@ -1065,11 +1068,12 @@ std::shared_ptr<VsyncSchedule> Scheduler::promotePacesetterDisplayLocked(
         newVsyncSchedulePtr = pacesetter.schedulePtr;
 
         constexpr bool kForce = true;
-        newVsyncSchedulePtr->onDisplayModeChanged(pacesetter.selectorPtr->getActiveMode().modePtr,
-                                                  kForce);
+        const auto pacesetterActiveModePtr = pacesetter.selectorPtr->getActiveMode().modePtr;
+        newVsyncSchedulePtr->onDisplayModeChanged(pacesetterActiveModePtr, kForce);
 
         if (FlagManager::getInstance().pacesetter_selection()) {
             mSchedulerCallback.enableLayerCachingTexturePool(pacesetterId, true);
+            onPacesetterDisplaySizeChanged(pacesetterActiveModePtr->getResolution());
         }
     }
     return newVsyncSchedulePtr;
@@ -1350,8 +1354,8 @@ bool Scheduler::onCompositionPresented(nsecs_t presentTime) {
     return false;
 }
 
-void Scheduler::onActiveDisplayAreaChanged(uint32_t displayArea) {
-    mLayerHistory.setDisplayArea(displayArea);
+void Scheduler::onPacesetterDisplaySizeChanged(ui::Size displaySize) {
+    mLayerHistory.setDisplaySize(displaySize);
 }
 
 void Scheduler::setGameModeFrameRateForUid(FrameRateOverride frameRateOverride) {
