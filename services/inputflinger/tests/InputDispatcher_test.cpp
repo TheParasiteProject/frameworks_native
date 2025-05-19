@@ -15481,18 +15481,16 @@ protected:
 
     const DisplayTopologyGraph mTopology =
             DisplayTopologyGraph::create(/*primaryDisplayId=*/DISPLAY_ID,
-                                         /*adjacencyGraph=*/
+                                         /*topologyGraph=*/
                                          {{DISPLAY_ID,
-                                           {{SECOND_DISPLAY_ID, DisplayTopologyPosition::TOP,
-                                             0.0f}}},
+                                           {{{SECOND_DISPLAY_ID, DisplayTopologyPosition::TOP,
+                                              0.0f}},
+                                            DENSITY_MEDIUM,
+                                            FloatRect(0, -500, 500, 0)}},
                                           {SECOND_DISPLAY_ID,
-                                           {{DISPLAY_ID, DisplayTopologyPosition::BOTTOM, 0.0f}}}},
-                                         /*displaysDensity=*/
-                                         {{DISPLAY_ID, DENSITY_MEDIUM},
-                                          {SECOND_DISPLAY_ID, DENSITY_MEDIUM}},
-                                         /*absoluteDisplayBoundsDp=*/
-                                         {{DISPLAY_ID, FloatRect(0, -500, 500, 0)},
-                                          {SECOND_DISPLAY_ID, FloatRect(0, 0, 500, 5000)}})
+                                           {{{DISPLAY_ID, DisplayTopologyPosition::BOTTOM, 0.0f}},
+                                            DENSITY_MEDIUM,
+                                            FloatRect(0, 0, 500, 5000)}}})
                     .value();
 
     void SetUp() override {
