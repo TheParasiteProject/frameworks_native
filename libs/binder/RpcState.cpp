@@ -568,6 +568,11 @@ status_t RpcState::transactAddress(const sp<RpcSession::RpcConnection>& connecti
     LOG_ALWAYS_FATAL_IF(!data.isForRpc());
     LOG_ALWAYS_FATAL_IF(data.objectsCount() != 0);
 
+    if (!(flags & IBinder::FLAG_ONEWAY)) {
+        LOG_ALWAYS_FATAL_IF(reply == nullptr,
+                            "Reply parcel must be used for synchronous transaction.");
+    }
+
     uint64_t asyncNumber = 0;
 
     if (address != 0) {
@@ -658,8 +663,6 @@ status_t RpcState::transactAddress(const sp<RpcSession::RpcConnection>& connecti
         // Do not wait on result.
         return OK;
     }
-
-    LOG_ALWAYS_FATAL_IF(reply == nullptr, "Reply parcel must be used for synchronous transaction.");
 
     return waitForReply(connection, session, reply);
 }
