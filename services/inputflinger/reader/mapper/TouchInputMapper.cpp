@@ -354,25 +354,7 @@ void TouchInputMapper::resolveExternalStylusPresence() {
 TouchInputMapper::Parameters TouchInputMapper::computeParameters(
         const InputDeviceContext& deviceContext) {
     Parameters parameters;
-    // Use the pointer presentation mode for devices that do not support distinct
-    // multitouch.  The spot-based presentation relies on being able to accurately
-    // locate two or more fingers on the touch pad.
-    parameters.gestureMode = deviceContext.hasInputProperty(INPUT_PROP_SEMI_MT)
-            ? Parameters::GestureMode::SINGLE_TOUCH
-            : Parameters::GestureMode::MULTI_TOUCH;
-
     const PropertyMap& config = deviceContext.getConfiguration();
-    std::optional<std::string> gestureModeString = config.getString("touch.gestureMode");
-    if (gestureModeString.has_value()) {
-        if (*gestureModeString == "single-touch") {
-            parameters.gestureMode = Parameters::GestureMode::SINGLE_TOUCH;
-        } else if (*gestureModeString == "multi-touch") {
-            parameters.gestureMode = Parameters::GestureMode::MULTI_TOUCH;
-        } else if (*gestureModeString != "default") {
-            ALOGW("Invalid value for touch.gestureMode: '%s'", gestureModeString->c_str());
-        }
-    }
-
     parameters.deviceType = computeDeviceType(deviceContext);
 
     parameters.orientationAware =
@@ -466,8 +448,6 @@ TouchInputMapper::Parameters::DeviceType TouchInputMapper::computeDeviceType(
 
 void TouchInputMapper::dumpParameters(std::string& dump) {
     dump += INDENT3 "Parameters:\n";
-
-    dump += INDENT4 "GestureMode: " + ftl::enum_string(mParameters.gestureMode) + "\n";
 
     dump += INDENT4 "DeviceType: " + ftl::enum_string(mParameters.deviceType) + "\n";
 

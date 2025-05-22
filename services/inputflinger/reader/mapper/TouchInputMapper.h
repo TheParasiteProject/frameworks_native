@@ -239,14 +239,6 @@ protected:
 
         std::string uniqueDisplayId;
 
-        enum class GestureMode {
-            SINGLE_TOUCH,
-            MULTI_TOUCH,
-
-            ftl_last = MULTI_TOUCH
-        };
-        GestureMode gestureMode;
-
         bool wake;
 
         // The Universal Stylus Initiative (USI) protocol version supported by this device.
