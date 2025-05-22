@@ -239,14 +239,6 @@ protected:
 
         std::string uniqueDisplayId;
 
-        enum class GestureMode {
-            SINGLE_TOUCH,
-            MULTI_TOUCH,
-
-            ftl_last = MULTI_TOUCH
-        };
-        GestureMode gestureMode;
-
         bool wake;
 
         // The Universal Stylus Initiative (USI) protocol version supported by this device.
@@ -502,12 +494,6 @@ private:
         int32_t scanCode;
     } mCurrentVirtualKey;
 
-    struct PointerDistanceHeapElement {
-        uint32_t currentPointerIndex : 8 {};
-        uint32_t lastPointerIndex : 8 {};
-        uint64_t distance : 48 {}; // squared distance
-    };
-
     std::optional<DisplayViewport> findViewport();
 
     void resetExternalStylus();
@@ -554,12 +540,10 @@ private:
     // method will take care of setting the index and transmuting the action to DOWN or UP
     // it is the first / last pointer to go down / up.
     [[nodiscard]] NotifyMotionArgs dispatchMotion(
-            nsecs_t when, nsecs_t readTime, uint32_t policyFlags, uint32_t source,
-            ui::LogicalDisplayId displayId, int32_t action, int32_t actionButton, int32_t flags,
-            int32_t metaState, int32_t buttonState, const PropertiesArray& properties,
-            const CoordsArray& coords, const IdToIndexArray& idToIndex, BitSet32 idBits,
-            int32_t changedId, float xPrecision, float yPrecision, nsecs_t downTime,
-            MotionClassification classification) const;
+            nsecs_t when, nsecs_t readTime, uint32_t policyFlags, ui::LogicalDisplayId displayId,
+            int32_t action, int32_t actionButton, int32_t flags, int32_t metaState,
+            int32_t buttonState, const PropertiesArray& properties, const CoordsArray& coords,
+            const IdToIndexArray& idToIndex, BitSet32 idBits, int32_t changedId) const;
 
     // Returns if this touch device is a touch screen with an associated display.
     bool isTouchScreen();
