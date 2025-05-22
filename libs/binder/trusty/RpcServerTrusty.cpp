@@ -119,12 +119,14 @@ void RpcServerTrusty::setPerSessionRootObject(
             return nullptr;
         }
 
-        return create_session(std::move(session), &peer.data, sizeof(uuid));
+        const auto& peer_uuid = reinterpret_cast<const trusty_peer_id_uuid&>(peer);
+        return create_session(std::move(session), &peer_uuid.id, sizeof(peer_uuid.id));
     };
-    setPerSessionRootObject(std::move(wrap_create_session));
+    setPerSessionRootObjectInternal(mRpcServer.get(), std::move(wrap_create_session));
 }
 
-void RpcServerTrusty::setPerSessionRootObject(
+void RpcServerTrusty::setPerSessionRootObjectInternal(
+        RpcServer* server,
         std::function<sp<IBinder>(wp<RpcSession> session, const trusty_peer_id& peer,
                                   size_t peer_len)>&& create_session) {
     auto wrap_create_session =
@@ -144,7 +146,7 @@ void RpcServerTrusty::setPerSessionRootObject(
         return create_session(std::move(session), reinterpret_cast<const trusty_peer_id&>(peer_obj),
                               peer_len);
     };
-    mRpcServer->setPerSessionRootObject(std::move(wrap_create_session));
+    server->setPerSessionRootObject(std::move(wrap_create_session));
 }
 
 int RpcServerTrusty::handleConnect(const tipc_port* port, handle_t chan, const uuid* peer,
@@ -152,11 +154,14 @@ int RpcServerTrusty::handleConnect(const tipc_port* port, handle_t chan, const u
     auto* server = reinterpret_cast<RpcServerTrusty*>(const_cast<void*>(port->priv));
 
     auto peer_id = trusty_peer_id_uuid{.kind = TRUSTY_PEER_ID_KIND_UUID, .id = *peer};
-    return handleConnectInternal(server->mRpcServer.get(), chan, &peer_id, sizeof(peer_id), ctx_p);
+    return handleConnectInternal(server->mRpcServer.get(), chan,
+                                 reinterpret_cast<const trusty_peer_id&>(peer_id), sizeof(peer_id),
+                                 ctx_p);
 }
 
 int RpcServerTrusty::handleConnectInternal(RpcServer* rpcServer, handle_t chan,
-                                           const void* addrData, size_t addrDataLen, void** ctx_p) {
+                                           const trusty_peer_id& peer, size_t peer_len,
+                                           void** ctx_p) {
     rpcServer->mShutdownTrigger = FdTrigger::make();
     rpcServer->mConnectingThreads[rpc_this_thread::get_id()] = RpcMaybeThread();
 
@@ -192,12 +197,12 @@ int RpcServerTrusty::handleConnectInternal(RpcServer* rpcServer, handle_t chan,
     android::RpcTransportFd transportFd(std::move(clientFd));
 
     std::array<uint8_t, RpcServer::kRpcAddressSize> addr;
-    if (addrDataLen > RpcServer::kRpcAddressSize) {
+    if (peer_len > RpcServer::kRpcAddressSize) {
         return ERR_BAD_LEN;
     }
-    memcpy(addr.data(), addrData, addrDataLen);
+    memcpy(addr.data(), &peer, peer_len);
     RpcServer::establishConnection(sp<RpcServer>::fromExisting(rpcServer), std::move(transportFd),
-                                   addr, addrDataLen, joinFn);
+                                   addr, peer_len, joinFn);
 
     return rc;
 }
