@@ -2425,6 +2425,11 @@ void TouchInputMapper::assignPointerIds(const RawState& last, RawState& current)
     // match (by distance) for each current pointer.
     // The pointers must have the same tool type but it is possible for them to
     // transition from hovering to touching or vice-versa while retaining the same id.
+    struct PointerDistanceHeapElement {
+        uint32_t currentPointerIndex : 8 {};
+        uint32_t lastPointerIndex : 8 {};
+        uint64_t distanceSq : 48 {};
+    };
     PointerDistanceHeapElement heap[MAX_POINTERS * MAX_POINTERS];
 
     uint32_t heapSize = 0;
@@ -2440,12 +2445,12 @@ void TouchInputMapper::assignPointerIds(const RawState& last, RawState& current)
                 int64_t deltaX = currentPointer.x - lastPointer.x;
                 int64_t deltaY = currentPointer.y - lastPointer.y;
 
-                uint64_t distance = uint64_t(deltaX * deltaX + deltaY * deltaY);
+                uint64_t distanceSq = uint64_t(deltaX * deltaX + deltaY * deltaY);
 
                 // Insert new element into the heap (sift up).
                 heap[heapSize].currentPointerIndex = currentPointerIndex;
                 heap[heapSize].lastPointerIndex = lastPointerIndex;
-                heap[heapSize].distance = distance;
+                heap[heapSize].distanceSq = distanceSq;
                 heapSize += 1;
             }
         }
@@ -2461,11 +2466,11 @@ void TouchInputMapper::assignPointerIds(const RawState& last, RawState& current)
             }
 
             if (childIndex + 1 < heapSize &&
-                heap[childIndex + 1].distance < heap[childIndex].distance) {
+                heap[childIndex + 1].distanceSq < heap[childIndex].distanceSq) {
                 childIndex += 1;
             }
 
-            if (heap[parentIndex].distance <= heap[childIndex].distance) {
+            if (heap[parentIndex].distanceSq <= heap[childIndex].distanceSq) {
                 break;
             }
 
@@ -2478,7 +2483,7 @@ void TouchInputMapper::assignPointerIds(const RawState& last, RawState& current)
         ALOGD("assignPointerIds - initial distance min-heap: size=%d", heapSize);
         for (size_t i = 0; i < heapSize; i++) {
             ALOGD("  heap[%zu]: cur=%" PRIu32 ", last=%" PRIu32 ", distance=%" PRIu64, i,
-                  heap[i].currentPointerIndex, heap[i].lastPointerIndex, heap[i].distance);
+                  heap[i].currentPointerIndex, heap[i].lastPointerIndex, heap[i].distanceSq);
         }
     }
 
@@ -2507,11 +2512,11 @@ void TouchInputMapper::assignPointerIds(const RawState& last, RawState& current)
                     }
 
                     if (childIndex + 1 < heapSize &&
-                        heap[childIndex + 1].distance < heap[childIndex].distance) {
+                        heap[childIndex + 1].distanceSq < heap[childIndex].distanceSq) {
                         childIndex += 1;
                     }
 
-                    if (heap[parentIndex].distance <= heap[childIndex].distance) {
+                    if (heap[parentIndex].distanceSq <= heap[childIndex].distanceSq) {
                         break;
                     }
 
@@ -2524,7 +2529,7 @@ void TouchInputMapper::assignPointerIds(const RawState& last, RawState& current)
                     for (size_t j = 0; j < heapSize; j++) {
                         ALOGD("  heap[%zu]: cur=%" PRIu32 ", last=%" PRIu32 ", distance=%" PRIu64,
                               j, heap[j].currentPointerIndex, heap[j].lastPointerIndex,
-                              heap[j].distance);
+                              heap[j].distanceSq);
                     }
                 }
             }
@@ -2550,8 +2555,8 @@ void TouchInputMapper::assignPointerIds(const RawState& last, RawState& current)
 
             ALOGD_IF(DEBUG_POINTER_ASSIGNMENT,
                      "assignPointerIds - matched: cur=%" PRIu32 ", last=%" PRIu32 ", id=%" PRIu32
-                     ", distance=%" PRIu64,
-                     lastPointerIndex, currentPointerIndex, id, heap[0].distance);
+                     ", distanceSq=%" PRIu64,
+                     lastPointerIndex, currentPointerIndex, id, heap[0].distanceSq);
             break;
         }
     }

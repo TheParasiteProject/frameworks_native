@@ -502,12 +502,6 @@ private:
         int32_t scanCode;
     } mCurrentVirtualKey;
 
-    struct PointerDistanceHeapElement {
-        uint32_t currentPointerIndex : 8 {};
-        uint32_t lastPointerIndex : 8 {};
-        uint64_t distance : 48 {}; // squared distance
-    };
-
     std::optional<DisplayViewport> findViewport();
 
     void resetExternalStylus();
