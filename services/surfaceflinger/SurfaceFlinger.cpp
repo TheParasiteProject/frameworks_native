@@ -5054,11 +5054,10 @@ bool SurfaceFlinger::shouldLatchUnsignaled(const layer_state_t& state, size_t nu
 }
 
 status_t SurfaceFlinger::setTransactionState(
-        const FrameTimelineInfo& frameTimelineInfo, Vector<ComposerState>& states,
-        Vector<DisplayState>& displays, uint32_t flags, const sp<IBinder>& applyToken,
-        InputWindowCommands inputWindowCommands, int64_t desiredPresentTime, bool isAutoTimestamp,
-        const std::vector<client_cache_t>& uncacheBuffers, bool hasListenerCallbacks,
-        const std::vector<ListenerCallbacks>& listenerCallbacks, uint64_t transactionId,
+        SimpleTransactionState podState, const FrameTimelineInfo& frameTimelineInfo,
+        Vector<ComposerState>& states, Vector<DisplayState>& displays,
+        const sp<IBinder>& applyToken, const std::vector<client_cache_t>& uncacheBuffers,
+        const TransactionListenerCallbacks& listenerCallbacks,
         const std::vector<uint64_t>& mergedTransactionIds,
         const std::vector<gui::EarlyWakeupInfo>& earlyWakeupInfos) {
     SFTRACE_CALL();
@@ -5082,11 +5081,13 @@ status_t SurfaceFlinger::setTransactionState(
         display.sanitize(permissions);
     }
 
-    if (!inputWindowCommands.empty() &&
+    if (!podState.mInputWindowCommands.empty() &&
         (permissions & layer_state_t::Permission::ACCESS_SURFACE_FLINGER) == 0) {
         ALOGE("Only privileged callers are allowed to send input commands.");
-        inputWindowCommands.clear();
+        podState.mInputWindowCommands.clear();
     }
+
+    uint32_t flags = podState.mFlags;
 
     if (flags & (eEarlyWakeupStart | eEarlyWakeupEnd)) {
         const bool hasPermission =
@@ -5127,7 +5128,7 @@ status_t SurfaceFlinger::setTransactionState(
                     (layer) ? layer->getDebugName() : std::to_string(resolvedState.state.layerId);
             resolvedState.externalTexture =
                     getExternalTextureFromBufferData(*resolvedState.state.bufferData,
-                                                     layerName.c_str(), transactionId);
+                                                     layerName.c_str(), podState.mId);
             if (resolvedState.externalTexture) {
                 resolvedState.state.bufferData->buffer = resolvedState.externalTexture->getBuffer();
                 if (FlagManager::getInstance().monitor_buffer_fences()) {
@@ -5160,16 +5161,16 @@ status_t SurfaceFlinger::setTransactionState(
                                  displays,
                                  flags,
                                  applyToken,
-                                 std::move(inputWindowCommands),
-                                 desiredPresentTime,
-                                 isAutoTimestamp,
+                                 std::move(podState.mInputWindowCommands),
+                                 podState.mDesiredPresentTime,
+                                 podState.mIsAutoTimestamp,
                                  std::move(uncacheBufferIds),
                                  postTime,
-                                 hasListenerCallbacks,
-                                 listenerCallbacks,
+                                 listenerCallbacks.mHasListenerCallbacks,
+                                 listenerCallbacks.mFlattenedListenerCallbacks,
                                  originPid,
                                  originUid,
-                                 transactionId,
+                                 podState.mId,
                                  mergedTransactionIds,
                                  earlyWakeupInfos};
     state.workloadHint = queuedWorkload;
