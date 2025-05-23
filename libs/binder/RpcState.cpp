@@ -1243,11 +1243,15 @@ status_t RpcState::processDecStrong(const sp<RpcSession::RpcConnection>& connect
     // UP THE PROTOCOL
 
     uint64_t addr = RpcWireAddress::toRaw(body.address);
+
     RpcMutexUniqueLock _l(mNodeMutex);
+    if (mTerminated) return DEAD_OBJECT;
+
     auto it = mNodeForAddress.find(addr);
     if (it == mNodeForAddress.end()) {
-        ALOGE("Unknown binder address %" PRIu64 " for dec strong.", addr);
-        return OK;
+        ALOGE("Unknown binder address %" PRIu64 " for dec strong. Terminating!", addr);
+        (void)session->shutdownAndWait(false);
+        return BAD_VALUE;
     }
 
     sp<IBinder> target = it->second.binder.promote();
