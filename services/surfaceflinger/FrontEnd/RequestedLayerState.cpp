@@ -120,7 +120,6 @@ RequestedLayerState::RequestedLayerState(const LayerCreationArgs& args)
     bufferData = std::make_shared<BufferData>();
     bufferData->frameNumber = 0;
     bufferData->acquireFence = sp<Fence>::make(-1);
-    acquireFenceTime = std::make_shared<FenceTime>(bufferData->acquireFence);
     colorSpaceAgnostic = false;
     frameRateSelectionPriority = Layer::PRIORITY_UNSET;
     shadowRadius = 0.f;
