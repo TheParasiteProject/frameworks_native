@@ -1184,6 +1184,14 @@ processTransactInternalTailCall:
         replyStatus = status;
     }
 
+    // b/404210068 - we see this case with no logs in the VM. Make sure we always log in this
+    // case, so if the bug repros again, we prove that there are missing logs. Try the negative
+    // as well to be extra careful. TODO - delete this code anytime in the future.
+    if (replyStatus == NO_MEMORY || replyStatus == ENOMEM) {
+        ALOGE("Replying to transaction code: %" PRIo32 " error: %s.", transaction->code,
+              statusToString(replyStatus).c_str());
+    }
+
     auto* rpcFields = reply.maybeRpcFields();
     LOG_ALWAYS_FATAL_IF(rpcFields == nullptr);
 
