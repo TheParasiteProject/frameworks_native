@@ -1374,7 +1374,7 @@ status_t SurfaceFlinger::getDisplayStats(const sp<IBinder>& displayToken,
     return NO_ERROR;
 }
 
-void SurfaceFlinger::setDesiredMode(display::DisplayModeRequest&& desiredMode) {
+void SurfaceFlinger::setDesiredMode(display::DisplayModeRequest desiredMode) {
     const auto mode = desiredMode.mode;
     const auto displayId = mode.modePtr->getPhysicalDisplayId();
 
@@ -4486,7 +4486,7 @@ void SurfaceFlinger::requestDisplayModes(std::vector<display::DisplayModeRequest
         if (!display) continue;
 
         if (display->refreshRateSelector().isModeAllowed(request.mode)) {
-            setDesiredMode(std::move(request));
+            setDesiredMode(request);
         } else {
             ALOGV("%s: Mode %d is disallowed for display %s", __func__,
                   ftl::to_underlying(modePtr->getId()), to_string(displayId).c_str());
@@ -8197,8 +8197,12 @@ status_t SurfaceFlinger::applyRefreshRateSelectorPolicy(
     const scheduler::RefreshRateSelector::Policy currentPolicy = selector.getCurrentPolicy();
     ALOGV("Setting desired display mode specs: %s", currentPolicy.toString().c_str());
 
-    if (mScheduler->onDisplayModeChanged(displayId, selector.getActiveMode(),
-                                         /*clearContentRequirements*/ true)) {
+    const auto isPacesetter = FlagManager::getInstance().unify_refresh_rate_callbacks()
+            ? mScheduler->updatePolicyContentRequirements(displayId, selector.getActiveMode(),
+                                                          /*clearContentRequirements*/ true)
+            : mScheduler->onDisplayModeChanged(displayId, selector.getActiveMode(),
+                                               /*clearContentRequirements*/ true);
+    if (isPacesetter) {
         mDisplayModeController.updateKernelIdleTimer(displayId);
     }
 
@@ -8220,7 +8224,16 @@ status_t SurfaceFlinger::applyRefreshRateSelectorPolicy(
         return INVALID_OPERATION;
     }
 
-    setDesiredMode({std::move(preferredMode), .emitEvent = true});
+    if (FlagManager::getInstance().unify_refresh_rate_callbacks() &&
+        mScheduler->updateFrameRateOverrides(scheduler::GlobalSignals{}, preferredFps)) {
+        setDesiredMode({preferredMode, .emitEvent = false});
+        // Update the frameRateOverride and display mode change.
+        mScheduler->onDisplayModeAndFrameRateOverridesChanged(displayId, preferredMode,
+                                                              /*clearContentRequirements*/ false);
+        return NO_ERROR;
+    }
+
+    setDesiredMode({preferredMode, .emitEvent = true});
 
     // Update the frameRateOverride list as the display render rate might have changed
     mScheduler->updateFrameRateOverrides(scheduler::GlobalSignals{}, preferredFps);
