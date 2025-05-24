@@ -1752,7 +1752,7 @@ Dumpstate::RunStatus Dumpstate::dumpstate() {
     // check intermittently (if it's intrerruptable like a foreach on pids) and/or should be wrapped
     // in a consent check (via RUN_SLOW_FUNCTION_WITH_CONSENT_CHECK).
     dump_dev_files("TRUSTY VERSION", "/sys/bus/platform/drivers/trusty", "trusty_version");
-    RunCommand("UPTIME", {"uptime"});
+    RunCommand("UPTIME", {"uptime", "-p"});
     DumpBlockStatFiles();
     DumpFile("MEMORY INFO", "/proc/meminfo");
     RunCommand("CPU INFO", {"top", "-b", "-n", "1", "-H", "-s", "6", "-o",
