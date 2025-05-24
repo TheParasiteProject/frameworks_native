@@ -43,6 +43,8 @@
 #include <gui/ISurfaceComposer.h>
 #include <gui/ITransactionCompletedListener.h>
 #include <gui/LayerState.h>
+#include <gui/SimpleTransactionState.h>
+#include <gui/TransactionState.h>
 #include <layerproto/LayerProtoHeader.h>
 #include <math/mat4.h>
 #include <renderengine/LayerSettings.h>
@@ -117,6 +119,7 @@
 #include <aidl/android/hardware/graphics/common/DisplayHotplugEvent.h>
 #include <aidl/android/hardware/graphics/composer3/RefreshRateChangedDebugData.h>
 #include "Client.h"
+#include "gui/SimpleTransactionState.h"
 
 using namespace android::surfaceflinger;
 
@@ -545,12 +548,11 @@ private:
 
     sp<IBinder> getPhysicalDisplayToken(PhysicalDisplayId displayId) const;
     status_t setTransactionState(
-            const FrameTimelineInfo& frameTimelineInfo, Vector<ComposerState>& state,
-            Vector<DisplayState>& displays, uint32_t flags, const sp<IBinder>& applyToken,
-            InputWindowCommands inputWindowCommands, int64_t desiredPresentTime,
-            bool isAutoTimestamp, const std::vector<client_cache_t>& uncacheBuffers,
-            bool hasListenerCallbacks, const std::vector<ListenerCallbacks>& listenerCallbacks,
-            uint64_t transactionId, const std::vector<uint64_t>& mergedTransactionIds,
+            SimpleTransactionState podState, const FrameTimelineInfo& frameTimelineInfo,
+            Vector<ComposerState>& state, Vector<DisplayState>& displays,
+            const sp<IBinder>& applyToken, const std::vector<client_cache_t>& uncacheBuffers,
+            const TransactionListenerCallbacks& listenerCallbacks,
+            const std::vector<uint64_t>& mergedTransactionIds,
             const std::vector<gui::EarlyWakeupInfo>& earlyWakeupInfos) override;
     void bootFinished();
     status_t getSupportedFrameTimestamps(std::vector<FrameEvent>* outSupported) const;
@@ -724,7 +726,7 @@ private:
     // Show hdr sdr ratio overlay
     bool mHdrSdrRatioOverlay = false;
 
-    void setDesiredMode(display::DisplayModeRequest&&) REQUIRES(mStateLock);
+    void setDesiredMode(display::DisplayModeRequest) REQUIRES(mStateLock);
 
     status_t setActiveModeFromBackdoor(const sp<display::DisplayToken>&, DisplayModeId, Fps minFps,
                                        Fps maxFps);
@@ -890,7 +892,7 @@ private:
         std::optional<uint32_t> rootLayerId{std::nullopt};
 
         // IDs of layers that will be excluded from the screenshot
-        std::unordered_set<uint32_t> excludeLayerIds{{}};
+        std::unordered_set<uint32_t> excludeLayerIds{};
 
         // If true, transform is inverted from the parent layer snapshot
         bool childrenOnly{false};
@@ -906,9 +908,11 @@ private:
      */
     struct ScreenshotArgs {
         // Contains the sequence ID of the parent layer if the screenshot is
-        // initiated though captureLayers(), or the display that the render
-        // result will be on if initiated through captureDisplay()
-        std::variant<int32_t, wp<const DisplayDevice>> captureTypeVariant;
+        // initiated though captureLayers(), or the displayToken or displayID
+        // that the render result will be on if initiated through captureDisplay().
+        // The monostate type is used to denote that the screenshot is initiated
+        // for region sampling.
+        std::variant<std::monostate, int32_t, sp<IBinder>, DisplayId> captureTypeVariant;
 
         // Display ID of the display the result will be on
         ftl::Optional<DisplayIdVariant> displayIdVariant{std::nullopt};
@@ -965,12 +969,12 @@ private:
         std::string debugName;
     };
 
-    bool getSnapshotsFromMainThread(ScreenshotArgs& args);
+    status_t setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args);
 
     void captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat,
                              const sp<IScreenCaptureListener>&);
 
-    bool getDisplayStateOnMainThread(ScreenshotArgs& args) REQUIRES(kMainThreadContext);
+    status_t setScreenshotDisplayState(ScreenshotArgs& args) REQUIRES(kMainThreadContext);
 
     ftl::SharedFuture<FenceResult> captureScreenshot(
             ScreenshotArgs& args, const std::shared_ptr<renderengine::ExternalTexture>& buffer,
