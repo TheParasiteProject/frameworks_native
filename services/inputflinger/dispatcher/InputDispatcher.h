@@ -39,6 +39,7 @@
 #include "trace/InputTracingBackendInterface.h"
 
 #include <attestation/HmacKeyManager.h>
+#include <ftl/flags.h>
 #include <gui/InputApplication.h>
 #include <gui/WindowInfosUpdate.h>
 #include <input/Input.h>
@@ -582,8 +583,8 @@ private:
     std::condition_variable mInjectionResultAvailable;
     bool shouldRejectInjectedMotionLocked(const MotionEvent& motion, DeviceId deviceId,
                                           ui::LogicalDisplayId displayId,
-                                          std::optional<gui::Uid> targetUid, int32_t flags)
-            REQUIRES(mLock);
+                                          std::optional<gui::Uid> targetUid,
+                                          ftl::Flags<MotionFlag> flags) REQUIRES(mLock);
     void setInjectionResult(const EventEntry& entry,
                             android::os::InputEventInjectionResult injectionResult);
     void transformMotionEntryForInjectionLocked(MotionEntry&,

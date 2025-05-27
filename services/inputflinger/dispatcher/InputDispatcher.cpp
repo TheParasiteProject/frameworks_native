@@ -715,7 +715,7 @@ std::vector<TouchedWindow> getHoveringWindowsLocked(const TouchState* oldState,
             if (CC_UNLIKELY(maskedAction != AMOTION_EVENT_ACTION_HOVER_MOVE)) {
                 android::base::LogSeverity severity = android::base::LogSeverity::FATAL;
                 if (!input_flags::a11y_crash_on_inconsistent_event_stream() &&
-                    entry.flags & AMOTION_EVENT_FLAG_IS_ACCESSIBILITY_EVENT) {
+                    entry.flags.test(MotionFlag::IS_ACCESSIBILITY_EVENT)) {
                     // The Accessibility injected touch exploration event stream
                     // has known inconsistencies, so log ERROR instead of
                     // crashing the device with FATAL.
@@ -1632,12 +1632,19 @@ std::shared_ptr<KeyEntry> InputDispatcher::synthesizeKeyRepeatLocked(nsecs_t cur
     uint32_t policyFlags = entry->policyFlags &
             (POLICY_FLAG_RAW_MASK | POLICY_FLAG_PASS_TO_USER | POLICY_FLAG_TRUSTED);
 
+    int32_t resolvedFlags = entry->flags & ~AKEY_EVENT_FLAG_LONG_PRESS;
+    const int32_t newRepeatCount = entry->repeatCount + 1;
+    if (newRepeatCount == 1) {
+        // This flag is only set for the first key repeat
+        resolvedFlags |= AKEY_EVENT_FLAG_LONG_PRESS;
+    }
+
     std::shared_ptr<KeyEntry> newEntry =
             std::make_unique<KeyEntry>(mIdGenerator.nextId(), /*injectionState=*/nullptr,
                                        currentTime, entry->deviceId, entry->source,
-                                       entry->displayId, policyFlags, entry->action, entry->flags,
+                                       entry->displayId, policyFlags, entry->action, resolvedFlags,
                                        entry->keyCode, entry->scanCode, entry->metaState,
-                                       entry->repeatCount + 1, entry->downTime);
+                                       newRepeatCount, entry->downTime);
 
     newEntry->syntheticRepeat = true;
     if (mTracer) {
@@ -2178,12 +2185,13 @@ void InputDispatcher::dispatchDragLocked(nsecs_t currentTime,
 void InputDispatcher::logOutboundMotionDetails(const char* prefix, const MotionEntry& entry) {
     if (DEBUG_OUTBOUND_EVENT_DETAILS) {
         ALOGD("%seventTime=%" PRId64 "ns, deviceId=%d, source=%s, displayId=%s, policyFlags=0x%x, "
-              "action=%s, actionButton=0x%x, flags=0x%x, "
+              "action=%s, actionButton=0x%x, flags=%s, "
               "metaState=0x%x, buttonState=0x%x, downTime=%" PRId64 "ns",
               prefix, entry.eventTime, entry.deviceId,
               inputEventSourceToString(entry.source).c_str(), entry.displayId.toString().c_str(),
               entry.policyFlags, MotionEvent::actionToString(entry.action).c_str(),
-              entry.actionButton, entry.flags, entry.metaState, entry.buttonState, entry.downTime);
+              entry.actionButton, entry.flags.string().c_str(), entry.metaState, entry.buttonState,
+              entry.downTime);
 
         for (uint32_t i = 0; i < entry.getPointerCount(); i++) {
             ALOGD("  Pointer %d: id=%d, toolType=%s, "
@@ -3434,7 +3442,7 @@ void InputDispatcher::enqueueDispatchEntryLocked(const std::shared_ptr<Connectio
                 // Determine the resolved motion entry.
                 const MotionEntry& motionEntry = static_cast<const MotionEntry&>(*eventEntry);
                 int32_t resolvedAction = motionEntry.action;
-                int32_t resolvedFlags = motionEntry.flags;
+                ftl::Flags<MotionFlag> resolvedFlags = motionEntry.flags;
 
                 if (inputTarget.dispatchMode == InputTarget::DispatchMode::OUTSIDE) {
                     resolvedAction = AMOTION_EVENT_ACTION_OUTSIDE;
@@ -3458,20 +3466,20 @@ void InputDispatcher::enqueueDispatchEntryLocked(const std::shared_ptr<Connectio
                 }
 
                 if (resolvedAction == AMOTION_EVENT_ACTION_CANCEL) {
-                    resolvedFlags |= AMOTION_EVENT_FLAG_CANCELED;
+                    resolvedFlags |= MotionFlag::CANCELED;
                 }
                 if (dispatchEntry->targetFlags.test(InputTarget::Flags::WINDOW_IS_OBSCURED)) {
-                    resolvedFlags |= AMOTION_EVENT_FLAG_WINDOW_IS_OBSCURED;
+                    resolvedFlags |= MotionFlag::WINDOW_IS_OBSCURED;
                 }
                 if (dispatchEntry->targetFlags.test(
                             InputTarget::Flags::WINDOW_IS_PARTIALLY_OBSCURED)) {
-                    resolvedFlags |= AMOTION_EVENT_FLAG_WINDOW_IS_PARTIALLY_OBSCURED;
+                    resolvedFlags |= MotionFlag::WINDOW_IS_PARTIALLY_OBSCURED;
                 }
                 if (dispatchEntry->targetFlags.test(InputTarget::Flags::NO_FOCUS_CHANGE)) {
-                    resolvedFlags |= AMOTION_EVENT_FLAG_NO_FOCUS_CHANGE;
+                    resolvedFlags |= MotionFlag::NO_FOCUS_CHANGE;
                 }
 
-                dispatchEntry->resolvedFlags = resolvedFlags;
+                dispatchEntry->resolvedMotionFlags = resolvedFlags;
                 if (resolvedAction != motionEntry.action) {
                     std::optional<std::vector<PointerProperties>> usingProperties;
                     std::optional<std::vector<PointerCoords>> usingCoords;
@@ -3554,12 +3562,12 @@ void InputDispatcher::enqueueDispatchEntryLocked(const std::shared_ptr<Connectio
             }
 
             if (!connection->inputState.trackMotion(*resolvedMotion,
-                                                    dispatchEntry->resolvedFlags)) {
+                                                    dispatchEntry->resolvedMotionFlags)) {
                 LOG(WARNING) << "channel " << connection->getInputChannelName()
                              << "~ dropping inconsistent event: " << *dispatchEntry;
                 return; // skip the inconsistent event
             }
-            if ((dispatchEntry->resolvedFlags & AMOTION_EVENT_FLAG_NO_FOCUS_CHANGE) &&
+            if (dispatchEntry->resolvedMotionFlags.test(MotionFlag::NO_FOCUS_CHANGE) &&
                 (resolvedMotion->policyFlags & POLICY_FLAG_TRUSTED)) {
                 // Skip reporting pointer down outside focus to the policy.
                 break;
@@ -3732,7 +3740,7 @@ status_t InputDispatcher::publishMotionEvent(Connection& connection,
             .publishMotionEvent(dispatchEntry.seq, motionEntry.id, motionEntry.deviceId,
                                 motionEntry.source, motionEntry.displayId, std::move(hmac),
                                 motionEntry.action, motionEntry.actionButton,
-                                dispatchEntry.resolvedFlags, motionEntry.edgeFlags,
+                                dispatchEntry.resolvedMotionFlags.get(), motionEntry.edgeFlags,
                                 motionEntry.metaState, motionEntry.buttonState,
                                 motionEntry.classification, dispatchEntry.transform,
                                 motionEntry.xPrecision, motionEntry.yPrecision,
@@ -3768,14 +3776,14 @@ void InputDispatcher::startDispatchCycleLocked(nsecs_t currentTime,
                         << connection->getInputChannelName();
 
                 // Publish the key event.
-                status = connection->inputPublisher
-                                 .publishKeyEvent(dispatchEntry->seq, keyEntry.id,
-                                                  keyEntry.deviceId, keyEntry.source,
-                                                  keyEntry.displayId, std::move(hmac),
-                                                  keyEntry.action, dispatchEntry->resolvedFlags,
-                                                  keyEntry.keyCode, keyEntry.scanCode,
-                                                  keyEntry.metaState, keyEntry.repeatCount,
-                                                  keyEntry.downTime, keyEntry.eventTime);
+                status =
+                        connection->inputPublisher
+                                .publishKeyEvent(dispatchEntry->seq, keyEntry.id, keyEntry.deviceId,
+                                                 keyEntry.source, keyEntry.displayId,
+                                                 std::move(hmac), keyEntry.action, keyEntry.flags,
+                                                 keyEntry.keyCode, keyEntry.scanCode,
+                                                 keyEntry.metaState, keyEntry.repeatCount,
+                                                 keyEntry.downTime, keyEntry.eventTime);
                 if (mTracer) {
                     ensureEventTraced(keyEntry);
                     mTracer->traceEventDispatch(*dispatchEntry, *keyEntry.traceTracker);
@@ -3914,14 +3922,14 @@ const std::array<uint8_t, 32> InputDispatcher::getSignature(
     VerifiedMotionEvent verifiedEvent =
             verifiedMotionEventFromMotionEntry(motionEntry, dispatchEntry.rawTransform);
     verifiedEvent.actionMasked = actionMasked;
-    verifiedEvent.flags = dispatchEntry.resolvedFlags & VERIFIED_MOTION_EVENT_FLAGS;
+    verifiedEvent.flags = dispatchEntry.resolvedMotionFlags & VERIFIED_MOTION_EVENT_FLAGS;
     return sign(verifiedEvent);
 }
 
 const std::array<uint8_t, 32> InputDispatcher::getSignature(
         const KeyEntry& keyEntry, const DispatchEntry& dispatchEntry) const {
     VerifiedKeyEvent verifiedEvent = verifiedKeyEventFromKeyEntry(keyEntry);
-    verifiedEvent.flags = dispatchEntry.resolvedFlags & VERIFIED_KEY_EVENT_FLAGS;
+    verifiedEvent.flags = keyEntry.flags & VERIFIED_KEY_EVENT_FLAGS;
     return sign(verifiedEvent);
 }
 
@@ -4583,8 +4591,8 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs& args) {
 
             MotionEvent event;
             event.initialize(args.id, args.deviceId, args.source, args.displayId, INVALID_HMAC,
-                             args.action, args.actionButton, args.flags, args.edgeFlags,
-                             args.metaState, args.buttonState, args.classification,
+                             args.action, args.actionButton, ftl::Flags<MotionFlag>(args.flags),
+                             args.edgeFlags, args.metaState, args.buttonState, args.classification,
                              displayTransform, args.xPrecision, args.yPrecision,
                              args.xCursorPosition, args.yCursorPosition, displayTransform,
                              args.downTime, args.eventTime, args.getPointerCount(),
@@ -4603,11 +4611,12 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs& args) {
                 std::make_unique<MotionEntry>(args.id, /*injectionState=*/nullptr, args.eventTime,
                                               args.deviceId, args.source, args.displayId,
                                               policyFlags, args.action, args.actionButton,
-                                              args.flags, args.metaState, args.buttonState,
-                                              args.classification, args.edgeFlags, args.xPrecision,
-                                              args.yPrecision, args.xCursorPosition,
-                                              args.yCursorPosition, args.downTime,
-                                              args.pointerProperties, args.pointerCoords);
+                                              ftl::Flags<MotionFlag>(args.flags), args.metaState,
+                                              args.buttonState, args.classification, args.edgeFlags,
+                                              args.xPrecision, args.yPrecision,
+                                              args.xCursorPosition, args.yCursorPosition,
+                                              args.downTime, args.pointerProperties,
+                                              args.pointerCoords);
         if (mTracer) {
             newEntry->traceTracker = mTracer->traceInboundEvent(*newEntry);
         }
@@ -4720,7 +4729,7 @@ bool InputDispatcher::shouldRejectInjectedMotionLocked(const MotionEvent& motion
                                                        DeviceId deviceId,
                                                        ui::LogicalDisplayId displayId,
                                                        std::optional<gui::Uid> targetUid,
-                                                       int32_t flags) {
+                                                       ftl::Flags<MotionFlag> flags) {
     // Don't verify targeted injection, since it will only affect the caller's
     // window, and the windows are typically destroyed at the end of the test.
     if (targetUid.has_value()) {
@@ -4740,7 +4749,7 @@ bool InputDispatcher::shouldRejectInjectedMotionLocked(const MotionEvent& motion
             verifier.processMovement(deviceId, motionEvent.getSource(), motionEvent.getAction(),
                                      motionEvent.getActionButton(), motionEvent.getPointerCount(),
                                      motionEvent.getPointerProperties(),
-                                     motionEvent.getSamplePointerCoords(), flags,
+                                     motionEvent.getSamplePointerCoords(), flags.get(),
                                      motionEvent.getButtonState());
     if (!result.ok()) {
         logDispatchStateLocked();
@@ -4838,7 +4847,7 @@ InputEventInjectionResult InputDispatcher::injectInputEvent(const InputEvent* ev
                     isPointerEvent && (event->getDisplayId() == ui::LogicalDisplayId::INVALID)
                     ? ui::LogicalDisplayId::DEFAULT
                     : event->getDisplayId();
-            int32_t flags = motionEvent.getFlags();
+            ftl::Flags<MotionFlag> flags = motionEvent.getFlags();
 
             if (!(policyFlags & POLICY_FLAG_FILTERED)) {
                 nsecs_t eventTime = motionEvent.getEventTime();
@@ -4853,11 +4862,11 @@ InputEventInjectionResult InputDispatcher::injectInputEvent(const InputEvent* ev
             }
 
             if (policyFlags & POLICY_FLAG_INJECTED_FROM_ACCESSIBILITY) {
-                flags |= AMOTION_EVENT_FLAG_IS_ACCESSIBILITY_EVENT;
+                flags |= MotionFlag::IS_ACCESSIBILITY_EVENT;
             }
 
             if (policyFlags & POLICY_FLAG_INJECTED_FROM_ACCESSIBILITY_TOOL) {
-                flags |= AMOTION_EVENT_FLAG_INJECTED_FROM_ACCESSIBILITY_TOOL;
+                flags |= MotionFlag::INJECTED_FROM_ACCESSIBILITY_TOOL;
             }
 
             mLock.lock();
