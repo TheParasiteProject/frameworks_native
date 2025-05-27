@@ -26,7 +26,6 @@
 #include <compositionengine/impl/DumpHelpers.h>
 #include <compositionengine/impl/OutputLayer.h>
 #include <compositionengine/impl/RenderSurface.h>
-#include <ui/DisplayId.h>
 
 // TODO(b/129481165): remove the #pragma below and fix conversion issues
 #pragma clang diagnostic push
@@ -266,12 +265,6 @@ bool Display::chooseCompositionStrategy(
     const bool requiresClientComposition = anyLayersRequireClientComposition();
 
     const TimePoint hwcValidateStartTime = TimePoint::now();
-
-    const auto physicalDisplayId = getDisplayIdVariant().and_then(asPhysicalDisplayId);
-
-    if (physicalDisplayId && getState().readbackBuffer) {
-        hwc.setReadbackBuffer(*physicalDisplayId, getState().readbackBuffer, Fence::NO_FENCE);
-    }
 
     if (status_t result = hwc.getDeviceCompositionChanges(*halDisplayId, requiresClientComposition,
                                                           getState().earliestPresentTime,

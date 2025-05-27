@@ -367,11 +367,6 @@ public:
     Error startHdcpNegotiation(Display, const aidl::android::hardware::drm::HdcpLevels&) override;
     Error getLuts(Display, const std::vector<sp<GraphicBuffer>>&,
                   std::vector<aidl::android::hardware::graphics::composer3::Luts>*) override;
-    Error getReadbackBufferAttributes(Display display,
-                                      V3_0::ReadbackBufferAttributes* outAttributes) override;
-    Error setReadbackBuffer(Display display, const sp<GraphicBuffer>& buffer,
-                            int acquireFence) override;
-    Error getReadbackBufferFence(Display display, int* outReleaseFence) override;
 
 private:
     class CommandWriter : public CommandWriterBase {
