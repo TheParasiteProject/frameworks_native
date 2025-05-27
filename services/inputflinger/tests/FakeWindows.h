@@ -90,6 +90,8 @@ public:
     std::unique_ptr<MotionEvent> consumeMotion();
     void consumeMotionEvent(const ::testing::Matcher<MotionEvent>& matcher);
 
+    void consumeKeyEvent(const ::testing::Matcher<KeyEvent>& matcher);
+
     void consumeFocusEvent(bool hasFocus, bool inTouchMode);
     void consumeCaptureEvent(bool hasCapture);
     void consumeDragEvent(bool isExiting, float x, float y);

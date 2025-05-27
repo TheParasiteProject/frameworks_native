@@ -412,8 +412,8 @@ std::unique_ptr<DispatchEntry> createDispatchEntry(const IdGenerator& idGenerato
     const sp<WindowInfoHandle> win = inputTarget.windowHandle;
     const std::optional<int32_t> windowId =
             win ? std::make_optional(win->getInfo()->id) : std::nullopt;
-    // Assume the only targets that are not associated with a window are global monitors, and use
-    // the system UID for global monitors for tracing purposes.
+    // Assume the only targets that are not associated with a window are focus input monitors, and
+    // use the system UID for monitors for tracing purposes.
     const gui::Uid uid = win ? win->getInfo()->ownerUid : gui::Uid(AID_SYSTEM);
 
     if (inputTarget.useDefaultPointerTransform() && !zeroCoords) {
@@ -1935,7 +1935,7 @@ bool InputDispatcher::dispatchKeyLocked(nsecs_t currentTime, std::shared_ptr<con
                           InputTarget::Flags::FOREGROUND, getDownTime(*entry), inputTargets);
 
     // Add monitor channels from event's or focused display.
-    addGlobalMonitoringTargetsLocked(inputTargets, displayId);
+    addFocusInputMonitoringTargetsLocked(inputTargets, displayId);
 
     if (mTracer) {
         ensureEventTraced(*entry);
@@ -2145,8 +2145,10 @@ bool InputDispatcher::dispatchMotionLocked(nsecs_t currentTime,
         return true;
     }
 
-    // Add monitor channels from event's or focused display.
-    addGlobalMonitoringTargetsLocked(inputTargets, getTargetDisplayId(*entry));
+    if (!isPointerEvent) {
+        // Add monitor channels from event's or focused display.
+        addFocusInputMonitoringTargetsLocked(inputTargets, getTargetDisplayId(*entry));
+    }
 
     if (mTracer) {
         ensureEventTraced(*entry);
@@ -3042,32 +3044,30 @@ void InputDispatcher::DispatcherTouchState::addPointerWindowTarget(
     }
 }
 
-void InputDispatcher::addGlobalMonitoringTargetsLocked(std::vector<InputTarget>& inputTargets,
-                                                       ui::LogicalDisplayId displayId) {
+void InputDispatcher::addFocusInputMonitoringTargetsLocked(std::vector<InputTarget>& inputTargets,
+                                                           ui::LogicalDisplayId displayId) {
     mConnectionManager
-            .forEachGlobalMonitorConnection(displayId,
-                                            [&](const std::shared_ptr<Connection>& connection) {
-                                                if (!connection->responsive) {
-                                                    ALOGW("Ignoring unrsponsive monitor: %s",
-                                                          connection->getInputChannelName()
-                                                                  .c_str());
-                                                    return;
-                                                }
+            .forEachMonitorConnection(displayId,
+                                      [&](const std::shared_ptr<Connection>& connection) {
+                                          if (!connection->responsive) {
+                                              ALOGW("Ignoring unresponsive monitor: %s",
+                                                    connection->getInputChannelName().c_str());
+                                              return;
+                                          }
 
-                                                InputTarget target{connection};
-                                                // target.firstDownTimeInTarget is not set for
-                                                // global monitors. It is only required in split
-                                                // touch and global monitoring works as intended
-                                                // even without setting firstDownTimeInTarget. Since
-                                                // global monitors don't have windows, use the
-                                                // display transform as the raw transform.
-                                                base::ScopedLockAssertion assumeLocked(mLock);
-                                                target.rawTransform =
-                                                        mWindowInfos.getDisplayTransform(displayId);
-                                                target.setDefaultPointerTransform(
-                                                        target.rawTransform);
-                                                inputTargets.push_back(target);
-                                            });
+                                          InputTarget target{connection};
+                                          // target.firstDownTimeInTarget is not set for
+                                          // monitors. It is only required in split
+                                          // touch. Focus event monitoring works as intended
+                                          // even without setting firstDownTimeInTarget. Since
+                                          // monitors don't have windows, use the
+                                          // display transform as the raw transform.
+                                          base::ScopedLockAssertion assumeLocked(mLock);
+                                          target.rawTransform =
+                                                  mWindowInfos.getDisplayTransform(displayId);
+                                          target.setDefaultPointerTransform(target.rawTransform);
+                                          inputTargets.push_back(target);
+                                      });
 }
 
 /**
@@ -4108,12 +4108,10 @@ void InputDispatcher::synthesizeCancelationEventsForAllConnectionsLocked(
 
 void InputDispatcher::synthesizeCancelationEventsForMonitorsLocked(
         const CancelationOptions& options) {
-    mConnectionManager.forEachGlobalMonitorConnection(
-            [&](const std::shared_ptr<Connection>& connection) {
-                base::ScopedLockAssertion assumeLocked(mLock);
-                synthesizeCancelationEventsForConnectionLocked(connection, options,
-                                                               /*window=*/nullptr);
-            });
+    mConnectionManager.forEachMonitorConnection([&](const std::shared_ptr<Connection>& connection) {
+        base::ScopedLockAssertion assumeLocked(mLock);
+        synthesizeCancelationEventsForConnectionLocked(connection, options, /*window=*/nullptr);
+    });
 }
 
 void InputDispatcher::synthesizeCancelationEventsForWindowLocked(
@@ -6243,7 +6241,7 @@ Result<std::unique_ptr<InputChannel>> InputDispatcher::createInputChannel(const 
     return clientChannel;
 }
 
-Result<std::unique_ptr<InputChannel>> InputDispatcher::createInputMonitor(
+Result<std::unique_ptr<InputChannel>> InputDispatcher::createFocusInputMonitor(
         ui::LogicalDisplayId displayId, const std::string& name, gui::Pid pid) {
     std::unique_ptr<InputChannel> serverChannel;
     std::unique_ptr<InputChannel> clientChannel;
@@ -6256,16 +6254,16 @@ Result<std::unique_ptr<InputChannel>> InputDispatcher::createInputMonitor(
         std::scoped_lock _l(mLock);
 
         if (displayId < ui::LogicalDisplayId::DEFAULT) {
-            return base::Error(BAD_VALUE) << "Attempted to create input monitor with name " << name
-                                          << " without a specified display.";
+            return base::Error(BAD_VALUE) << "Attempted to create focus input monitor with name "
+                                          << name << " without a specified display.";
         }
 
         const sp<IBinder>& token = serverChannel->getConnectionToken();
         std::function<int(int events)> callback = std::bind(&InputDispatcher::handleReceiveCallback,
                                                             this, std::placeholders::_1, token);
 
-        mConnectionManager.createGlobalInputMonitor(displayId, std::move(serverChannel),
-                                                    mIdGenerator, pid, callback);
+        mConnectionManager.createFocusInputMonitor(displayId, std::move(serverChannel),
+                                                   mIdGenerator, pid, callback);
     }
 
     // Wake the looper because some connections have changed.
@@ -6307,14 +6305,15 @@ status_t InputDispatcher::removeInputChannelLocked(const std::shared_ptr<Connect
 }
 
 void InputDispatcher::ConnectionManager::removeMonitorChannel(const sp<IBinder>& connectionToken) {
-    for (auto it = mGlobalMonitorsByDisplay.begin(); it != mGlobalMonitorsByDisplay.end();) {
+    for (auto it = mFocusInputMonitorsByDisplay.begin();
+         it != mFocusInputMonitorsByDisplay.end();) {
         auto& [displayId, monitors] = *it;
         std::erase_if(monitors, [connectionToken](const Monitor& monitor) {
             return monitor.connection->getToken() == connectionToken;
         });
 
         if (monitors.empty()) {
-            it = mGlobalMonitorsByDisplay.erase(it);
+            it = mFocusInputMonitorsByDisplay.erase(it);
         } else {
             ++it;
         }
@@ -6456,7 +6455,7 @@ void InputDispatcher::setDisplayEligibilityForPointerCapture(ui::LogicalDisplayI
 
 std::optional<gui::Pid> InputDispatcher::ConnectionManager::findMonitorPidByToken(
         const sp<IBinder>& token) const {
-    for (const auto& [_, monitors] : mGlobalMonitorsByDisplay) {
+    for (const auto& [_, monitors] : mFocusInputMonitorsByDisplay) {
         for (const Monitor& monitor : monitors) {
             if (monitor.connection->getToken() == token) {
                 return monitor.pid;
@@ -7360,27 +7359,27 @@ InputDispatcher::ConnectionManager::~ConnectionManager() {
     }
 }
 
-void InputDispatcher::ConnectionManager::forEachGlobalMonitorConnection(
+void InputDispatcher::ConnectionManager::forEachMonitorConnection(
         std::function<void(const std::shared_ptr<Connection>&)> f) const {
-    for (const auto& [_, monitors] : mGlobalMonitorsByDisplay) {
+    for (const auto& [_, monitors] : mFocusInputMonitorsByDisplay) {
         for (const Monitor& monitor : monitors) {
             f(monitor.connection);
         }
     }
 }
 
-void InputDispatcher::ConnectionManager::forEachGlobalMonitorConnection(
+void InputDispatcher::ConnectionManager::forEachMonitorConnection(
         ui::LogicalDisplayId displayId,
         std::function<void(const std::shared_ptr<Connection>&)> f) const {
-    auto monitorsIt = mGlobalMonitorsByDisplay.find(displayId);
-    if (monitorsIt == mGlobalMonitorsByDisplay.end()) return;
+    auto monitorsIt = mFocusInputMonitorsByDisplay.find(displayId);
+    if (monitorsIt == mFocusInputMonitorsByDisplay.end()) return;
 
     for (const Monitor& monitor : monitorsIt->second) {
         f(monitor.connection);
     }
 }
 
-void InputDispatcher::ConnectionManager::createGlobalInputMonitor(
+void InputDispatcher::ConnectionManager::createFocusInputMonitor(
         ui::LogicalDisplayId displayId, std::unique_ptr<InputChannel>&& inputChannel,
         const android::IdGenerator& idGenerator, gui::Pid pid, std::function<int(int)> callback) {
     const int fd = inputChannel->getFd();
@@ -7391,7 +7390,7 @@ void InputDispatcher::ConnectionManager::createGlobalInputMonitor(
     if (!inserted) {
         ALOGE("Created a new connection, but the token %p is already known", token.get());
     }
-    mGlobalMonitorsByDisplay[displayId].emplace_back(connection, pid);
+    mFocusInputMonitorsByDisplay[displayId].emplace_back(connection, pid);
 
     mLooper->addFd(fd, 0, ALOOPER_EVENT_INPUT, sp<LooperEventCallback>::make(callback), nullptr);
 }
@@ -7427,9 +7426,9 @@ status_t InputDispatcher::ConnectionManager::removeConnection(
 
 std::string InputDispatcher::ConnectionManager::dump(nsecs_t currentTime) const {
     std::string dump;
-    if (!mGlobalMonitorsByDisplay.empty()) {
-        for (const auto& [displayId, monitors] : mGlobalMonitorsByDisplay) {
-            dump += StringPrintf("Global monitors on display %s:\n", displayId.toString().c_str());
+    if (!mFocusInputMonitorsByDisplay.empty()) {
+        for (const auto& [displayId, monitors] : mFocusInputMonitorsByDisplay) {
+            dump += StringPrintf("Focus monitors on display %s:\n", displayId.toString().c_str());
             const size_t numMonitors = monitors.size();
             for (size_t i = 0; i < numMonitors; i++) {
                 const Monitor& monitor = monitors[i];
@@ -7440,7 +7439,7 @@ std::string InputDispatcher::ConnectionManager::dump(nsecs_t currentTime) const 
             }
         }
     } else {
-        dump += "Global Monitors: <none>\n";
+        dump += "Focus Monitors: <none>\n";
     }
 
     if (!mConnectionsByToken.empty()) {
