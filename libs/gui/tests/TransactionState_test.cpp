@@ -163,7 +163,8 @@ TransactionState createTransactionStateForTest() {
         auto* callbacks = new std::vector<ListenerCallbacks>();
         for (int i = 0; i < 5; i++) {
             callbacks->emplace_back(sp<BBinder>::make(),
-                                    std::unordered_set<CallbackId, CallbackIdHash>{});
+                                    std::unordered_set<CallbackId, CallbackIdHash>{},
+                                    std::unordered_set<sp<IBinder>, SpHash<IBinder>>{});
         }
         return callbacks;
     }();

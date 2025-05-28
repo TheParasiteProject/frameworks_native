@@ -30,9 +30,10 @@ void TransactionListenerCallbacks::clear() {
 status_t TransactionListenerCallbacks::writeToParcel(Parcel* parcel) const {
     SAFE_PARCEL(parcel->writeBool, mHasListenerCallbacks);
     SAFE_PARCEL(parcel->writeUint32, static_cast<uint32_t>(mFlattenedListenerCallbacks.size()));
-    for (const auto& [listener, callbackIds] : mFlattenedListenerCallbacks) {
+    for (const auto& [listener, callbackIds, transactionHandles] : mFlattenedListenerCallbacks) {
         SAFE_PARCEL(parcel->writeStrongBinder, listener);
         SAFE_PARCEL(parcel->writeParcelableVector, callbackIds);
+        SAFE_PARCEL(parcel->writeStrongBinderVector, transactionHandles);
     }
 
     return NO_ERROR;
@@ -49,7 +50,10 @@ status_t TransactionListenerCallbacks::readFromParcel(const Parcel* parcel) {
         SAFE_PARCEL(parcel->readStrongBinder, &tmpBinder);
         std::vector<CallbackId> callbackIds;
         SAFE_PARCEL(parcel->readParcelableVector, &callbackIds);
-        mFlattenedListenerCallbacks.emplace_back(tmpBinder, callbackIds);
+        std::vector<sp<IBinder>> transactionHandles;
+        SAFE_PARCEL(parcel->readStrongBinderVector, &transactionHandles);
+        mFlattenedListenerCallbacks.emplace_back(std::move(tmpBinder), std::move(callbackIds),
+                                                 std::move(transactionHandles));
     }
 
     return NO_ERROR;
