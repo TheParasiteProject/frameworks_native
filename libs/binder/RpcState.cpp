@@ -1194,6 +1194,12 @@ processTransactInternalTailCall:
         // Forward the error to the client of the transaction.
         reply.freeData();
         reply.markForRpc(session);
+
+        if (replyStatus != OK) {
+            ALOGE("Dropping error from transaction (%s) due to more serious error in "
+                  "validateParcel (%s)",
+                  statusToString(replyStatus).c_str(), statusToString(status).c_str());
+        }
         replyStatus = status;
     }
 
