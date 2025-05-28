@@ -3671,19 +3671,23 @@ void InputDispatcher::processInteractionsLocked(const EventEntry& entry,
                            };
     postCommandLocked(std::move(command));
 
-    if (newConnectionTokens == mInteractionConnectionTokens) {
+    const ui::LogicalDisplayId displayId = getTargetDisplayId(entry);
+    if (const auto& it = mInteractionConnectionTokensByDisplay.find(displayId);
+        it != mInteractionConnectionTokensByDisplay.end() && newConnectionTokens == it->second) {
         return; // no change
     }
-    mInteractionConnectionTokens = newConnectionTokens;
+    mInteractionConnectionTokensByDisplay[displayId] = newConnectionTokens;
 
-    std::string targetList;
+    std::string targetList = "[";
     for (const std::shared_ptr<Connection>& connection : newConnections) {
-        targetList += connection->getInputChannelName() + ", ";
+        targetList += connection->getInputChannelName() + ",";
     }
-    std::string message = "Interaction with: " + targetList;
-    if (targetList.empty()) {
-        message += "<none>";
+    if (!newConnections.empty()) {
+        targetList.pop_back();
     }
+    targetList += "]";
+    const std::string message =
+            "Interaction with: " + targetList + ", on displayId " + displayId.toString();
     android_log_event_list(LOGTAG_INPUT_INTERACTION) << message << LOG_ID_EVENTS;
 }
 
@@ -5820,7 +5824,7 @@ bool InputDispatcher::setInTouchMode(bool inTouchMode, gui::Pid pid, gui::Uid ui
         }
         if (!hasPermission) {
             if (!focusedWindowIsOwnedByLocked(pid, uid) &&
-                !recentWindowsAreOwnedByLocked(pid, uid)) {
+                !recentWindowsAreOwnedByLocked(displayId, pid, uid)) {
                 ALOGD("Touch mode switch rejected, caller (pid=%s, uid=%s) doesn't own the focused "
                       "window nor none of the previously interacted window",
                       pid.toString().c_str(), uid.toString().c_str());
@@ -5848,13 +5852,19 @@ bool InputDispatcher::focusedWindowIsOwnedByLocked(gui::Pid pid, gui::Uid uid) {
     return isWindowOwnedBy(windowHandle, pid, uid);
 }
 
-bool InputDispatcher::recentWindowsAreOwnedByLocked(gui::Pid pid, gui::Uid uid) {
-    return std::find_if(mInteractionConnectionTokens.begin(), mInteractionConnectionTokens.end(),
+bool InputDispatcher::recentWindowsAreOwnedByLocked(ui::LogicalDisplayId displayId, gui::Pid pid,
+                                                    gui::Uid uid) {
+    const auto& it = mInteractionConnectionTokensByDisplay.find(displayId);
+    if (it == mInteractionConnectionTokensByDisplay.end()) {
+        return false;
+    }
+    const auto& interactionConnectionTokens = it->second;
+    return std::find_if(interactionConnectionTokens.begin(), interactionConnectionTokens.end(),
                         [&](const sp<IBinder>& connectionToken) REQUIRES(mLock) {
                             const sp<WindowInfoHandle> windowHandle =
                                     mWindowInfos.findWindowHandle(connectionToken);
                             return isWindowOwnedBy(windowHandle, pid, uid);
-                        }) != mInteractionConnectionTokens.end();
+                        }) != interactionConnectionTokens.end();
 }
 
 void InputDispatcher::setMaximumObscuringOpacityForTouch(float opacity) {
@@ -7120,6 +7130,7 @@ void InputDispatcher::displayRemoved(ui::LogicalDisplayId displayId) {
         mTouchModePerDisplay.erase(displayId);
         mVerifiersByDisplay.erase(displayId);
         mInputFilterVerifiersByDisplay.erase(displayId);
+        mInteractionConnectionTokensByDisplay.erase(displayId);
     } // release lock
 
     // Wake up poll loop since it may need to make new input dispatching choices.
