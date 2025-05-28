@@ -389,8 +389,13 @@ status_t RpcState::rpcSend(const sp<RpcSession::RpcConnection>& connection,
                                                                   iovs, niovs, altPoll,
                                                                   ancillaryFds);
         status != OK) {
-        LOG_RPC_DETAIL("Failed to write %s (%d iovs) on RpcTransport %p, error: %s", what, niovs,
-                       connection->rpcTransport.get(), statusToString(status).c_str());
+        if (status == DEAD_OBJECT || status == -ECONNRESET) {
+            LOG_RPC_DETAIL("Failed to write %s (%d iovs) on RpcTransport %p, error: %s", what,
+                           niovs, connection->rpcTransport.get(), statusToString(status).c_str());
+        } else {
+            ALOGE("Failed to write %s (%d iovs) on RpcTransport %p, error: %s", what, niovs,
+                  connection->rpcTransport.get(), statusToString(status).c_str());
+        }
         (void)session->shutdownAndWait(false);
         return status;
     }
@@ -407,8 +412,13 @@ status_t RpcState::rpcRec(const sp<RpcSession::RpcConnection>& connection,
                                                                  iovs, niovs, std::nullopt,
                                                                  ancillaryFds);
         status != OK) {
-        LOG_RPC_DETAIL("Failed to read %s (%d iovs) on RpcTransport %p, error: %s", what, niovs,
-                       connection->rpcTransport.get(), statusToString(status).c_str());
+        if (status == DEAD_OBJECT || status == -ECONNRESET) {
+            LOG_RPC_DETAIL("Failed to read %s (%d iovs) on RpcTransport %p, error: %s", what, niovs,
+                           connection->rpcTransport.get(), statusToString(status).c_str());
+        } else {
+            ALOGE("Failed to read %s (%d iovs) on RpcTransport %p, error: %s", what, niovs,
+                  connection->rpcTransport.get(), statusToString(status).c_str());
+        }
         (void)session->shutdownAndWait(false);
         return status;
     }
