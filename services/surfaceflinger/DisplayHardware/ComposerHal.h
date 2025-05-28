@@ -49,7 +49,6 @@
 #include <aidl/android/hardware/graphics/composer3/IComposerCallback.h>
 #include <aidl/android/hardware/graphics/composer3/Luts.h>
 #include <aidl/android/hardware/graphics/composer3/OverlayProperties.h>
-#include <aidl/android/hardware/graphics/composer3/ReadbackBufferAttributes.h>
 
 #include <optional>
 
@@ -325,11 +324,6 @@ public:
                                        const aidl::android::hardware::drm::HdcpLevels& levels) = 0;
     virtual Error getLuts(Display display, const std::vector<sp<GraphicBuffer>>&,
                           std::vector<V3_0::Luts>*) = 0;
-    virtual Error getReadbackBufferAttributes(Display display,
-                                              V3_0::ReadbackBufferAttributes* outAttributes) = 0;
-    virtual Error setReadbackBuffer(Display display, const sp<GraphicBuffer>& buffer,
-                                    int acquireFence) = 0;
-    virtual Error getReadbackBufferFence(Display display, int* outReleaseFence) = 0;
 };
 
 } // namespace Hwc2

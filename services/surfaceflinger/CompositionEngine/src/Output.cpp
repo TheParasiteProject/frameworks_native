@@ -403,10 +403,6 @@ bool Output::includesLayer(ui::LayerFilter filter) const {
 }
 
 bool Output::includesLayer(const sp<LayerFE>& layerFE) const {
-    return includesLayer(layerFE.get());
-}
-
-bool Output::includesLayer(LayerFE* layerFE) const {
     const auto* layerFEState = layerFE->getCompositionState();
     return layerFEState && includesLayer(layerFEState->outputFilter);
 }

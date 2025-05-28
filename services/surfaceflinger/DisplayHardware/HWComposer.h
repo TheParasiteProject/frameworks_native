@@ -334,14 +334,6 @@ public:
                                           const aidl::android::hardware::drm::HdcpLevels&) = 0;
     virtual status_t getLuts(PhysicalDisplayId, const std::vector<sp<GraphicBuffer>>&,
                              std::vector<aidl::android::hardware::graphics::composer3::Luts>*) = 0;
-
-    virtual status_t getReadbackBufferAttributes(
-            PhysicalDisplayId,
-            aidl::android::hardware::graphics::composer3::ReadbackBufferAttributes*
-                    outAttributes) = 0;
-    virtual status_t setReadbackBuffer(PhysicalDisplayId, const sp<GraphicBuffer>& buffer,
-                                       const android::sp<android::Fence>& acquireFence) = 0;
-    virtual sp<Fence> getReadbackBufferFence(PhysicalDisplayId) = 0;
 };
 
 static inline bool operator==(const android::HWComposer::DeviceRequestedChanges& lhs,
@@ -513,14 +505,6 @@ public:
                                   const aidl::android::hardware::drm::HdcpLevels&) override;
     status_t getLuts(PhysicalDisplayId, const std::vector<sp<GraphicBuffer>>&,
                      std::vector<aidl::android::hardware::graphics::composer3::Luts>*) override;
-
-    status_t getReadbackBufferAttributes(
-            PhysicalDisplayId,
-            aidl::android::hardware::graphics::composer3::ReadbackBufferAttributes* outAttributes)
-            override;
-    status_t setReadbackBuffer(PhysicalDisplayId, const sp<GraphicBuffer>& buffer,
-                               const android::sp<android::Fence>& acquireFence) override;
-    sp<Fence> getReadbackBufferFence(PhysicalDisplayId) override;
 
     // for debugging ----------------------------------------------------------
     void dump(std::string& out) const override;

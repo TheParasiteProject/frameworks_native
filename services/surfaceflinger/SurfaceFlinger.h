@@ -966,18 +966,10 @@ private:
         // Current active render intent of the output composition state
         ui::RenderIntent renderIntent{ui::RenderIntent::COLORIMETRIC};
 
-        // Current listener for the screenshot result
-        sp<IScreenCaptureListener> captureListener{nullptr};
-
         std::string debugName;
     };
 
-    enum class ScreenshotStrategy {
-        Readback,
-        Gpu,
-    };
-    base::expected<ScreenshotStrategy, status_t> setScreenshotSnapshotsAndDisplayState(
-            ScreenshotArgs& args);
+    status_t setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args);
 
     void captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat,
                              const sp<IScreenCaptureListener>&);
@@ -1362,19 +1354,6 @@ private:
         float desiredHdrHeadroom;
     };
     std::vector<LayerEvent> mLayerEvents;
-
-    struct ReadbackRequest {
-        PhysicalDisplayId id;
-        sp<GraphicBuffer> buffer;
-        sp<IScreenCaptureListener> captureListener;
-        bool seamlessTransition;
-        bool isSecure;
-    };
-    std::vector<ReadbackRequest> mReadbackRequests;
-
-    void validateForReadback(LayerFE* layer);
-    void setupOutputsForReadback(std::vector<std::shared_ptr<compositionengine::Output>>& outputs);
-    void finalizeReadback(std::vector<std::shared_ptr<compositionengine::Output>>& outputs);
 
     // Used to ensure we omit a callback when HDR layer info listener is newly added but the
     // scene hasn't changed
