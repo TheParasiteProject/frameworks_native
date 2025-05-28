@@ -731,7 +731,7 @@ int Surface::dequeueBuffer(sp<GraphicBuffer>* buffer, int* fenceFd) {
     }
 
     if (result & IGraphicBufferProducer::RELEASE_ALL_BUFFERS) {
-        freeAllBuffers();
+        freeUndequeuedBuffersLocked();
     }
 
     if (dqInput.getTimestamps) {
@@ -820,6 +820,7 @@ status_t Surface::detachBuffer(const sp<GraphicBuffer>& buffer) {
         if (bufferSlot.buffer != nullptr && bufferSlot.buffer->getId() == bufferId) {
             bufferSlot.buffer = nullptr;
             bufferSlot.dirtyRegion = Region::INVALID_REGION;
+            bufferSlot.requiresFreeOnReturn = false;
             return mGraphicBufferProducer->detachBuffer(slot);
         }
     }
@@ -929,7 +930,7 @@ int Surface::dequeueBuffers(std::vector<BatchBuffer>* buffers) {
     for (const auto& output : dequeueOutput) {
         if (output.result & IGraphicBufferProducer::RELEASE_ALL_BUFFERS) {
             SURF_LOGV("%s: RELEASE_ALL_BUFFERS during batch operation", __FUNCTION__);
-            freeAllBuffers();
+            freeUndequeuedBuffersLocked();
             break;
         }
     }
@@ -1030,6 +1031,10 @@ int Surface::cancelBuffer(sp<GraphicBuffer>&& buffer, int fenceFd) {
     }
 
     mDequeuedSlots.erase(i);
+    if (mSlots[i].requiresFreeOnReturn) {
+        mSlots[i].buffer = nullptr;
+        mSlots[i].requiresFreeOnReturn = false;
+    }
 
     return OK;
 }
@@ -1039,40 +1044,53 @@ int Surface::cancelBuffers(const std::vector<BatchBuffer>& buffers) {
     ATRACE_CALL();
     SURF_LOGV("Surface::cancelBuffers");
 
-    if (mSharedBufferMode) {
-        SURF_LOGE("%s: batch operation is not supported in shared buffer mode!", __FUNCTION__);
-        return INVALID_OPERATION;
-    }
-
     size_t numBuffers = buffers.size();
     std::vector<CancelBufferInput> cancelBufferInputs(numBuffers);
     std::vector<status_t> cancelBufferOutputs;
     size_t numBuffersCancelled = 0;
     int badSlotResult = 0;
-    for (size_t i = 0; i < numBuffers; i++) {
-        sp<GraphicBuffer> buffer = GraphicBuffer::from(buffers[i].buffer);
-        int slot = getSlotFromBufferLocked(buffer);
-        int fenceFd = buffers[i].fenceFd;
-        if (slot < 0) {
-            if (fenceFd >= 0) {
-                close(fenceFd);
-            }
-            SURF_LOGE("%s: cannot find slot number for cancelled buffer", __FUNCTION__);
-            badSlotResult = slot;
-        } else {
-            sp<Fence> fence(fenceFd >= 0 ? sp<Fence>::make(fenceFd) : Fence::NO_FENCE);
-            cancelBufferInputs[numBuffersCancelled].slot = slot;
-            cancelBufferInputs[numBuffersCancelled++].fence = fence;
+    {
+        Mutex::Autolock _l(mMutex);
+
+        if (mSharedBufferMode) {
+            SURF_LOGE("%s: batch operation is not supported in shared buffer mode!", __FUNCTION__);
+            return INVALID_OPERATION;
         }
+
+        for (size_t i = 0; i < numBuffers; i++) {
+            sp<GraphicBuffer> buffer = GraphicBuffer::from(buffers[i].buffer);
+            int slot = getSlotFromBufferLocked(buffer);
+            int fenceFd = buffers[i].fenceFd;
+            if (slot < 0) {
+                if (fenceFd >= 0) {
+                    close(fenceFd);
+                }
+                SURF_LOGE("%s: cannot find slot number for cancelled buffer", __FUNCTION__);
+                badSlotResult = slot;
+            } else {
+                sp<Fence> fence(fenceFd >= 0 ? sp<Fence>::make(fenceFd) : Fence::NO_FENCE);
+                cancelBufferInputs[numBuffersCancelled].slot = slot;
+                cancelBufferInputs[numBuffersCancelled++].fence = fence;
+            }
+        }
+        cancelBufferInputs.resize(numBuffersCancelled);
     }
-    cancelBufferInputs.resize(numBuffersCancelled);
+
+    // Call w/o lock held to handle callbacks without deadlocking.
     mGraphicBufferProducer->cancelBuffers(cancelBufferInputs, &cancelBufferOutputs);
 
+    {
+        Mutex::Autolock _l(mMutex);
 
-    for (size_t i = 0; i < numBuffersCancelled; i++) {
-        mDequeuedSlots.erase(cancelBufferInputs[i].slot);
+        for (size_t i = 0; i < numBuffersCancelled; i++) {
+            int slot = cancelBufferInputs[i].slot;
+            mDequeuedSlots.erase(slot);
+            if (mSlots[slot].requiresFreeOnReturn) {
+                mSlots[slot].buffer = nullptr;
+                mSlots[slot].requiresFreeOnReturn = false;
+            }
+        }
     }
-
     if (badSlotResult != 0) {
         return badSlotResult;
     }
@@ -1225,6 +1243,10 @@ void Surface::applyGrallocMetadataLocked(
 void Surface::onBufferQueuedLocked(int slot, sp<Fence> fence,
         const IGraphicBufferProducer::QueueBufferOutput& output) {
     mDequeuedSlots.erase(slot);
+    if (mSlots[slot].requiresFreeOnReturn) {
+        mSlots[slot].buffer = nullptr;
+        mSlots[slot].requiresFreeOnReturn = false;
+    }
 
     if (mEnableFrameTimestamps) {
         mFrameEventHistory->applyDelta(output.frameTimestamps);
@@ -2131,7 +2153,7 @@ int Surface::disconnect(int api, IGraphicBufferProducer::DisconnectMode mode) {
     mRemovedBuffers.clear();
     mSharedBufferSlot = BufferItem::INVALID_BUFFER_SLOT;
     mSharedBufferHasBeenQueued = false;
-    freeAllBuffers();
+    freeAllBuffersLocked();
     int err = mGraphicBufferProducer->disconnect(api, mode);
     if (!err) {
         mReqFormat = 0;
@@ -2207,6 +2229,9 @@ int Surface::detachNextBuffer(sp<GraphicBuffer>* outBuffer,
                 mRemovedBuffers.push_back(mSlots[i].buffer);
             }
             mSlots[i].buffer = nullptr;
+            mSlots[i].dirtyRegion = Region::INVALID_REGION;
+            mSlots[i].requiresFreeOnReturn = false;
+            break;
         }
     }
 
@@ -2568,7 +2593,25 @@ Dataspace Surface::getBuffersDataSpace() {
     return mDataSpace;
 }
 
-void Surface::freeAllBuffers() {
+void Surface::freeUndequeuedBuffersLocked() {
+    ATRACE_CALL();
+    SURF_LOGV("Surface::releaseUndequeuedBuffers");
+
+#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(WB_UNLIMITED_SLOTS)
+    for (int i = 0; i < (int)mSlots.size(); i++) {
+#else
+    for (int i = 0; i < NUM_BUFFER_SLOTS; i++) {
+#endif
+        if (mDequeuedSlots.contains(i)) {
+            mSlots[i].requiresFreeOnReturn = true;
+        } else {
+            mSlots[i].buffer = nullptr;
+            mSlots[i].requiresFreeOnReturn = false;
+        }
+    }
+}
+
+void Surface::freeAllBuffersLocked() {
     if (!mDequeuedSlots.empty()) {
         SURF_LOGE("%s: %zu buffers were freed while being dequeued!", __FUNCTION__,
                   mDequeuedSlots.size());
@@ -2579,6 +2622,8 @@ void Surface::freeAllBuffers() {
     for (int i = 0; i < NUM_BUFFER_SLOTS; i++) {
 #endif
         mSlots[i].buffer = nullptr;
+        mSlots[i].dirtyRegion.clear();
+        mSlots[i].requiresFreeOnReturn = false;
     }
 }
 
