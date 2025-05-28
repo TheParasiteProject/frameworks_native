@@ -711,8 +711,10 @@ private:
 
     // The connection tokens of the channels that the user last interacted (used for debugging and
     // when switching touch mode state).
-    std::unordered_set<sp<IBinder>, StrongPointerHash<IBinder>> mInteractionConnectionTokens
-            GUARDED_BY(mLock);
+    std::unordered_map<ui::LogicalDisplayId,
+                       std::unordered_set<sp<IBinder>, StrongPointerHash<IBinder>>>
+            mInteractionConnectionTokensByDisplay GUARDED_BY(mLock);
+
     void processInteractionsLocked(const EventEntry& entry, const std::vector<InputTarget>& targets)
             REQUIRES(mLock);
 
@@ -941,7 +943,8 @@ private:
 
     // Check window ownership
     bool focusedWindowIsOwnedByLocked(gui::Pid pid, gui::Uid uid) REQUIRES(mLock);
-    bool recentWindowsAreOwnedByLocked(gui::Pid pid, gui::Uid uid) REQUIRES(mLock);
+    bool recentWindowsAreOwnedByLocked(ui::LogicalDisplayId displayId, gui::Pid pid, gui::Uid uid)
+            REQUIRES(mLock);
 
     sp<InputReporterInterface> mReporter;
 
