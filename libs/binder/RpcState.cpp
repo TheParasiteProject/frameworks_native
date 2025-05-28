@@ -1185,7 +1185,7 @@ processTransactInternalTailCall:
 
         // done processing all the async commands on this binder that we can, so
         // write decstrongs on the binder
-        if (addr != 0 && replyStatus == OK) {
+        if (addr != 0) {
             return flushExcessBinderRefs(session, addr, target);
         }
 
@@ -1194,8 +1194,12 @@ processTransactInternalTailCall:
 
     // Binder refs are flushed for oneway calls only after all calls which are
     // built up are executed. Otherwise, they fill up the binder buffer.
-    if (addr != 0 && replyStatus == OK) {
-        replyStatus = flushExcessBinderRefs(session, addr, target);
+    if (addr != 0) {
+        // if this fails, we are broken out of the protocol, so just shutdown. There
+        // is no chance we could write the status to the other side.
+        if (status_t status = flushExcessBinderRefs(session, addr, target); status != OK) {
+            return status;
+        }
     }
 
     std::string errorMsg;
