@@ -90,6 +90,8 @@ public:
     std::unique_ptr<MotionEvent> consumeMotion();
     void consumeMotionEvent(const ::testing::Matcher<MotionEvent>& matcher);
 
+    void consumeKeyEvent(const ::testing::Matcher<KeyEvent>& matcher);
+
     void consumeFocusEvent(bool hasFocus, bool inTouchMode);
     void consumeCaptureEvent(bool hasCapture);
     void consumeDragEvent(bool isExiting, float x, float y);
@@ -191,6 +193,10 @@ public:
 
     inline void setGlobalStylusBlocksTouch(bool shouldGlobalStylusBlockTouch) {
         mInfo.setInputConfig(InputConfig::GLOBAL_STYLUS_BLOCKS_TOUCH, shouldGlobalStylusBlockTouch);
+    }
+
+    inline void setDoNotPilfer(bool doNotPilfer) {
+        mInfo.setInputConfig(InputConfig::DO_NOT_PILFER, doNotPilfer);
     }
 
     inline void setAlpha(float alpha) { mInfo.alpha = alpha; }

@@ -155,6 +155,23 @@ void FakeInputReceiver::consumeMotionEvent(const ::testing::Matcher<MotionEvent>
     ASSERT_THAT(*motionEvent, matcher);
 }
 
+void FakeInputReceiver::consumeKeyEvent(const ::testing::Matcher<KeyEvent>& matcher) {
+    std::unique_ptr<InputEvent> event = consume(CONSUME_TIMEOUT_EVENT_EXPECTED);
+
+    if (event == nullptr) {
+        FAIL() << mName << ": expected a KeyEvent, but didn't get one.";
+        return;
+    }
+
+    if (event->getType() != InputEventType::KEY) {
+        FAIL() << mName << " expected a KeyEvent, got " << *event;
+        return;
+    }
+    const auto keyEvent = std::unique_ptr<KeyEvent>(static_cast<KeyEvent*>(event.release()));
+
+    ASSERT_THAT(*keyEvent, matcher);
+}
+
 void FakeInputReceiver::consumeFocusEvent(bool hasFocus, bool inTouchMode) {
     std::unique_ptr<InputEvent> event = consume(CONSUME_TIMEOUT_EVENT_EXPECTED);
     ASSERT_NE(nullptr, event) << mName.c_str() << ": consumer should have returned non-NULL event.";
