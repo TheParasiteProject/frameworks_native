@@ -1172,16 +1172,19 @@ processTransactInternalTailCall:
 
         // done processing all the async commands on this binder that we can, so
         // write decstrongs on the binder
-        if (addr != 0) {
+        if (addr != 0 && target != nullptr) {
             return flushExcessBinderRefs(session, addr, target);
         }
 
         return OK;
     }
 
+    // No refcounts for root object - it's always held. If an error results
+    // in us not having the binder so that we can't flush refs, then there may
+    // be a leak, but the more fundamental problem is the error.
     // Binder refs are flushed for oneway calls only after all calls which are
     // built up are executed. Otherwise, they fill up the binder buffer.
-    if (addr != 0) {
+    if (addr != 0 && target != nullptr) {
         // if this fails, we are broken out of the protocol, so just shutdown. There
         // is no chance we could write the status to the other side.
         if (status_t status = flushExcessBinderRefs(session, addr, target); status != OK) {
