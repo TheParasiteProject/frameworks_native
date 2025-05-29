@@ -38,8 +38,10 @@
 #include "debug/SkiaCapture.h"
 #include "filters/BlurFilter.h"
 #include "filters/EdgeExtensionShaderFactory.h"
-#include "filters/LinearEffect.h"
+#include "filters/GainmapFactory.h"
 #include "filters/LutShader.h"
+#include "filters/MouriMap.h"
+#include "filters/RuntimeEffectManager.h"
 #include "filters/StretchShaderFactory.h"
 
 class SkData;
@@ -127,6 +129,7 @@ protected:
     };
 
     SkSLCacheMonitor mSkSLCacheMonitor;
+    RuntimeEffectManager mRuntimeEffectManager;
 
 private:
     void mapExternalTextureBuffer(const sp<GraphicBuffer>& buffer,
@@ -180,13 +183,16 @@ private:
             GUARDED_BY(mRenderingMutex);
     std::unordered_map<GraphicBufferId, std::shared_ptr<AutoBackendTexture::LocalRef>> mTextureCache
             GUARDED_BY(mRenderingMutex);
-    std::unordered_map<shaders::LinearEffect, sk_sp<SkRuntimeEffect>, shaders::LinearEffectHasher>
-            mRuntimeEffects;
     AutoBackendTexture::CleanupManager mTextureCleanupMgr GUARDED_BY(mRenderingMutex);
 
-    StretchShaderFactory mStretchShaderFactory;
-    EdgeExtensionShaderFactory mEdgeExtensionShaderFactory;
-    LutShader mLutShader;
+    // Alphabetical by type name
+    // TODO(b/380159947): move these into RuntimeEffectManager
+    EdgeExtensionShaderFactory mEdgeExtensionShaderFactory =
+            EdgeExtensionShaderFactory(mRuntimeEffectManager);
+    GainmapFactory mGainmapFactory = GainmapFactory(mRuntimeEffectManager);
+    LutShader mLutShader = LutShader(mRuntimeEffectManager);
+    MouriMap mLocalTonemapper = MouriMap(mRuntimeEffectManager);
+    StretchShaderFactory mStretchShaderFactory = StretchShaderFactory(mRuntimeEffectManager);
 
     sp<Fence> mLastDrawFence;
     BlurFilter* mBlurFilter = nullptr;
