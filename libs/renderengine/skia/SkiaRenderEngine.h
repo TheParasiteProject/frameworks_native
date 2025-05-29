@@ -65,7 +65,7 @@ public:
     SkiaRenderEngine(Threaded, PixelFormat pixelFormat, BlurAlgorithm);
     ~SkiaRenderEngine() override;
 
-    std::future<void> primeCache(PrimeCacheConfig config) override final;
+    std::future<void> primeCache(PrimeCacheConfig config) override;
     void cleanupPostRender() override final;
     bool supportsBackgroundBlur() override final {
         return mBlurFilter != nullptr;
@@ -130,6 +130,12 @@ protected:
 
     SkSLCacheMonitor mSkSLCacheMonitor;
     RuntimeEffectManager mRuntimeEffectManager;
+
+    // Graphics context used for creating surfaces and submitting commands.
+    // Unlike mProtectedContext, mContext cannot be marked private because it
+    // occasionally needs to be referenced by subclasses (e.g. for Graphite's
+    // precompilation).
+    unique_ptr<SkiaGpuContext> mContext;
 
 private:
     void mapExternalTextureBuffer(const sp<GraphicBuffer>& buffer,
@@ -204,9 +210,7 @@ private:
     // rendering that is potentially modified by multiple threads is guaranteed thread-safe.
     mutable std::mutex mRenderingMutex;
 
-    // Graphics context used for creating surfaces and submitting commands
-    unique_ptr<SkiaGpuContext> mContext;
-    // Same as above, but for protected content (eg. DRM)
+    // Same as mContext, but for protected content (eg. DRM)
     unique_ptr<SkiaGpuContext> mProtectedContext;
     bool mInProtectedContext = false;
 };

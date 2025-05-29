@@ -118,6 +118,7 @@ void RuntimeEffectManager::dump(std::string& result) {
                   orderedLinearEffects.size());
     for (const auto& linearEffect : orderedLinearEffects) {
         // Note: the formatting of this output should remain copy/pasteable C++
+        StringAppendF(&result, "// %s\n", variableNameSafeLinearEffectString(linearEffect).c_str());
         StringAppendF(&result, "{\n");
         StringAppendF(&result, "    .inputDataspace = %s, // %s\n",
                       dataspaceEnumString(linearEffect.inputDataspace).c_str(),
