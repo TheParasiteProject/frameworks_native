@@ -414,6 +414,13 @@ public:
                                               requestedRefreshRate);
     }
 
+    auto acquireVirtualDisplay(ui::Size resolution, ui::PixelFormat format,
+                               const std::string& uniqueId,
+                               compositionengine::DisplayCreationArgsBuilder& builder) {
+        ftl::FakeGuard guard(mFlinger->mStateLock);
+        return mFlinger->acquireVirtualDisplay(resolution, format, uniqueId, builder);
+    }
+
     auto destroyVirtualDisplay(const sp<IBinder>& displayToken) {
         return mFlinger->destroyVirtualDisplay(displayToken);
     }
@@ -778,6 +785,13 @@ public:
     void resetNotifyExpectedPresentHintState(PhysicalDisplayId displayId) {
         mFlinger->mNotifyExpectedPresentMap.at(displayId).hintStatus =
                 SurfaceFlinger::NotifyExpectedPresentHintStatus::Start;
+    }
+
+    void injectDisplayIdGenerators(
+            std::unique_ptr<DisplayIdGenerator<GpuVirtualDisplayId>> gpuIdGenerator,
+            std::unique_ptr<DisplayIdGenerator<HalVirtualDisplayId>> halIdGenerator) {
+        mFlinger->mVirtualDisplayIdGenerators.gpu = std::move(gpuIdGenerator);
+        mFlinger->mVirtualDisplayIdGenerators.hal = std::move(halIdGenerator);
     }
 
     ~TestableSurfaceFlinger() {
