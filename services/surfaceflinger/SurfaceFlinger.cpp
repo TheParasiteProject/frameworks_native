@@ -7734,6 +7734,7 @@ void SurfaceFlinger::captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat r
     status_t status = setScreenshotSnapshotsAndDisplayState(args);
     if (status != OK) {
         invokeScreenCaptureError(status, captureListener);
+        return;
     }
 
     if (exceedsMaxRenderTargetSize(args.size.getWidth(), args.size.getHeight())) {
