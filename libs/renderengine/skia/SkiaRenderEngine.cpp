@@ -549,8 +549,7 @@ sk_sp<SkShader> SkiaRenderEngine::createRuntimeEffectShader(
 
     if (graphicBuffer && parameters.layer.luts) {
         shader = mLutShader.lutShader(shader, parameters.layer.luts,
-                                      parameters.layer.sourceDataspace,
-                                      toSkColorSpace(parameters.outputDataSpace));
+                                      parameters.layer.sourceDataspace);
     }
 
     if (parameters.requiresLinearEffect) {
