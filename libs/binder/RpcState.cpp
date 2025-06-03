@@ -1095,6 +1095,8 @@ processTransactInternalTailCall:
                 connection->allowNested = origAllowNested;
             } else {
                 LOG_RPC_DETAIL("Got special transaction %u", transaction->code);
+                LOG_ALWAYS_FATAL_IF(addr != 0,
+                                    "!target && replyStatus == OK should imply addr == 0");
 
                 switch (transaction->code) {
                     case RPC_SPECIAL_TRANSACT_GET_MAX_THREADS: {
