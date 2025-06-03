@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "RpcServerTrusty"
+#define LOG_TAG "libbinder.RpcServerTrusty"
 
 #include <binder/Parcel.h>
 #include <binder/RpcServer.h>
