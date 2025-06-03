@@ -5896,7 +5896,8 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
     }
 
     mScheduler->setDisplayPowerMode(displayId, mode);
-    if (FlagManager::getInstance().pacesetter_selection()) {
+    if (FlagManager::getInstance().pacesetter_selection() &&
+        mScheduler->getPacesetterDisplayId() != mFrontInternalDisplayId) {
         // TODO: b/389983418 - Update pacesetter designation inside
         // Scheduler::setDisplayPowerMode().
         mScheduler->setPacesetterDisplay(mFrontInternalDisplayId);

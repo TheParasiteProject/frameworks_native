@@ -334,6 +334,9 @@ using ExternalDisplayPowerCase =
 
 class SetPhysicalDisplayPowerModeTest : public DisplayTransactionTest {
 public:
+    static constexpr bool kWithMockScheduler = false;
+    SetPhysicalDisplayPowerModeTest() : DisplayTransactionTest(kWithMockScheduler) {}
+
     template <typename Case>
     void transitionDisplayCommon();
 };
@@ -355,6 +358,14 @@ void SetPhysicalDisplayPowerModeTest::transitionDisplayCommon() {
     SET_FLAG_FOR_TEST(android::companion::virtualdevice::flags::correct_virtual_display_power_state,
                       true);
     SET_FLAG_FOR_TEST(flags::disable_synthetic_vsync_for_performance, true);
+    SET_FLAG_FOR_TEST(flags::pacesetter_selection, true);
+
+    const auto displayIdOpt = asPhysicalDisplayId(Case::Display::DISPLAY_ID::get());
+    ASSERT_TRUE(displayIdOpt);
+    injectMockScheduler(*displayIdOpt);
+    // TODO: b/389983418 - Remove once the Scheduler is no longer dependent on front internal
+    // display.
+    mFlinger.mutableFrontInternalDisplayId() = *displayIdOpt;
 
     Case::Doze::setupComposerCallExpectations(this);
     auto display =
