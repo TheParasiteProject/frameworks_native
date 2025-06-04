@@ -5784,7 +5784,8 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
     const bool shouldApplyOptimizationPolicy =
             FlagManager::getInstance().disable_synthetic_vsync_for_performance() &&
             FlagManager::getInstance().correct_virtual_display_power_state();
-    if (isInternalDisplay && shouldApplyOptimizationPolicy) {
+    if ((isInternalDisplay || FlagManager::getInstance().pacesetter_selection()) &&
+        shouldApplyOptimizationPolicy) {
         applyOptimizationPolicy(__func__);
     }
 
@@ -5896,7 +5897,8 @@ void SurfaceFlinger::setPhysicalDisplayPowerMode(const sp<DisplayDevice>& displa
     }
 
     mScheduler->setDisplayPowerMode(displayId, mode);
-    if (FlagManager::getInstance().pacesetter_selection()) {
+    if (FlagManager::getInstance().pacesetter_selection() &&
+        mScheduler->getPacesetterDisplayId() != mFrontInternalDisplayId) {
         // TODO: b/389983418 - Update pacesetter designation inside
         // Scheduler::setDisplayPowerMode().
         mScheduler->setPacesetterDisplay(mFrontInternalDisplayId);
