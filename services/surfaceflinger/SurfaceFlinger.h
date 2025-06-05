@@ -909,7 +909,7 @@ private:
         // that the render result will be on if initiated through captureDisplay().
         // The monostate type is used to denote that the screenshot is initiated
         // for region sampling.
-        std::variant<std::monostate, int32_t, sp<IBinder>, DisplayId> captureTypeVariant;
+        std::variant<std::monostate, uint32_t, sp<IBinder>, DisplayId> captureTypeVariant;
 
         // Display ID of the display the result will be on
         ftl::Optional<DisplayIdVariant> displayIdVariant{std::nullopt};
@@ -932,6 +932,12 @@ private:
 
         // Composition dataspace of the render area
         ui::Dataspace dataspace;
+
+        // Scaling factor for the screenshot's width
+        float frameScaleX{0.f};
+
+        // Scaling factor for the screenshot's height
+        float frameScaleY{0.f};
 
         // Whether blur should be disabled, such as for region sampling
         bool disableBlur{false};
