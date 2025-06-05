@@ -55,6 +55,7 @@ FramebufferSurface::FramebufferSurface(HWComposer& hwc, PhysicalDisplayId displa
                                        const ui::Size& size, const ui::Size& maxSize)
       : ConsumerBase(producer, consumer),
         mDisplayId(displayId),
+        mLimitedSize(limitSize(size)),
         mMaxSize(maxSize),
         mCurrentBufferSlot(-1),
         mCurrentBuffer(),
@@ -65,19 +66,25 @@ FramebufferSurface::FramebufferSurface(HWComposer& hwc, PhysicalDisplayId displa
         mPreviousBuffer() {
     ALOGV("Creating for display %s", to_string(displayId).c_str());
 
+    for (size_t i = 0; i < sizeof(mHwcBufferIds) / sizeof(mHwcBufferIds[0]); ++i) {
+        mHwcBufferIds[i] = UINT64_MAX;
+    }
+}
+
+void FramebufferSurface::initializeConsumer() {
     mName = "FramebufferSurface";
     mConsumer->setConsumerName(mName);
     mConsumer->setConsumerUsageBits(GRALLOC_USAGE_HW_FB |
                                        GRALLOC_USAGE_HW_RENDER |
                                        GRALLOC_USAGE_HW_COMPOSER);
-    const auto limitedSize = limitSize(size);
-    mConsumer->setDefaultBufferSize(limitedSize.width, limitedSize.height);
+    mConsumer->setDefaultBufferSize(mLimitedSize.width, mLimitedSize.height);
     mConsumer->setMaxAcquiredBufferCount(
             SurfaceFlinger::maxFrameBufferAcquiredBuffers - 1);
+}
 
-    for (size_t i = 0; i < sizeof(mHwcBufferIds) / sizeof(mHwcBufferIds[0]); ++i) {
-        mHwcBufferIds[i] = UINT64_MAX;
-    }
+void FramebufferSurface::onFirstRef() {
+    ConsumerBase::onFirstRef();
+    initializeConsumer();
 }
 
 void FramebufferSurface::resizeBuffers(const ui::Size& newSize) {
