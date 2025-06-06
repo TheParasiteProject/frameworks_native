@@ -29,6 +29,7 @@
 #include <utils/Condition.h>
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
+#include <utils/String8.h>
 
 #include <shared_mutex>
 #include <unordered_set>
@@ -364,10 +365,6 @@ private:
     int dispatchGetLastQueuedBuffer2(va_list args);
     int dispatchSetFrameTimelineInfo(va_list args);
     int dispatchSetAdditionalOptions(va_list args);
-
-    std::mutex mNameMutex;
-    std::string mName;
-    const char* getDebugName();
 
 protected:
     virtual int dequeueBuffer(sp<GraphicBuffer>* buffer, int* fenceFd);
@@ -745,6 +742,10 @@ protected:
     // the GRALLOC_USAGE_CURSOR usage flag should be set on the buffer created when this surface is
     // locked.
     bool mIsForCursor = false;
+
+    mutable std::mutex mDebugMutex;
+    String8 mDebugName GUARDED_BY(mDebugMutex) = String8("not-connected");
+    uint64_t mId GUARDED_BY(mDebugMutex) = 0;
 };
 
 } // namespace android
