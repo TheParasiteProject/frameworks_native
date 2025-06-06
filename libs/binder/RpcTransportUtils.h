@@ -60,15 +60,15 @@ status_t interruptableReadOrWrite(
         return OK;
     }
 
-    // size to break up message
+    // size to break up message - this is not reset for this read/write operation.
     constexpr size_t kChunkMax = 65536;
     const size_t kChunkMin = getpagesize(); // typical allocated granularity for sockets
     size_t chunkSize = kChunkMax;
 
-    // b/419364025 - vhost-vsock, and perhaps other socket implementations may return
-    // ENOMEM from blocking sockets, non-blocking
-    // how long we are waiting on repeated enomems for memory to be available
-    constexpr size_t kEnomemWaitStartUs = 10'000;
+    // b/419364025 - we have confirmed vhost-vsock ENOMEM for non-blocking sockets,
+    //   but more analysis is needed to see how this affects other settings/impls.
+    // These are how long we are waiting on repeated enomems for memory to be available.
+    constexpr size_t kEnomemWaitStartUs = 20'000;
     constexpr size_t kEnomemWaitMaxUs = 1'000'000;       // don't risk ANR
     constexpr size_t kEnomemWaitTotalMaxUs = 30'000'000; // ANR at 30s anyway, so avoid hang
     size_t enomemWaitUs = 0;
@@ -129,7 +129,7 @@ status_t interruptableReadOrWrite(
             // altPoll may introduce long waiting since it assumes if it cannot write
             // data, that it needs to wait to send more to give time for the producer
             // consumer problem to be solved - otherwise it will busy loop. However,
-            // for this worakround, we are breaking up the transaction intentionally,
+            // for this workaround, we are breaking up the transaction intentionally,
             // not because the transaction won't fit, but to avoid a bug in the kernel
             // for how it combines messages. So, when we artificially simulate a
             // limited send, don't poll and just keep on sending data.
@@ -153,8 +153,11 @@ status_t interruptableReadOrWrite(
                 // to give time for more memory to be freed up. This means even
                 // a single page is not available, so we have to wait.
                 if (chunkSize <= kChunkMin) {
-                    if (enomemWaitUs == 0) enomemWaitUs = kEnomemWaitStartUs;
-                    enomemWaitUs = std::min(enomemWaitUs * 2, kEnomemWaitMaxUs);
+                    if (enomemWaitUs == 0) {
+                        enomemWaitUs = kEnomemWaitStartUs;
+                    } else {
+                        enomemWaitUs = std::min(enomemWaitUs * 2, kEnomemWaitMaxUs);
+                    }
                     enomemTotalUs += enomemWaitUs;
 
                     if (enomemTotalUs > kEnomemWaitTotalMaxUs) {
@@ -211,6 +214,8 @@ status_t interruptableReadOrWrite(
 
         // METHOD OF POLLING
         if (skipPollingAndContinue) {
+            // Since we aren't polling, manually check if we should shutdown. This ensures any bug
+            // leading to an infinite loop can still be recovered from.
             if (fdTrigger->isTriggered()) {
                 return DEAD_OBJECT;
             }
