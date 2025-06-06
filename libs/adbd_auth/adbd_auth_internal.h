@@ -31,6 +31,7 @@
 #include <atomic>
 #include <chrono>
 #include <deque>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -79,8 +80,14 @@ struct AdbdAuthContext {
   static constexpr uint64_t kEpollConstFramework = 2;
 
  public:
-  explicit AdbdAuthContext(AdbdAuthCallbacksV1* callbacks);
-  virtual ~AdbdAuthContext() {}
+
+  // For testing purposes, this method accepts a server_fd. This will make the Context use that
+  // server socket instead of retrieving init created "adbd" socket. This socket should use
+  // SOCK_SEQPACKET to respect message boundaries.
+  explicit AdbdAuthContext(const AdbdAuthCallbacksV1* callbacks, std::optional<int> server_fd = {});
+  virtual ~AdbdAuthContext() {
+    Stop();
+  }
 
   AdbdAuthContext(const AdbdAuthContext& copy) = delete;
   AdbdAuthContext(AdbdAuthContext&& move) = delete;
@@ -110,13 +117,28 @@ struct AdbdAuthContext {
   void Interrupt();
   virtual void InitFrameworkHandlers();
 
+  void Stop();
+
  protected:
+  // The file descriptor from epoll_create().
   android::base::unique_fd epoll_fd_;
-  android::base::unique_fd event_fd_;
+
+  // Interrupt server_socket to make epoll_wait return when we have something to write.
+  android::base::unique_fd interrupt_fd_;
+
+  // Server socket. Created when the context is created and never changes.
   android::base::unique_fd sock_fd_;
+
+  // The "active" socket when frameworks connects to the server socket.
+  // This is where we read/write adbd/Framework messages.
   android::base::unique_fd framework_fd_;
 
+  // Response/Request are matched thanks to a counter. We take outgoing request
+  // with this counter id.
   std::atomic<uint64_t> next_id_;
+
+  // Message received from Framework end in a callback. This is were where store
+  // the callback targets.
   AdbdAuthCallbacksV1 callbacks_;
 
   std::mutex mutex_;
@@ -130,6 +152,8 @@ struct AdbdAuthContext {
   std::optional<std::tuple<uint64_t, std::string, void*>> dispatched_prompt_ GUARDED_BY(mutex_);
   std::deque<std::tuple<uint64_t, std::string, void*>> pending_prompts_ GUARDED_BY(mutex_);
 
+  std::atomic<bool> running_ = false;
+
   // This is a list of commands that the framework could send to us.
   using FrameworkHandlerCb = std::function<void(std::string_view)>;
   struct FrameworkPktHandler {
@@ -141,7 +165,8 @@ struct AdbdAuthContext {
 
 class AdbdAuthContextV2 : public AdbdAuthContext {
  public:
-  explicit AdbdAuthContextV2(AdbdAuthCallbacksV2* callbacks);
+  explicit AdbdAuthContextV2(const AdbdAuthCallbacksV2* callbacks, std::optional<int> server_fd = {});
+  virtual ~AdbdAuthContextV2() = default;
   virtual void InitFrameworkHandlers();
   void StartAdbWifi(std::string_view buf) EXCLUDES(mutex_);
   void StopAdbWifi(std::string_view buf) EXCLUDES(mutex_);
