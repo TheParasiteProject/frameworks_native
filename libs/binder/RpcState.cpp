@@ -394,6 +394,12 @@ static inline status_t handleRpcError(const std::unique_ptr<RpcTransport>& trans
               transport.get(), statusToString(status).c_str());
     }
     (void)session->shutdownAndWait(false);
+
+    if (status == -ECONNRESET) {
+        LOG_RPC_DETAIL("Converting -ECONNRESET to DEAD_OBJECT.");
+        status = DEAD_OBJECT;
+    }
+
     return status;
 }
 
