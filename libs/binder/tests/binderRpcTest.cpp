@@ -734,8 +734,7 @@ TEST_P(BinderRpc, SendTooLargeVector) {
     std::vector<uint8_t> result;
     status_t res = rootIface2->repeatBytes(kTestValue, &result).transactionError();
 
-    // TODO(b/392717039): consistent error results always
-    EXPECT_TRUE(res == -ECONNRESET || res == DEAD_OBJECT) << statusToString(res);
+    EXPECT_EQ(res, DEAD_OBJECT) << statusToString(res);
 
     // died, so remove it for checks in destructor of proc
     proc.proc->sessions.erase(proc.proc->sessions.begin() + 1);

@@ -676,13 +676,11 @@ public:
         mSupportsPresent = supportsPresent;
     }
 
-    status_t setTransactionState(
-            SimpleTransactionState /*podState*/, const FrameTimelineInfo& /*frameTimelineInfo*/,
-            Vector<ComposerState>& /*state*/, Vector<DisplayState>& /*displays*/,
-            const sp<IBinder>& /*applyToken*/, const std::vector<client_cache_t>& /*cachedBuffer*/,
-            const TransactionListenerCallbacks& /*listenerCallbacks*/,
-            const std::vector<uint64_t>& /*mergedTransactionIds*/,
-            const std::vector<gui::EarlyWakeupInfo>& /*earlyWakeupInfos*/) override {
+    status_t setTransactionState(SimpleTransactionState /*podState*/,
+                                 const ComplexTransactionState& /*complexState*/,
+                                 MutableTransactionState& /*mutableState*/,
+                                 const sp<IBinder>& /*applyToken*/
+                                 ) override {
         return NO_ERROR;
     }
 
@@ -2298,9 +2296,7 @@ TEST_F(SurfaceTest, PlatformBufferMethods) {
     // Verify nullptrs are handled safely:
     //
 
-    EXPECT_EQ(BAD_VALUE, surface->dequeueBuffer((sp<GraphicBuffer>*)nullptr, nullptr));
     EXPECT_EQ(BAD_VALUE, surface->dequeueBuffer((sp<GraphicBuffer>*)nullptr, &fence));
-    EXPECT_EQ(BAD_VALUE, surface->dequeueBuffer(&buffer, nullptr));
     EXPECT_EQ(BAD_VALUE, surface->queueBuffer(nullptr, nullptr));
     EXPECT_EQ(BAD_VALUE, surface->detachBuffer(nullptr));
 

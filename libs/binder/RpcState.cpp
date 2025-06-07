@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "RpcState"
+#define LOG_TAG "libbinder.RpcState"
 
 #include "RpcState.h"
 
@@ -45,7 +45,7 @@ using android::binder::borrowed_fd;
 using android::binder::unique_fd;
 
 #if RPC_FLAKE_PRONE
-void rpcMaybeWaitToFlake() {
+static unsigned rpcFlakeUnsigned() {
     [[clang::no_destroy]] static std::random_device r;
     [[clang::no_destroy]] static RpcMutex m;
     unsigned num;
@@ -53,6 +53,14 @@ void rpcMaybeWaitToFlake() {
         RpcMutexLockGuard lock(m);
         num = r();
     }
+    return num;
+}
+bool rpcMaybeFlake() {
+    return rpcFlakeUnsigned() % 10 == 0; // flake 10%
+    // return rpcFlakeUnsigned() % 4 != 0; // flake 75%
+}
+void rpcMaybeWaitToFlake() {
+    unsigned num = rpcFlakeUnsigned();
     if (num % 10 == 0) usleep(num % 1000);
 }
 #endif
@@ -374,6 +382,27 @@ RpcState::CommandData::CommandData(size_t size) : mSize(size) {
     mData.reset(data);
 }
 
+// all transport errors should pass through here
+static inline status_t handleRpcError(const std::unique_ptr<RpcTransport>& transport,
+                                      const sp<RpcSession>& session, status_t status,
+                                      const char* stateContext, const char* what, int niovs) {
+    if (status == DEAD_OBJECT || status == -ECONNRESET) {
+        LOG_RPC_DETAIL("Failed to %s %s (%d iovs) on RpcTransport %p, error: %s", stateContext,
+                       what, niovs, transport.get(), statusToString(status).c_str());
+    } else {
+        ALOGE("Failed to %s %s (%d iovs) on RpcTransport %p, error: %s", stateContext, what, niovs,
+              transport.get(), statusToString(status).c_str());
+    }
+    (void)session->shutdownAndWait(false);
+
+    if (status == -ECONNRESET) {
+        LOG_RPC_DETAIL("Converting -ECONNRESET to DEAD_OBJECT.");
+        status = DEAD_OBJECT;
+    }
+
+    return status;
+}
+
 // MUST ALWAYS SHUTDOWN ON ERROR, DUE TO CALLER CONSTRAITS
 status_t RpcState::rpcSend(const sp<RpcSession::RpcConnection>& connection,
                            const sp<RpcSession>& session, const char* what, iovec* iovs, int niovs,
@@ -390,15 +419,7 @@ status_t RpcState::rpcSend(const sp<RpcSession::RpcConnection>& connection,
                                                                   iovs, niovs, altPoll,
                                                                   ancillaryFds);
         status != OK) {
-        if (status == DEAD_OBJECT || status == -ECONNRESET) {
-            LOG_RPC_DETAIL("Failed to write %s (%d iovs) on RpcTransport %p, error: %s", what,
-                           niovs, connection->rpcTransport.get(), statusToString(status).c_str());
-        } else {
-            ALOGE("Failed to write %s (%d iovs) on RpcTransport %p, error: %s", what, niovs,
-                  connection->rpcTransport.get(), statusToString(status).c_str());
-        }
-        (void)session->shutdownAndWait(false);
-        return status;
+        return handleRpcError(connection->rpcTransport, session, status, "write", what, niovs);
     }
 
     return OK;
@@ -413,15 +434,7 @@ status_t RpcState::rpcRec(const sp<RpcSession::RpcConnection>& connection,
                                                                  iovs, niovs, std::nullopt,
                                                                  ancillaryFds);
         status != OK) {
-        if (status == DEAD_OBJECT || status == -ECONNRESET) {
-            LOG_RPC_DETAIL("Failed to read %s (%d iovs) on RpcTransport %p, error: %s", what, niovs,
-                           connection->rpcTransport.get(), statusToString(status).c_str());
-        } else {
-            ALOGE("Failed to read %s (%d iovs) on RpcTransport %p, error: %s", what, niovs,
-                  connection->rpcTransport.get(), statusToString(status).c_str());
-        }
-        (void)session->shutdownAndWait(false);
-        return status;
+        return handleRpcError(connection->rpcTransport, session, status, "read", what, niovs);
     }
 
     for (int i = 0; i < niovs; i++) {
@@ -1096,6 +1109,8 @@ processTransactInternalTailCall:
                 connection->allowNested = origAllowNested;
             } else {
                 LOG_RPC_DETAIL("Got special transaction %u", transaction->code);
+                LOG_ALWAYS_FATAL_IF(addr != 0,
+                                    "!target && replyStatus == OK should imply addr == 0");
 
                 switch (transaction->code) {
                     case RPC_SPECIAL_TRANSACT_GET_MAX_THREADS: {
