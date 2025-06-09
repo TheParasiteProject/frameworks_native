@@ -4927,7 +4927,7 @@ TransactionHandler::TransactionReadiness SurfaceFlinger::transactionReadyBufferC
                                   s.bufferData->barrierFrameNumber));
                         if (!willApplyBarrierFrame) {
                             SFTRACE_FORMAT("NotReadyBarrier %s barrierFrameNumber:%" PRId64
-                                           " > %" PRId64,
+                                           " < %" PRId64,
                                            layer->name.c_str(), layer->barrierFrameNumber,
                                            s.bufferData->barrierFrameNumber);
                             ready = TransactionReadiness::NotReadyBarrier;
