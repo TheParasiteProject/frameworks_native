@@ -505,7 +505,9 @@ protected:
 
     void querySupportedTimestampsLocked() const;
 
-    void freeAllBuffers();
+    void freeAllBuffersLocked() REQUIRES(mMutex);
+    void freeUndequeuedBuffersLocked() REQUIRES(mMutex);
+
     int getSlotFromBufferLocked(const sp<GraphicBuffer>& buffer) const;
 
     void getDequeueBufferInputLocked(IGraphicBufferProducer::DequeueBufferInput* dequeueInput);
@@ -521,11 +523,15 @@ protected:
             const IGraphicBufferProducer::QueueBufferInput& queueBufferInput);
 
     void onBufferQueuedLocked(int slot, sp<Fence> fence,
-            const IGraphicBufferProducer::QueueBufferOutput& output);
+                              const IGraphicBufferProducer::QueueBufferOutput& output)
+            REQUIRES(mMutex);
 
     struct BufferSlot {
         sp<GraphicBuffer> buffer;
         Region dirtyRegion;
+        // This buffer/slot was dequeued when the underlying IGBP sent a RELEASE_ALL_BUFFERS flag,
+        // and we must release this buffer on detach/cancel/queue.
+        bool requiresFreeOnReturn = false;
     };
 
     // mSurfaceTexture is the interface to the surface texture server. All
