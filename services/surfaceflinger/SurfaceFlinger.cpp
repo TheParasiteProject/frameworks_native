@@ -5541,6 +5541,7 @@ status_t SurfaceFlinger::mirrorLayer(const LayerCreationArgs& args,
         mirrorArgs.flags |= ISurfaceComposerClient::eNoColorFill;
         mirrorArgs.mirrorLayerHandle = mirrorFromHandle;
         mirrorArgs.addToRoot = false;
+        mirrorArgs.name = mirrorFrom->getName() + "(MirrorRoot)";
         if (stopAtHandle) {
             uint32_t stopLayerId = LayerHandle::getLayerId(stopAtHandle);
             if (stopLayerId == UNASSIGNED_LAYER_ID) {
