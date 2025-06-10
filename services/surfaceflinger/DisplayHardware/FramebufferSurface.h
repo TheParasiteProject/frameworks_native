@@ -54,8 +54,12 @@ public:
 
     virtual const sp<Fence>& getClientTargetAcquireFence() const override;
 
+    void onFirstRef() override;
+
 private:
     friend class FramebufferSurfaceTest;
+
+    void initializeConsumer();
 
     // Limits the width and height by the maximum width specified.
     ui::Size limitSize(const ui::Size&);
@@ -70,6 +74,8 @@ private:
     virtual void dumpLocked(String8& result, const char* prefix) const;
 
     const PhysicalDisplayId mDisplayId;
+
+    const ui::Size mLimitedSize;
 
     // Framebuffer size has a dimension limitation in pixels based on the graphics capabilities of
     // the device.
