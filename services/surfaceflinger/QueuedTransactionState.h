@@ -52,8 +52,8 @@ struct QueuedTransactionState {
     QueuedTransactionState() = default;
 
     QueuedTransactionState(const FrameTimelineInfo& frameTimelineInfo,
-                           std::vector<ResolvedComposerState>& composerStates,
-                           std::vector<DisplayState>& displayStates, uint32_t transactionFlags,
+                           std::vector<ResolvedComposerState> composerStates,
+                           std::vector<DisplayState> displayStates, uint32_t transactionFlags,
                            const sp<IBinder>& applyToken,
                            const InputWindowCommands& inputWindowCommands,
                            int64_t desiredPresentTime, bool isAutoTimestamp,
