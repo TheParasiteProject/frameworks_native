@@ -143,8 +143,6 @@ status_t TransactionState::readFromParcel(const Parcel* parcel) {
     }
 
     return NO_ERROR;
-
-    return NO_ERROR;
 }
 
 void TransactionState::merge(TransactionState&& other,

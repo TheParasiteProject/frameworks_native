@@ -5187,8 +5187,8 @@ status_t SurfaceFlinger::setTransactionState(TransactionState&& transactionState
 
     QueuedTransactionState state{
             transactionState.mFrameTimelineInfo,
-            resolvedStates,
-            transactionState.mDisplayStates,
+            std::move(resolvedStates),
+            std::move(transactionState.mDisplayStates),
             flags,
             applyToken,
             std::move(inputWindowCommands),
