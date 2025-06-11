@@ -105,6 +105,7 @@ private:
     };
 
     void initializeConsumer();
+    void initializeProducer();
 
     virtual ~VirtualDisplaySurface();
 
