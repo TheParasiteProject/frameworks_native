@@ -61,8 +61,8 @@ status_t interruptableReadOrWrite(
     }
 
     // size to break up message - this is not reset for this read/write operation.
-    constexpr size_t kChunkMax = 4096;
-    const size_t kChunkMin = 2048; // typical allocated granularity for sockets
+    constexpr size_t kChunkMax = 65536;
+    const size_t kChunkMin = getpagesize(); // typical allocated granularity for sockets
     size_t chunkSize = kChunkMax;
 
     // b/419364025 - we have confirmed vhost-vsock ENOMEM for non-blocking sockets,
