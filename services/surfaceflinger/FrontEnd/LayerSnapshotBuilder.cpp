@@ -1339,11 +1339,11 @@ void LayerSnapshotBuilder::forEachVisibleSnapshot(const Visitor& visitor) {
     }
 }
 
-void LayerSnapshotBuilder::forEachSnapshot(const Visitor& visitor,
-                                           const ConstPredicate& predicate) {
+void LayerSnapshotBuilder::forEachNonNullSnapshot(const Visitor& visitor,
+                                                  const ConstPredicate& predicate) {
     for (int i = 0; i < mNumInterestingSnapshots; i++) {
         std::unique_ptr<LayerSnapshot>& snapshot = mSnapshots.at((size_t)i);
-        if (!predicate(*snapshot)) continue;
+        if (!snapshot || !predicate(*snapshot)) continue;
         visitor(snapshot);
     }
 }

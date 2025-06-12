@@ -768,9 +768,10 @@ private:
             REQUIRES(mStateLock, kMainThreadContext);
     void doCommitTransactions() REQUIRES(mStateLock);
 
-    std::vector<std::pair<Layer*, LayerFE*>> moveSnapshotsToCompositionArgs(
+    std::vector<std::pair<Layer*, LayerFE*>> addLayerSnapshotsToCompositionArgs(
             compositionengine::CompositionRefreshArgs& refreshArgs, bool cursorOnly)
             REQUIRES(kMainThreadContext);
+
     void moveSnapshotsFromCompositionArgs(compositionengine::CompositionRefreshArgs& refreshArgs,
                                           const std::vector<std::pair<Layer*, LayerFE*>>& layers)
             REQUIRES(kMainThreadContext);
@@ -1544,6 +1545,8 @@ private:
     std::atomic<int> mNumTrustedPresentationListeners = 0;
 
     std::unique_ptr<compositionengine::CompositionEngine> mCompositionEngine;
+    // Dedicated composition engine instance for the virtual displays offloaded from main thread.
+    std::unique_ptr<compositionengine::CompositionEngine> mOffloadedCompositionEngine;
     std::unique_ptr<HWComposer> mHWComposer;
 
     CompositionCoveragePerDisplay mCompositionCoverage;
@@ -1685,6 +1688,22 @@ private:
     void sfdo_forceClientComposition(bool enabled);
     status_t sfdo_forcePacesetter(PhysicalDisplayId displayId);
     void sfdo_resetForcedPacesetter();
+
+    // Partition displays: physical for main thread, virtual for offloaded.
+    struct RefreshArgsPartition {
+        compositionengine::CompositionRefreshArgs mainThreadRefreshArgs;
+        std::optional<compositionengine::CompositionRefreshArgs> offloadedRefreshArgs;
+    };
+    RefreshArgsPartition addOutputsToRefreshArgs(
+            PhysicalDisplayId pacesetterId,
+            const compositionengine::CompositionRefreshArgs& refreshArgs,
+            const scheduler::FrameTargeters& frameTargeters);
+    std::future<void> offloadGpuCompositedDisplays(
+            compositionengine::CompositionRefreshArgs offloadedRefreshArgs,
+            std::vector<std::pair<Layer*, LayerFE*>> offloadedLayers);
+    // TODO(b/431836223): Workaround to capture traces to disk and recover gracefully by forcing CE
+    //  to rebuild layer stack instead of crashing.
+    void setVisibleRegionDirtyIfNeeded(compositionengine::CompositionRefreshArgs& refreshArgs);
 };
 
 class SurfaceComposerAIDL : public gui::BnSurfaceComposer {
@@ -1838,6 +1857,7 @@ private:
     status_t checkObservePictureProfilesPermission();
     static void getDynamicDisplayInfoInternal(ui::DynamicDisplayInfo& info,
                                               gui::DynamicDisplayInfo*& outInfo);
+    bool isBackedByGpu() const;
 
 private:
     const sp<SurfaceFlinger> mFlinger;
