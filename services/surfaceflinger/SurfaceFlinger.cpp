@@ -7565,8 +7565,9 @@ void SurfaceFlinger::captureDisplay(DisplayId displayId, const CaptureArgs& args
 
     ScreenshotArgs screenshotArgs{.captureTypeVariant = displayId,
                                   .snapshotRequest = SnapshotRequestArgs{.uid = gui::Uid::INVALID},
-                                  .size = ui::Size(args.frameScaleX, args.frameScaleY),
                                   .dataspace = static_cast<ui::Dataspace>(args.dataspace),
+                                  .frameScaleX = args.frameScaleX,
+                                  .frameScaleY = args.frameScaleY,
                                   .disableBlur = false,
                                   .isGrayscale = false,
                                   .isSecure = args.captureSecureLayers,
@@ -7597,67 +7598,17 @@ void SurfaceFlinger::captureLayers(const LayerCaptureArgs& args,
         return;
     }
 
-    auto crop = gui::aidl_utils::fromARect(captureArgs.sourceCrop);
-
-    ui::Size reqSize;
-    sp<Layer> parent;
-    ui::Dataspace dataspace = static_cast<ui::Dataspace>(captureArgs.dataspace);
-
     if (captureArgs.captureSecureLayers && !hasCaptureBlackoutContentPermission()) {
         ALOGD("Attempting to capture secure layers without CAPTURE_BLACKOUT_CONTENT");
         invokeScreenCaptureError(PERMISSION_DENIED, captureListener);
         return;
     }
 
-    {
-        Mutex::Autolock lock(mStateLock);
-
-        parent = LayerHandle::getLayer(args.layerHandle);
-        if (parent == nullptr) {
-            ALOGD("captureLayers called with an invalid or removed parent");
-            invokeScreenCaptureError(NAME_NOT_FOUND, captureListener);
-            return;
-        }
-
-        Rect parentSourceBounds = parent->getCroppedBufferSize(parent->getDrawingState());
-        if (crop.width() <= 0) {
-            crop.left = 0;
-            crop.right = parentSourceBounds.getWidth();
-        }
-
-        if (crop.height() <= 0) {
-            crop.top = 0;
-            crop.bottom = parentSourceBounds.getHeight();
-        }
-
-        if (crop.isEmpty() || captureArgs.frameScaleX <= 0.0f || captureArgs.frameScaleY <= 0.0f) {
-            // Error out if the layer has no source bounds (i.e. they are boundless) and a source
-            // crop was not specified, or an invalid frame scale was provided.
-            ALOGD("Boundless layer, unspecified crop, or invalid frame scale to captureLayers");
-            invokeScreenCaptureError(BAD_VALUE, captureListener);
-            return;
-        }
-        reqSize = ui::Size(crop.width() * captureArgs.frameScaleX,
-                           crop.height() * captureArgs.frameScaleY);
-    } // mStateLock
     auto excludeLayerIds = getExcludeLayerIds(captureArgs.excludeHandles);
     if (!excludeLayerIds) {
         ALOGD("Invalid layer handle passed as excludeLayer to captureLayers");
         invokeScreenCaptureError(excludeLayerIds.error(), captureListener);
         return;
-    }
-
-    // really small crop or frameScale
-    if (reqSize.width <= 0 || reqSize.height <= 0) {
-        ALOGD("Failed to captureLayers: crop or scale too small");
-        invokeScreenCaptureError(BAD_VALUE, captureListener);
-        return;
-    }
-
-    std::optional<FloatRect> parentCrop = std::nullopt;
-    if (args.childrenOnly) {
-        parentCrop = crop.isEmpty() ? FloatRect(0, 0, reqSize.width, reqSize.height)
-                                    : crop.toFloatRect();
     }
 
     if (captureListener == nullptr) {
@@ -7666,18 +7617,20 @@ void SurfaceFlinger::captureLayers(const LayerCaptureArgs& args,
         return;
     }
 
-    ScreenshotArgs screenshotArgs{.captureTypeVariant = parent->getSequence(),
+    ScreenshotArgs screenshotArgs{.captureTypeVariant = LayerHandle::getLayerId(args.layerHandle),
                                   .snapshotRequest =
                                           SnapshotRequestArgs{.uid = gui::Uid{static_cast<uid_t>(
                                                                       captureArgs.uid)},
-                                                              .rootLayerId = parent->getSequence(),
+                                                              .rootLayerId =
+                                                                      LayerHandle::getLayerId(
+                                                                              args.layerHandle),
                                                               .excludeLayerIds =
                                                                       excludeLayerIds.value(),
-                                                              .childrenOnly = args.childrenOnly,
-                                                              .parentCrop = parentCrop},
-                                  .sourceCrop = crop,
-                                  .size = reqSize,
+                                                              .childrenOnly = args.childrenOnly},
+                                  .sourceCrop = gui::aidl_utils::fromARect(captureArgs.sourceCrop),
                                   .dataspace = static_cast<ui::Dataspace>(captureArgs.dataspace),
+                                  .frameScaleX = captureArgs.frameScaleX,
+                                  .frameScaleY = captureArgs.frameScaleY,
                                   .disableBlur = false,
                                   .isGrayscale = captureArgs.grayscale,
                                   .isSecure = captureArgs.captureSecureLayers,
@@ -7901,8 +7854,54 @@ status_t SurfaceFlinger::setScreenshotDisplayState(ScreenshotArgs& args) {
     sp<const DisplayDevice> display = nullptr;
 
     // Screenshot initiated through captureLayers
-    if (auto* layerSequence = std::get_if<int32_t>(&args.captureTypeVariant)) {
-        // LayerSnapshotBuilder should only be accessed from the main thread.
+    if (auto* layerSequence = std::get_if<uint32_t>(&args.captureTypeVariant)) {
+        // LayerSnapshotBuilder and LayerLifecycleManager should only be accessed from the main
+        // thread.
+        frontend::RequestedLayerState* layer =
+                mLayerLifecycleManager.getLayerFromId(*layerSequence);
+        if (layer == nullptr) {
+            ALOGD("captureLayers called with an invalid or removed parent");
+            return NAME_NOT_FOUND;
+        }
+
+        // Calculate crop
+        uint32_t primaryDisplayRotationFlags =
+                mLayerSnapshotBuilder.getPrimaryDisplayRotationFlags(mFrontEndDisplayInfos);
+        Rect bufferSize = layer->getBufferSize(primaryDisplayRotationFlags);
+        FloatRect sourceBounds = layer->getCroppedBufferSize(bufferSize);
+
+        if (args.sourceCrop.width() <= 0) {
+            args.sourceCrop.left = 0;
+            args.sourceCrop.right = sourceBounds.getWidth();
+        }
+
+        if (args.sourceCrop.height() <= 0) {
+            args.sourceCrop.top = 0;
+            args.sourceCrop.bottom = sourceBounds.getHeight();
+        }
+
+        if (args.sourceCrop.isEmpty() || args.frameScaleX <= 0.0f || args.frameScaleY <= 0.0f) {
+            // Error out if the layer has no source bounds (i.e. they are boundless) and a source
+            // crop was not specified, or an invalid frame scale was provided.
+            ALOGD("Boundless layer, unspecified crop, or invalid frame scale to captureLayers");
+            return BAD_VALUE;
+        }
+        args.size = ui::Size(args.sourceCrop.width() * args.frameScaleX,
+                             args.sourceCrop.height() * args.frameScaleY);
+
+        // Really small crop or frameScale
+        if (args.size.width <= 0 || args.size.height <= 0) {
+            ALOGD("Failed to captureLayers: crop or scale too small");
+            return BAD_VALUE;
+        }
+
+        std::optional<FloatRect> parentCrop = std::nullopt;
+        if (args.snapshotRequest.childrenOnly) {
+            args.snapshotRequest.parentCrop = args.sourceCrop.isEmpty()
+                    ? FloatRect(0, 0, args.size.width, args.size.height)
+                    : args.sourceCrop.toFloatRect();
+        }
+
         const frontend::LayerSnapshot* snapshot = mLayerSnapshotBuilder.getSnapshot(*layerSequence);
         if (!snapshot) {
             ALOGW("Couldn't find layer snapshot for %d", *layerSequence);
@@ -7932,8 +7931,8 @@ status_t SurfaceFlinger::setScreenshotDisplayState(ScreenshotArgs& args) {
         args.isSecure &= display->isSecure();
         args.snapshotRequest.layerStack = display->getLayerStack();
         args.sourceCrop = layerStackSpaceRect;
-        args.size.width *= layerStackSpaceRect.getWidth();
-        args.size.height *= layerStackSpaceRect.getHeight();
+        args.size.width = args.frameScaleX * layerStackSpaceRect.getWidth();
+        args.size.height = args.frameScaleY * layerStackSpaceRect.getHeight();
 
         // We could query a real value for this but it'll be a long, long time until we support
         // displays that need upwards of 1GB per buffer so...
@@ -8161,7 +8160,7 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::renderScreenImpl(
         // Capturing via display or displayId, which do not use args.layerSequence,
         // has an opaque capture fill (1 alpha).
         const float layerAlpha =
-                std::holds_alternative<int32_t>(args.captureTypeVariant) ? 0.0f : 1.0f;
+                std::holds_alternative<uint32_t>(args.captureTypeVariant) ? 0.0f : 1.0f;
 
         // Screenshots leaving the device must not dim in gamma space.
         const bool dimInGammaSpaceForEnhancedScreenshots =
