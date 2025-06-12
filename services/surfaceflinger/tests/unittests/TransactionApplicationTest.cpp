@@ -431,7 +431,8 @@ public:
                                      static_cast<int>(getuid()),
                                      transaction.transactionState.getId(),
                                      transaction.transactionState.mMergedTransactionIds,
-                                     transaction.transactionState.mEarlyWakeupInfos);
+                                     transaction.transactionState.mEarlyWakeupInfos,
+                                     transaction.transactionState.mBarriers);
             mFlinger.setTransactionStateInternal(transactionState);
         }
         mFlinger.flushTransactionQueues();
