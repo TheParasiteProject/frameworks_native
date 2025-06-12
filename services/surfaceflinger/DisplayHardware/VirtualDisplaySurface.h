@@ -72,11 +72,6 @@ class VirtualDisplaySurface : public compositionengine::DisplaySurface,
                               public BnGraphicBufferProducer,
                               private ConsumerBase {
 public:
-    VirtualDisplaySurface(HWComposer&, VirtualDisplayIdVariant,
-                          const sp<IGraphicBufferProducer>& sink,
-                          const sp<IGraphicBufferProducer>& bqProducer,
-                          const sp<IGraphicBufferConsumer>& bqConsumer, const std::string& name);
-
     //
     // DisplaySurface interface
     //
@@ -94,6 +89,13 @@ public:
     void onFirstRef() override;
 
 private:
+    VirtualDisplaySurface(HWComposer&, VirtualDisplayIdVariant,
+                          const sp<IGraphicBufferProducer>& sink,
+                          const sp<IGraphicBufferProducer>& bqProducer,
+                          const sp<IGraphicBufferConsumer>& bqConsumer, const std::string& name);
+
+    friend class sp<VirtualDisplaySurface>;
+
     enum Source : size_t {
         SOURCE_SINK = 0,
         SOURCE_SCRATCH = 1,
