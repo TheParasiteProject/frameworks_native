@@ -67,8 +67,9 @@ const std::array<float, 3> kLayerWhitePoints = {
 };
 } // namespace
 
-static void drawShadowLayers(SkiaRenderEngine* renderengine, const DisplaySettings& display,
-                             const std::shared_ptr<ExternalTexture>& dstTexture) {
+static void drawElevationShadowLayers(SkiaRenderEngine* renderengine,
+                                      const DisplaySettings& display,
+                                      const std::shared_ptr<ExternalTexture>& dstTexture) {
     // Somewhat arbitrary dimensions, but on screen and slightly shorter, based
     // on actual use.
     const Rect& displayRect = display.physicalDisplay;
@@ -134,6 +135,78 @@ static void drawShadowLayers(SkiaRenderEngine* renderengine, const DisplaySettin
     }
 }
 
+static void drawBoxShadowLayers(SkiaRenderEngine* renderengine, const DisplaySettings& display,
+                                const std::shared_ptr<ExternalTexture>& dstTexture) {
+    const Rect& displayRect = display.physicalDisplay;
+
+    // The texture must be large enough for two shaders
+    // 1. See ComputeBlurredRRectParams in GrBlurUtils.cpp, the dstTexture must be large enough
+    //    for the blur to be considered nine patcheable.
+    // 2. See TesselationPathRenderer, there must be enough GPU work to choose the CPU path.
+    LOG_ALWAYS_FATAL_IF(displayRect.width() < 384 || displayRect.height() < 384,
+                        "dstTexture must be at least 256x256");
+
+    gui::BorderSettings borderSettings;
+    borderSettings.strokeWidth = 2.0f;
+    borderSettings.color = 666747334;
+
+    gui::BoxShadowSettings boxShadowSettings;
+    gui::BoxShadowSettings::BoxShadowParams shadow1;
+    shadow1.blurRadius = 28.0f;
+    shadow1.spreadRadius = 0.0f;
+    shadow1.color = 167772160;
+    shadow1.offsetX = 0.0f;
+    shadow1.offsetY = 0.0f;
+    boxShadowSettings.boxShadows.push_back(shadow1);
+
+    gui::BoxShadowSettings::BoxShadowParams shadow2;
+    shadow2.blurRadius = 16.0f;
+    shadow2.spreadRadius = 0.0f;
+    shadow2.color = 436207616;
+    shadow2.offsetX = 0.0f;
+    shadow2.offsetY = 4.0f;
+    boxShadowSettings.boxShadows.push_back(shadow2);
+
+    FloatRect rect(20, 20, 250, 250);
+    LayerSettings layer{
+            .geometry =
+                    Geometry{
+                            .boundaries = rect,
+                            .originalBounds = rect,
+                            .roundedCornersRadius = {32.0f, 32.0f},
+                            .roundedCornersCrop = rect,
+                            .otherCrop = FloatRect(-16384, -16384, 16384, 16384),
+                    },
+            .source =
+                    PixelSource{
+                            .solidColor = half3(0.f, 0.f, 0.f),
+                    },
+            .alpha = 1,
+            // setting this is mandatory for shadows and blurs
+            .skipContentDraw = true,
+            // drawShadow ignores alpha
+            .borderSettings = borderSettings,
+            .boxShadowSettings = boxShadowSettings,
+    };
+
+    {
+        SFTRACE_NAME("RotatedClip");
+        // This triggers quite a few shaders, not quite sure what they all are.
+        layer.geometry.positionTransform = kFlip;
+        renderengine->drawLayers(display, {layer}, dstTexture, base::unique_fd());
+    }
+    {
+        SFTRACE_NAME("RRectBlur_NinePatch");
+        layer.geometry.positionTransform = mat4();
+        renderengine->drawLayers(display, {layer}, dstTexture, base::unique_fd());
+    }
+    {
+        SFTRACE_NAME("ConcavePath_Tessellate");
+        layer.geometry.positionTransform = mat4::scale(vec4(1.5f, 1.5f, 1.0f, 1.0f)) * kFlip;
+        renderengine->drawLayers(display, {layer}, dstTexture, base::unique_fd());
+    }
+}
+
 static void drawImageLayers(SkiaRenderEngine* renderengine, const DisplaySettings& display,
                             const std::shared_ptr<ExternalTexture>& dstTexture,
                             const std::shared_ptr<ExternalTexture>& srcTexture) {
@@ -143,8 +216,6 @@ static void drawImageLayers(SkiaRenderEngine* renderengine, const DisplaySetting
             .geometry =
                     Geometry{
                             .boundaries = rect,
-                            // The position transform doesn't matter when the reduced shader mode
-                            // in in effect. A matrix transform stage is always included.
                             .positionTransform = mat4(),
                             .roundedCornersCrop = rect,
                     },
@@ -155,19 +226,22 @@ static void drawImageLayers(SkiaRenderEngine* renderengine, const DisplaySetting
                                           }},
     };
 
-    for (auto dataspace : {kDestDataSpace, kOtherDataSpace}) {
-        layer.sourceDataspace = dataspace;
-        // Cache shaders for both rects and round rects.
-        // In reduced shader mode, all non-zero round rect radii get the same code path.
-        for (float roundedCornersRadius : {0.0f, 50.0f}) {
-            // roundedCornersCrop is always set, but the radius triggers the behavior
-            layer.geometry.roundedCornersRadius = {roundedCornersRadius, roundedCornersRadius};
-            for (bool isOpaque : {true, false}) {
-                layer.source.buffer.isOpaque = isOpaque;
-                for (auto alpha : {half(.2f), half(1.0f)}) {
-                    layer.alpha = alpha;
-                    auto layers = std::vector<LayerSettings>{layer};
-                    renderengine->drawLayers(display, layers, dstTexture, base::unique_fd());
+    for (mat4 transform : {mat4(), kFlip}) {
+        layer.geometry.positionTransform = transform;
+        for (auto dataspace : {kDestDataSpace, kOtherDataSpace}) {
+            layer.sourceDataspace = dataspace;
+            // Cache shaders for both rects and round rects.
+            // In reduced shader mode, all non-zero round rect radii get the same code path.
+            for (float roundedCornersRadius : {0.0f, 50.0f}) {
+                // roundedCornersCrop is always set, but the radius triggers the behavior
+                layer.geometry.roundedCornersRadius = {roundedCornersRadius, roundedCornersRadius};
+                for (bool isOpaque : {true, false}) {
+                    layer.source.buffer.isOpaque = isOpaque;
+                    for (auto alpha : {half(.2f), half(1.0f)}) {
+                        layer.alpha = alpha;
+                        auto layers = std::vector<LayerSettings>{layer};
+                        renderengine->drawLayers(display, layers, dstTexture, base::unique_fd());
+                    }
                 }
             }
         }
@@ -768,7 +842,7 @@ void Cache::primeShaderCache(SkiaRenderEngine* renderengine, PrimeCacheConfig co
     // The loop is beneficial for debugging and should otherwise be optimized out by the compiler.
     // Adding additional bounds to the loop is useful for verifying that the size of the dst buffer
     // does not impact the shader compilation counts by triggering different behaviors in RE/Skia.
-    for (SkSize bounds : {SkSize::Make(128, 128), /*SkSize::Make(1080, 2340)*/}) {
+    for (SkSize bounds : {SkSize::Make(384, 384), /*SkSize::Make(1080, 2340)*/}) {
         const nsecs_t timeBefore = systemTime();
         // The dimensions should not matter, so long as we draw inside them.
         const Rect displayRect(0, 0, bounds.fWidth, bounds.fHeight);
@@ -851,9 +925,15 @@ void Cache::primeShaderCache(SkiaRenderEngine* renderengine, PrimeCacheConfig co
         }
 
         if (config.cacheShadowLayers) {
-            SFTRACE_NAME("cacheShadowLayers");
-            drawShadowLayers(renderengine, display, srcTexture);
-            drawShadowLayers(renderengine, p3Display, srcTexture);
+            {
+                SFTRACE_NAME("cacheShadowLayers");
+                drawElevationShadowLayers(renderengine, display, srcTexture);
+                drawElevationShadowLayers(renderengine, p3Display, srcTexture);
+            }
+            {
+                SFTRACE_NAME("cacheBoxShadows");
+                drawBoxShadowLayers(renderengine, display, srcTexture);
+            }
         }
 
         if (renderengine->supportsBackgroundBlur()) {
