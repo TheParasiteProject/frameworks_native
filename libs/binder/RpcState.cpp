@@ -361,9 +361,14 @@ RpcState::CommandData::CommandData(size_t size) : mSize(size) {
     // transaction (in some cases, additional fixed size amounts are added),
     // though for rough consistency, we should avoid cases where this data type
     // is used for multiple dynamic allocations for a single transaction.
-    if (size > binder::kRpcTransactionLimitBytes) {
-        ALOGE("Transaction requested too much data allocation: %zu bytes, failing.", size);
+    if (size > binder::kRpcTransactionTemporaryLimitBytes) {
+        ALOGE("Transaction requested WAY WAY WAY too much data allocation: %zu bytes, failing.",
+              size);
         return;
+    } else if (size > binder::kRpcTransactionLimitBytes) {
+        ALOGE("Transaction requested too much data allocation: %zu bytes, this will become a "
+              "failure!!!",
+              size);
     } else if (size > binder::kLogTransactionsOverBytes) {
         ALOGW("Transaction too large: inefficient and in danger of breaking: %zu bytes.", size);
     }

@@ -713,6 +713,7 @@ TEST_P(BinderRpc, OnewayCallExhaustion) {
 }
 
 // TODO(b/392717039): can we move this to universal tests?
+// TODO(b/424526253): restore limit down
 TEST_P(BinderRpc, SendTooLargeVector) {
     if (GetParam().singleThreaded) {
         GTEST_SKIP() << "Requires multi-threaded server to test one of the sessions crashing.";
@@ -724,7 +725,7 @@ TEST_P(BinderRpc, SendTooLargeVector) {
     EXPECT_EQ(OK, proc.rootBinder->pingBinder());
 
     // see libbinder internal Constants.h
-    const size_t kTooLargeSize = 650 * 1024;
+    const size_t kTooLargeSize = 25 * 1024 * 1024;
     const std::vector<uint8_t> kTestValue(kTooLargeSize / sizeof(uint8_t), 42);
 
     // TODO(b/392717039): Telling a server to allocate too much data currently causes the session to
