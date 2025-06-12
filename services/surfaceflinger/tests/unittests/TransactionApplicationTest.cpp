@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "gui/TransactionState.h"
 #undef LOG_TAG
 #define LOG_TAG "TransactionApplicationTest"
 
@@ -26,6 +25,7 @@
 #include <gtest/gtest.h>
 #include <gui/LayerState.h>
 #include <gui/SurfaceComposerClient.h>
+#include <gui/TransactionState.h>
 #include <gui/fake/BufferData.h>
 #include <log/log.h>
 #include <renderengine/mock/RenderEngine.h>

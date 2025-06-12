@@ -364,10 +364,13 @@ def write_api_constants(xml_root: ET.Element, vk_py_file_handle: IO[str]):
     """Extracts VK_API_VERSION defines, computes their integer values, and writes them to vk.py."""
     version_defines = extract_make_api_versions(xml_root)
     version_content = "# --- Computed VK_API_VERSION Constants --- \n\n"
-    for name, version in version_defines.items():
-        packed_value = vk_make_api_version(version[0], version[1], version[2], version[3])
-        version_content += f"{name} = {packed_value}\n"
-    version_content += "\n\n"
+    version_content += "VK_API_VERSION_MAP = {\n"
+    version_defines_items = list(version_defines.items())
+    if(len(version_defines_items)>1):
+        for name, version in version_defines_items[1:]:
+            packed_value = vk_make_api_version(version[0], version[1], version[2], version[3])
+            version_content += f'    "{name}": {packed_value},\n'
+    version_content += "}\n\n"
     write_py_file(vk_py_file_handle, version_content)
 
 
