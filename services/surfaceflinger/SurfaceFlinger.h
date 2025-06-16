@@ -1069,6 +1069,13 @@ private:
         return getFrontInternalDisplayLocked();
     }
 
+    std::optional<PhysicalDisplayId> getDefaultPacesetterDisplay() const {
+        if (FlagManager::getInstance().pacesetter_selection()) {
+            return std::nullopt;
+        }
+        return mFrontInternalDisplayId;
+    }
+
     using DisplayDeviceAndSnapshot = std::pair<sp<DisplayDevice>, display::DisplaySnapshotRef>;
 
     // Combinator for ftl::Optional<PhysicalDisplay>::and_then.
