@@ -119,6 +119,14 @@ struct AdbdAuthContext {
 
   void Stop();
 
+  bool IsRunning() {
+    return running_;
+  }
+
+  size_t ReceivedPackets() {
+    return received_packets_;
+  }
+
  protected:
   // The file descriptor from epoll_create().
   android::base::unique_fd epoll_fd_;
@@ -161,6 +169,8 @@ struct AdbdAuthContext {
     FrameworkHandlerCb cb;
   };
   std::vector<FrameworkPktHandler> framework_handlers_;
+
+  std::atomic<size_t> received_packets_ = 0;
 };
 
 class AdbdAuthContextV2 : public AdbdAuthContext {

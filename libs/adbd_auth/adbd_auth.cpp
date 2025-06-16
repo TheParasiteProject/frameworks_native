@@ -134,6 +134,7 @@ void AdbdAuthContext::ReplaceFrameworkFd(unique_fd new_fd) REQUIRES(mutex_) {
 void AdbdAuthContext::HandlePacket(std::string_view packet) EXCLUDES(mutex_) {
   LOG(INFO) << "adbd_auth: received packet: " << packet;
 
+  received_packets_++;
   if (packet.size() < 2) {
     LOG(ERROR) << "adbd_auth: received packet of invalid length";
     std::lock_guard<std::mutex> lock(mutex_);
