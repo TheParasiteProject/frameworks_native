@@ -143,7 +143,11 @@ std::string GpuService::getPersistGraphicsEgl() {
     return android::base::GetProperty("persist.graphics.egl", "");
 }
 
-FeatureOverrides GpuService::getFeatureOverrides() {
+void GpuService::getFeatureOverrides(FeatureOverrides& featureOverrides) {
+    featureOverrides = mFeatureOverrideParser.getCachedFeatureOverrides();
+}
+
+const FeatureOverrides &GpuService::getCachedFeatureOverrides() {
     return mFeatureOverrideParser.getCachedFeatureOverrides();
 }
 
@@ -243,7 +247,8 @@ status_t GpuService::doDump(int fd, const Vector<String16>& args, bool /*asProto
 }
 
 status_t GpuService::cmdFeatureOverrides(int out, int /*err*/) {
-    dprintf(out, "%s\n", mFeatureOverrideParser.getCachedFeatureOverrides().toString().c_str());
+    const FeatureOverrides &featureOverrides = mFeatureOverrideParser.getCachedFeatureOverrides();
+    dprintf(out, "%s\n", featureOverrides.toString().c_str());
     return NO_ERROR;
 }
 

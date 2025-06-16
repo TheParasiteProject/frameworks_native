@@ -169,7 +169,7 @@ void FeatureOverrideParser::parseFeatureOverrides(const std::string &configFileP
     }
 }
 
-FeatureOverrides FeatureOverrideParser::getCachedFeatureOverrides() {
+const FeatureOverrides &FeatureOverrideParser::getCachedFeatureOverrides() {
     return mFeatureOverrides;
 }
 

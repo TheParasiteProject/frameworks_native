@@ -57,7 +57,7 @@ public:
     }
 };
 
-testing::AssertionResult validateFeatureConfigTestTxtpbSizes(FeatureOverrides overrides) {
+testing::AssertionResult validateFeatureConfigTestTxtpbSizes(const FeatureOverrides &overrides) {
     size_t expectedGlobalFeaturesSize = 3;
     if (overrides.mGlobalFeatures.size() != expectedGlobalFeaturesSize) {
         return testing::AssertionFailure()
@@ -75,7 +75,7 @@ testing::AssertionResult validateFeatureConfigTestTxtpbSizes(FeatureOverrides ov
     return testing::AssertionSuccess();
 }
 
-testing::AssertionResult validateGlobalOverrides1(FeatureOverrides overrides) {
+testing::AssertionResult validateGlobalOverrides1(const FeatureOverrides &overrides) {
     const int kTestFeatureIndex = 0;
     const std::string expectedFeatureName = "globalOverrides1";
     const FeatureConfig &cfg = overrides.mGlobalFeatures[kTestFeatureIndex];
@@ -98,13 +98,13 @@ testing::AssertionResult validateGlobalOverrides1(FeatureOverrides overrides) {
 
 TEST_F(FeatureOverrideParserTest, globalOverrides1) {
     FeatureOverrideParser featureOverrideParser(getTestBinarypbPath(kFilename));
-    FeatureOverrides overrides = featureOverrideParser.getCachedFeatureOverrides();
+    const FeatureOverrides &overrides = featureOverrideParser.getCachedFeatureOverrides();
 
     EXPECT_TRUE(validateFeatureConfigTestTxtpbSizes(overrides));
     EXPECT_TRUE(validateGlobalOverrides1(overrides));
 }
 
-testing::AssertionResult validateGlobalOverrides2(FeatureOverrides overrides) {
+testing::AssertionResult validateGlobalOverrides2(const FeatureOverrides &overrides) {
     const int kTestFeatureIndex = 1;
     const std::string expectedFeatureName = "globalOverrides2";
     const FeatureConfig &cfg = overrides.mGlobalFeatures[kTestFeatureIndex];
@@ -145,12 +145,12 @@ testing::AssertionResult validateGlobalOverrides2(FeatureOverrides overrides) {
 
 TEST_F(FeatureOverrideParserTest, globalOverrides2) {
     FeatureOverrideParser featureOverrideParser(getTestBinarypbPath(kFilename));
-    FeatureOverrides overrides = featureOverrideParser.getCachedFeatureOverrides();
+    const FeatureOverrides &overrides = featureOverrideParser.getCachedFeatureOverrides();
 
     EXPECT_TRUE(validateGlobalOverrides2(overrides));
 }
 
-testing::AssertionResult validateGlobalOverrides3(FeatureOverrides overrides) {
+testing::AssertionResult validateGlobalOverrides3(const FeatureOverrides &overrides) {
     const int kTestFeatureIndex = 2;
     const std::string expectedFeatureName = "globalOverrides3";
     const FeatureConfig &cfg = overrides.mGlobalFeatures[kTestFeatureIndex];
@@ -191,12 +191,12 @@ testing::AssertionResult validateGlobalOverrides3(FeatureOverrides overrides) {
 
 TEST_F(FeatureOverrideParserTest, globalOverrides3) {
     FeatureOverrideParser featureOverrideParser(getTestBinarypbPath(kFilename));
-    FeatureOverrides overrides = featureOverrideParser.getCachedFeatureOverrides();
+    const FeatureOverrides &overrides = featureOverrideParser.getCachedFeatureOverrides();
 
     EXPECT_TRUE(validateGlobalOverrides3(overrides));
 }
 
-testing::AssertionResult validatePackageOverrides1(FeatureOverrides overrides) {
+testing::AssertionResult validatePackageOverrides1(const FeatureOverrides &overrides) {
     const std::string expectedTestPackageName = "com.gpuservice_unittest.packageOverrides1";
 
     if (!overrides.mPackageFeatures.count(expectedTestPackageName)) {
@@ -206,7 +206,7 @@ testing::AssertionResult validatePackageOverrides1(FeatureOverrides overrides) {
     }
 
     const std::vector<FeatureConfig>& features =
-            overrides.mPackageFeatures[expectedTestPackageName];
+            overrides.mPackageFeatures.at(expectedTestPackageName);
 
     size_t expectedFeaturesSize = 1;
     if (features.size() != expectedFeaturesSize) {
@@ -236,13 +236,13 @@ testing::AssertionResult validatePackageOverrides1(FeatureOverrides overrides) {
 
 TEST_F(FeatureOverrideParserTest, packageOverrides1) {
     FeatureOverrideParser featureOverrideParser(getTestBinarypbPath(kFilename));
-    FeatureOverrides overrides = featureOverrideParser.getCachedFeatureOverrides();
+    const FeatureOverrides &overrides = featureOverrideParser.getCachedFeatureOverrides();
 
     EXPECT_TRUE(validateFeatureConfigTestTxtpbSizes(overrides));
     EXPECT_TRUE(validatePackageOverrides1(overrides));
 }
 
-testing::AssertionResult validatePackageOverrides2(FeatureOverrides overrides) {
+testing::AssertionResult validatePackageOverrides2(const FeatureOverrides &overrides) {
     const std::string expectedPackageName = "com.gpuservice_unittest.packageOverrides2";
 
     if (!overrides.mPackageFeatures.count(expectedPackageName)) {
@@ -250,7 +250,7 @@ testing::AssertionResult validatePackageOverrides2(FeatureOverrides overrides) {
                 << "overrides.mPackageFeatures missing expected package: " << expectedPackageName;
     }
 
-    const std::vector<FeatureConfig>& features = overrides.mPackageFeatures[expectedPackageName];
+    const std::vector<FeatureConfig>& features = overrides.mPackageFeatures.at(expectedPackageName);
 
     size_t expectedFeaturesSize = 1;
     if (features.size() != expectedFeaturesSize) {
@@ -298,12 +298,12 @@ testing::AssertionResult validatePackageOverrides2(FeatureOverrides overrides) {
 
 TEST_F(FeatureOverrideParserTest, packageOverrides2) {
     FeatureOverrideParser featureOverrideParser(getTestBinarypbPath(kFilename));
-    FeatureOverrides overrides = featureOverrideParser.getCachedFeatureOverrides();
+        const FeatureOverrides &overrides = featureOverrideParser.getCachedFeatureOverrides();
 
     EXPECT_TRUE(validatePackageOverrides2(overrides));
 }
 
-testing::AssertionResult validatePackageOverrides3(FeatureOverrides overrides) {
+testing::AssertionResult validatePackageOverrides3(const FeatureOverrides &overrides) {
     const std::string expectedPackageName = "com.gpuservice_unittest.packageOverrides3";
 
     if (!overrides.mPackageFeatures.count(expectedPackageName)) {
@@ -311,7 +311,7 @@ testing::AssertionResult validatePackageOverrides3(FeatureOverrides overrides) {
                 << "overrides.mPackageFeatures missing expected package: " << expectedPackageName;
     }
 
-    const std::vector<FeatureConfig>& features = overrides.mPackageFeatures[expectedPackageName];
+    const std::vector<FeatureConfig>& features = overrides.mPackageFeatures.at(expectedPackageName);
 
     size_t expectedFeaturesSize = 2;
     if (features.size() != expectedFeaturesSize) {
@@ -393,7 +393,7 @@ testing::AssertionResult validatePackageOverrides3(FeatureOverrides overrides) {
 
 TEST_F(FeatureOverrideParserTest, packageOverrides3) {
     FeatureOverrideParser featureOverrideParser(getTestBinarypbPath(kFilename));
-    FeatureOverrides overrides = featureOverrideParser.getCachedFeatureOverrides();
+        const FeatureOverrides &overrides = featureOverrideParser.getCachedFeatureOverrides();
 
     EXPECT_TRUE(validatePackageOverrides3(overrides));
 }

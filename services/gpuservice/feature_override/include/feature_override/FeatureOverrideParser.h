@@ -28,10 +28,10 @@ namespace android {
 class FeatureOverrideParser {
 public:
     FeatureOverrideParser(const std::string &configFilePath);
-    FeatureOverrideParser(const FeatureOverrideParser &) = default;
+    FeatureOverrideParser(const FeatureOverrideParser &) = delete;
     virtual ~FeatureOverrideParser() = default;
 
-    FeatureOverrides getCachedFeatureOverrides();
+    const FeatureOverrides &getCachedFeatureOverrides();
 
 private:
     void parseFeatureOverrides(const std::string &configFilePath);
