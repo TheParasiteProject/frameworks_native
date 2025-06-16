@@ -473,7 +473,7 @@ public:
                           ui::Dataspace dataspace,
                           std::vector<std::pair<Layer*, sp<LayerFE>>>& layers,
                           const std::shared_ptr<renderengine::ExternalTexture>& buffer,
-                          bool disableBlur, bool isSecure, bool seamlessTransition) {
+                          bool disableBlur, bool isSecure, bool preserveDisplayColors) {
         Mutex::Autolock lock(mFlinger->mStateLock);
         ftl::FakeGuard guard(kMainThreadContext);
 
@@ -488,7 +488,8 @@ public:
                                                       .disableBlur = disableBlur,
                                                       .isGrayscale = false,
                                                       .isSecure = isSecure,
-                                                      .seamlessTransition = seamlessTransition,
+                                                      .preserveDisplayColors =
+                                                              preserveDisplayColors,
                                                       .displayBrightnessNits =
                                                               state.displayBrightnessNits,
                                                       .sdrWhitePointNits = state.sdrWhitePointNits,
