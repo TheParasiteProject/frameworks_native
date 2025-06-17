@@ -16,7 +16,6 @@
 
 #include <gtest/gtest.h>
 
-#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <memory>
