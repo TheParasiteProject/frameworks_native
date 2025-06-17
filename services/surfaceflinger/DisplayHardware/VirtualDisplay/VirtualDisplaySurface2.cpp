@@ -86,9 +86,37 @@ VirtualDisplaySurface2::~VirtualDisplaySurface2() {
 }
 
 void VirtualDisplaySurface2::onFirstRef() {
-    // TODO(b/340933138): if the surface can't even be connected to, we should invalidate the whole
-    // VD.
-    SinkSurfaceHelper::SinkSurfaceData data = mSinkHelper->connectSinkSurface();
+    ATRACE_CALL();
+    std::scoped_lock _l(mMutex);
+
+    mSinkSurfaceDataFuture = mSinkHelper->connectSinkSurface();
+
+    if (mSinkHelper->isFrozen()) {
+        ALOGE("%s: Scheduled surface connection on a frozen helper thread.", __func__);
+        return;
+    }
+
+    // We only want to wait a short time because this should be a relatively fast operation in good
+    // conditions, but we're on the main thread.
+    constexpr auto timeToWait = std::chrono::milliseconds(1);
+    if (mSinkSurfaceDataFuture.wait_for(timeToWait) == std::future_status::ready) {
+        // This has to be done in onFirstRef instead of the ctor because this function uses
+        // sp<>::fromExisting.
+        prepareSurfacesLocked();
+    } else {
+        ALOGW("%s: waited for the sink surface to connect for %lldms and it's not ready.",
+              mSinkHelper->getName().c_str(), timeToWait.count());
+    }
+}
+
+void VirtualDisplaySurface2::prepareSurfacesLocked() {
+    ATRACE_CALL();
+
+    LOG_ALWAYS_FATAL_IF(!mSinkSurfaceDataFuture.valid(), "%s: called without a valid future.",
+                        __func__);
+
+    auto data = mSinkSurfaceDataFuture.get();
+
     mSinkWidth = data.width;
     mSinkHeight = data.height;
     mSinkFormat = data.format;
@@ -124,6 +152,8 @@ void VirtualDisplaySurface2::onFirstRef() {
             ALOGE("%s: Unable to set up output surface listener. Status: %d", __func__, ret);
         }
     }
+
+    mIsReady = true;
 }
 
 sp<Surface> VirtualDisplaySurface2::getCompositionSurface() const {
@@ -134,6 +164,18 @@ status_t VirtualDisplaySurface2::beginFrame(bool mustRecompose) {
     ATRACE_CALL();
 
     std::scoped_lock _l(mMutex);
+
+    if (!mIsReady) {
+        ALOGI("%s: attempting to connect to still-unconnected sink surface.", __func__);
+
+        if (mSinkSurfaceDataFuture.valid()) {
+            prepareSurfacesLocked();
+        } else {
+            ALOGE("%s: unable to begin frame because the underlying surface is not connected.",
+                  __func__);
+            return NO_INIT;
+        }
+    }
 
     if (mPendingResize) {
         applyResizeLocked(*mPendingResize);
