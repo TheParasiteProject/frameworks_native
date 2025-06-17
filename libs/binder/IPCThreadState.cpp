@@ -1617,7 +1617,6 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                 break;
             }
             BpBinder* proxy = (BpBinder*)data->cookie;
-            bool isFrozen = mIn.readInt32() > 0;
             proxy->getPrivateAccessor().onFrozenStateChanged(data->is_frozen);
             mOut.writeInt32(BC_FREEZE_NOTIFICATION_DONE);
             mOut.writePointer(data->cookie);
