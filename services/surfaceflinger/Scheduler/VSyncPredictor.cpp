@@ -111,15 +111,19 @@ bool VSyncPredictor::validate(nsecs_t timestamp) const {
         return false;
     }
 
+    const auto isThresholdEnabled =
+            FlagManager::getInstance().vsync_predictor_predicts_within_threshold() &&
+            mDisplayModePtr->getVrrConfig();
     const auto iter = std::min_element(mTimestamps.begin(), mTimestamps.end(),
-                                       [timestamp, this](nsecs_t a, nsecs_t b) {
+                                       [=, this](nsecs_t a, nsecs_t b) {
                                            nsecs_t diffA = std::abs(timestamp - a);
                                            nsecs_t diffB = std::abs(timestamp - b);
-                                           bool withinThresholdA = diffA <= kPredictorThreshold;
-                                           bool withinThresholdB = diffB <= kPredictorThreshold;
-
-                                           if (withinThresholdA != withinThresholdB) {
-                                               return withinThresholdA;
+                                           if (isThresholdEnabled) {
+                                               bool withinThresholdA = diffA <= kPredictorThreshold;
+                                               bool withinThresholdB = diffB <= kPredictorThreshold;
+                                               if (withinThresholdA != withinThresholdB) {
+                                                   return withinThresholdA;
+                                               }
                                            }
                                            return diffA < diffB;
                                        });
