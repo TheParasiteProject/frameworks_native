@@ -1093,6 +1093,11 @@ private:
         return it == mDisplays.end() ? nullptr : it->second;
     }
 
+    bool hasDisplayWithId(DisplayId displayId) const REQUIRES(mStateLock) {
+        return hasDisplay(
+                [displayId](const auto& display) { return display.getId() == displayId; });
+    }
+
     std::vector<PhysicalDisplayId> getPhysicalDisplayIdsLocked() const REQUIRES(mStateLock);
 
     // mark a region of a layer stack dirty. this updates the dirty
