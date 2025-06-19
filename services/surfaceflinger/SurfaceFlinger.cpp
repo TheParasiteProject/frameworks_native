@@ -4809,7 +4809,7 @@ status_t SurfaceFlinger::addClientLayer(LayerCreationArgs& args, const sp<IBinde
         mNewLayerArgs.emplace_back(std::move(args));
     }
 
-    setTransactionFlags(eTransactionNeeded);
+    setTransactionFlags(eTransactionFlushNeeded | eTransactionNeeded);
     return NO_ERROR;
 }
 
