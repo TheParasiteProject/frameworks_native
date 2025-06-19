@@ -280,6 +280,7 @@ FLAG_MANAGER_ACONFIG_FLAG(begone_bright_hlg, "debug.sf.begone_bright_hlg");
 FLAG_MANAGER_ACONFIG_FLAG(wb_virtualdisplay2, "");
 FLAG_MANAGER_ACONFIG_FLAG(window_blur_kawase2, "");
 FLAG_MANAGER_ACONFIG_FLAG(synced_resolution_switch, "");
+FLAG_MANAGER_ACONFIG_FLAG(window_blur_kawase2_fix_aliasing, "");
 
 /// Trunk stable server (R/W) flags ///
 FLAG_MANAGER_ACONFIG_FLAG(refresh_rate_overlay_on_external_display, "")

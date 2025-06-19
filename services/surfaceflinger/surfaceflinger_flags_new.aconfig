@@ -348,4 +348,14 @@ flag {
   bug: "353826438"
 } # window_blur_kawase2
 
+flag {
+  name: "window_blur_kawase2_fix_aliasing"
+  namespace: "core_graphics"
+  description: "Flag for mitigating aliasing in Kawase2 window blur"
+  bug: "33968507"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+} # window_blur_kawase2_fix_aliasing
+
 # IMPORTANT - please keep alphabetize to reduce merge conflicts

@@ -110,6 +110,7 @@ public:
     bool vulkan_renderengine() const;
     bool wb_virtualdisplay2() const;
     bool window_blur_kawase2() const;
+    bool window_blur_kawase2_fix_aliasing() const;
     /// IMPORTANT - please keep alphabetize to reduce merge conflicts
 
 protected:
