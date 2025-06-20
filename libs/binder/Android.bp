@@ -341,6 +341,9 @@ cc_defaults {
         "liblog",
         "libutils",
     ],
+    export_shared_lib_headers: [
+        "libutils",
+    ],
 
     static_libs: [
         "libbase",
