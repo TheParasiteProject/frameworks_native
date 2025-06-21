@@ -404,9 +404,9 @@ status_t BpBinder::transact(
 
         if (data.dataSize() > binder::kLogTransactionsOverBytes) {
             RpcMutexUniqueLock _l(mLock);
-            ALOGW("Large outgoing transaction of %zu bytes, interface descriptor %s, code %d was "
-                  "sent",
-                  data.dataSize(), String8(mDescriptorCache).c_str(), code);
+            ALOGW("Large outgoing transaction of %zu bytes, interface descriptor %s, code %d, "
+                  "flags %d was sent",
+                  data.dataSize(), String8(mDescriptorCache).c_str(), code, flags);
         }
 
         if (status == DEAD_OBJECT) mAlive = 0;

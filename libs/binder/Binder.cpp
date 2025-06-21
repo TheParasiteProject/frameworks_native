@@ -411,8 +411,9 @@ status_t BBinder::transact(
     if (reply != nullptr) {
         reply->setDataPosition(0);
         if (reply->dataSize() > binder::kLogTransactionsOverBytes) {
-            ALOGW("Large reply transaction of %zu bytes, interface descriptor %s, code %d",
-                  reply->dataSize(), String8(getInterfaceDescriptor()).c_str(), code);
+            ALOGW("Large reply transaction of %zu bytes, interface descriptor %s, code %d, flags "
+                  "%d",
+                  reply->dataSize(), String8(getInterfaceDescriptor()).c_str(), code, flags);
         }
     }
 
