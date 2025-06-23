@@ -20,12 +20,14 @@
 
 #include <string_view>
 
+#include <common/test/FlagUtils.h>
 #include <ftl/hash.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <ui/ScreenPartStatus.h>
 
 #include "Display/DisplayIdentification.h"
+#include "com_android_graphics_surfaceflinger_flags.h"
 
 using ::testing::ElementsAre;
 
@@ -550,6 +552,75 @@ TEST(DisplayIdentificationTest, deviceProductInfo) {
         ASSERT_TRUE(std::holds_alternative<ModelYear>(info.manufactureOrModelDate));
         EXPECT_EQ(2013, std::get<ModelYear>(info.manufactureOrModelDate).year);
         EXPECT_TRUE(info.relativeAddress.empty());
+    }
+}
+
+// This test can be folded into DisplayIdentificationTest#deviceProductInfo once
+// the flag is removed.
+TEST(DisplayIdentificationTest, deviceProductInfoWithEdidStructureMetadataAndVideoInputType) {
+    SET_FLAG_FOR_TEST(com::android::graphics::surfaceflinger::flags::
+                              parse_edid_version_and_input_type,
+                      true);
+
+    {
+        const auto displayIdInfo =
+                parseDisplayIdentificationData(0, getInternalEdid(),
+                                               android::ScreenPartStatus::UNSUPPORTED);
+        ASSERT_TRUE(displayIdInfo);
+        ASSERT_TRUE(displayIdInfo->deviceProductInfo);
+        const auto& info = *displayIdInfo->deviceProductInfo;
+        EXPECT_EQ(1, info.edidStructureMetadata.version);
+        EXPECT_EQ(3, info.edidStructureMetadata.revision);
+    }
+    {
+        const auto displayIdInfo =
+                parseDisplayIdentificationData(0, getExternalEdid(),
+                                               android::ScreenPartStatus::UNSUPPORTED);
+        ASSERT_TRUE(displayIdInfo);
+        ASSERT_TRUE(displayIdInfo->deviceProductInfo);
+        const auto& info = *displayIdInfo->deviceProductInfo;
+        EXPECT_EQ(1, info.edidStructureMetadata.version);
+        EXPECT_EQ(4, info.edidStructureMetadata.revision);
+    }
+    {
+        const auto displayIdInfo =
+                parseDisplayIdentificationData(0, getExternalEedid(),
+                                               android::ScreenPartStatus::UNSUPPORTED);
+        ASSERT_TRUE(displayIdInfo);
+        ASSERT_TRUE(displayIdInfo->deviceProductInfo);
+        const auto& info = *displayIdInfo->deviceProductInfo;
+        EXPECT_EQ(1, info.edidStructureMetadata.version);
+        EXPECT_EQ(3, info.edidStructureMetadata.revision);
+    }
+    {
+        const auto displayIdInfo =
+                parseDisplayIdentificationData(0, getPanasonicTvEdid(),
+                                               android::ScreenPartStatus::UNSUPPORTED);
+        ASSERT_TRUE(displayIdInfo);
+        ASSERT_TRUE(displayIdInfo->deviceProductInfo);
+        const auto& info = *displayIdInfo->deviceProductInfo;
+        EXPECT_EQ(1, info.edidStructureMetadata.version);
+        EXPECT_EQ(3, info.edidStructureMetadata.revision);
+    }
+    {
+        const auto displayIdInfo =
+                parseDisplayIdentificationData(0, getHisenseTvEdid(),
+                                               android::ScreenPartStatus::UNSUPPORTED);
+        ASSERT_TRUE(displayIdInfo);
+        ASSERT_TRUE(displayIdInfo->deviceProductInfo);
+        const auto& info = *displayIdInfo->deviceProductInfo;
+        EXPECT_EQ(1, info.edidStructureMetadata.version);
+        EXPECT_EQ(3, info.edidStructureMetadata.revision);
+    }
+    {
+        const auto displayIdInfo =
+                parseDisplayIdentificationData(0, getCtlDisplayEdid(),
+                                               android::ScreenPartStatus::UNSUPPORTED);
+        ASSERT_TRUE(displayIdInfo);
+        ASSERT_TRUE(displayIdInfo->deviceProductInfo);
+        const auto& info = *displayIdInfo->deviceProductInfo;
+        EXPECT_EQ(1, info.edidStructureMetadata.version);
+        EXPECT_EQ(4, info.edidStructureMetadata.revision);
     }
 }
 

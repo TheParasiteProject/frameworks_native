@@ -43,6 +43,12 @@ parcelable DeviceProductInfo {
         ManufactureWeekAndYear manufactureWeekAndYear;
     }
 
+    parcelable EdidStructureMetadata {
+        // The EDID structure version number and revision number fields (required).
+        int version;
+        int revision;
+    }
+
     // Display name.
     @utf8InCpp String name;
 
@@ -53,6 +59,9 @@ parcelable DeviceProductInfo {
     @utf8InCpp String productId;
 
     ManufactureOrModelDate manufactureOrModelDate;
+
+    // General EDID structure metadata.
+    EdidStructureMetadata edidStructureMetadata;
 
     byte[] relativeAddress;
 }
