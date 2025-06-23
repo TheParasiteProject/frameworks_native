@@ -49,6 +49,11 @@ struct DeviceProductInfo {
         uint8_t revision;
     };
 
+    enum InputType {
+        ANALOG,
+        DIGITAL,
+    };
+
     // Display name.
     std::string name;
 
@@ -64,6 +69,9 @@ struct DeviceProductInfo {
 
     // General EDID structure metadata.
     EdidStructureMetadata edidStructureMetadata;
+
+    // The input type of the device (analog or digital; required).
+    InputType inputType;
 
     // Relative address in the display network. Empty vector indicates that the
     // address is unavailable.

@@ -32,6 +32,7 @@
 #include <ftl/concat.h>
 #include <ftl/hash.h>
 #include <log/log.h>
+#include <ui/DeviceProductInfo.h>
 #include <ui/Size.h>
 
 namespace android::display {
@@ -81,6 +82,8 @@ DeviceProductInfo buildDeviceProductInfo(const Edid& edid) {
     DeviceProductInfo info;
     info.edidStructureMetadata = {.version = edid.edidStructureVersion,
                                   .revision = edid.edidStructureRevision};
+    info.inputType = edid.isDigital ? DeviceProductInfo::InputType::DIGITAL
+                                    : DeviceProductInfo::InputType::ANALOG;
     info.name.assign(edid.displayName);
     info.productId = std::to_string(edid.productId);
     info.manufacturerPnpId = edid.pnpId;
@@ -238,6 +241,7 @@ std::optional<Edid> parseEdid(const DisplayIdentificationData& edid) {
 
     uint8_t edidStructureVersion = 0;
     uint8_t edidStructureRevision = 0;
+    bool isDigital = false;
     if (FlagManager::getInstance().parse_edid_version_and_input_type()) {
         constexpr uint8_t kEdidStructureVersionOffset = 18;
         if (edid.size() < kEdidStructureVersionOffset + sizeof(uint16_t)) {
@@ -246,6 +250,13 @@ std::optional<Edid> parseEdid(const DisplayIdentificationData& edid) {
         }
         edidStructureVersion = edid[kEdidStructureVersionOffset];
         edidStructureRevision = edid[kEdidStructureVersionOffset + 1];
+
+        constexpr uint8_t kVideoInputDefinitionOffset = 20;
+        if (edid.size() < kVideoInputDefinitionOffset + sizeof(uint8_t)) {
+            ALOGE("Invalid EDID: EDID video input definition byte is truncated.");
+            return {};
+        }
+        isDigital = edid[kVideoInputDefinitionOffset] >> 7;
     }
 
     constexpr size_t kMaxHorizontalPhysicalSizeOffset = 21;
@@ -404,6 +415,7 @@ std::optional<Edid> parseEdid(const DisplayIdentificationData& edid) {
             .manufactureWeek = manufactureWeek,
             .edidStructureVersion = edidStructureVersion,
             .edidStructureRevision = edidStructureRevision,
+            .isDigital = isDigital,
             .physicalSizeInCm = maxPhysicalSizeInCm,
             .cea861Block = cea861Block,
             .preferredDetailedTimingDescriptor = preferredDetailedTimingDescriptor,

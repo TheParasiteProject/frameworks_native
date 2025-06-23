@@ -89,6 +89,7 @@ struct Edid {
     uint8_t manufactureWeek;
     uint8_t edidStructureVersion;
     uint8_t edidStructureRevision;
+    bool isDigital;
     ui::Size physicalSizeInCm;
     std::optional<Cea861ExtensionBlock> cea861Block;
     std::optional<DetailedTimingDescriptor> preferredDetailedTimingDescriptor;

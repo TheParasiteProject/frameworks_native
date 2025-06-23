@@ -49,6 +49,12 @@ parcelable DeviceProductInfo {
         int revision;
     }
 
+    @Backing(type="byte")
+    enum InputType {
+        ANALOG,
+        DIGITAL
+    }
+
     // Display name.
     @utf8InCpp String name;
 
@@ -63,5 +69,9 @@ parcelable DeviceProductInfo {
     // General EDID structure metadata.
     EdidStructureMetadata edidStructureMetadata;
 
+    // The input type of the device (analog or digital; required).
+    InputType inputType;
+
+    // Relative address in the display network.
     byte[] relativeAddress;
 }

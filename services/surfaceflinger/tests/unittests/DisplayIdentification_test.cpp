@@ -18,8 +18,6 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wextra"
 
-#include <string_view>
-
 #include <common/test/FlagUtils.h>
 #include <ftl/hash.h>
 #include <gmock/gmock.h>
@@ -96,7 +94,7 @@ const unsigned char kPanasonicTvEdid[] =
 
 const unsigned char kHisenseTvEdid[] =
         "\x00\xff\xff\xff\xff\xff\xff\x00\x20\xa3\x00\x00\x00\x00\x00"
-        "\x00\x12\x1d\x01\x03\x80\x00\x00\x78\x0a\xd7\xa5\xa2\x59\x4a"
+        "\x00\x12\x1d\x01\x03\x00\x00\x00\x78\x0a\xd7\xa5\xa2\x59\x4a"
         "\x96\x24\x14\x50\x54\xa3\x08\x00\xd1\xc0\xb3\x00\x81\x00\x81"
         "\x80\x81\x40\x81\xc0\x01\x01\x01\x01\x02\x3a\x80\x18\x71\x38"
         "\x2d\x40\x58\x2c\x45\x00\x3f\x43\x21\x00\x00\x1a\x02\x3a\x80"
@@ -571,6 +569,7 @@ TEST(DisplayIdentificationTest, deviceProductInfoWithEdidStructureMetadataAndVid
         const auto& info = *displayIdInfo->deviceProductInfo;
         EXPECT_EQ(1, info.edidStructureMetadata.version);
         EXPECT_EQ(3, info.edidStructureMetadata.revision);
+        EXPECT_EQ(DeviceProductInfo::InputType::DIGITAL, info.inputType);
     }
     {
         const auto displayIdInfo =
@@ -581,6 +580,7 @@ TEST(DisplayIdentificationTest, deviceProductInfoWithEdidStructureMetadataAndVid
         const auto& info = *displayIdInfo->deviceProductInfo;
         EXPECT_EQ(1, info.edidStructureMetadata.version);
         EXPECT_EQ(4, info.edidStructureMetadata.revision);
+        EXPECT_EQ(DeviceProductInfo::InputType::DIGITAL, info.inputType);
     }
     {
         const auto displayIdInfo =
@@ -591,6 +591,7 @@ TEST(DisplayIdentificationTest, deviceProductInfoWithEdidStructureMetadataAndVid
         const auto& info = *displayIdInfo->deviceProductInfo;
         EXPECT_EQ(1, info.edidStructureMetadata.version);
         EXPECT_EQ(3, info.edidStructureMetadata.revision);
+        EXPECT_EQ(DeviceProductInfo::InputType::DIGITAL, info.inputType);
     }
     {
         const auto displayIdInfo =
@@ -601,6 +602,7 @@ TEST(DisplayIdentificationTest, deviceProductInfoWithEdidStructureMetadataAndVid
         const auto& info = *displayIdInfo->deviceProductInfo;
         EXPECT_EQ(1, info.edidStructureMetadata.version);
         EXPECT_EQ(3, info.edidStructureMetadata.revision);
+        EXPECT_EQ(DeviceProductInfo::InputType::DIGITAL, info.inputType);
     }
     {
         const auto displayIdInfo =
@@ -611,6 +613,7 @@ TEST(DisplayIdentificationTest, deviceProductInfoWithEdidStructureMetadataAndVid
         const auto& info = *displayIdInfo->deviceProductInfo;
         EXPECT_EQ(1, info.edidStructureMetadata.version);
         EXPECT_EQ(3, info.edidStructureMetadata.revision);
+        EXPECT_EQ(DeviceProductInfo::InputType::ANALOG, info.inputType);
     }
     {
         const auto displayIdInfo =
@@ -621,6 +624,7 @@ TEST(DisplayIdentificationTest, deviceProductInfoWithEdidStructureMetadataAndVid
         const auto& info = *displayIdInfo->deviceProductInfo;
         EXPECT_EQ(1, info.edidStructureMetadata.version);
         EXPECT_EQ(4, info.edidStructureMetadata.revision);
+        EXPECT_EQ(DeviceProductInfo::InputType::DIGITAL, info.inputType);
     }
 }
 
