@@ -1668,8 +1668,7 @@ void SurfaceFlinger::initiateDisplayModeChanges() {
                                                           constraints, outTimeline);
         if (error != display::DisplayModeController::ModeChangeResult::Changed) {
             dropModeRequest(displayId);
-            if (FlagManager::getInstance().display_config_error_hal() &&
-                error == display::DisplayModeController::ModeChangeResult::Rejected) {
+            if (error == display::DisplayModeController::ModeChangeResult::Rejected) {
                 mScheduler->onDisplayModeRejected(displayId, desiredModeId);
             }
             continue;
@@ -2425,9 +2424,6 @@ void SurfaceFlinger::onComposerHalHotplugEvent(hal::HWDisplayId hwcDisplayId,
     }
 
     if (event == DisplayHotplugEvent::ERROR_LINK_UNSTABLE) {
-        if (!FlagManager::getInstance().display_config_error_hal()) {
-            return;
-        }
         {
             std::lock_guard<std::mutex> lock(mHotplugMutex);
             mPendingHotplugEvents.push_back(
