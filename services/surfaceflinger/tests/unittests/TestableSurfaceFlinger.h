@@ -1162,10 +1162,10 @@ public:
                                                                       refreshRate, refreshRate);
 
                 if (mFlinger.scheduler() && mSchedulerRegistration) {
-                    mFlinger.scheduler()->registerDisplay(*physicalId,
-                                                          mCreationArgs.refreshRateSelector,
-                                                          std::move(controller), std::move(tracker),
-                                                          mFlinger.mutableFrontInternalDisplayId());
+                    mFlinger.scheduler()
+                            ->registerDisplay(*physicalId, mCreationArgs.refreshRateSelector,
+                                              std::move(controller), std::move(tracker),
+                                              mFlinger.flinger()->getDefaultPacesetterDisplay());
                 }
             }
 
