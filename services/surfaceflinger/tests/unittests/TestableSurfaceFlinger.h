@@ -675,10 +675,11 @@ public:
         mFlinger->mDaltonizer.setType(type);
         return mFlinger->updateColorMatrixLocked();
     }
-    auto updateLayerSnapshots(VsyncId vsyncId, nsecs_t frameTimeNs, bool transactionsFlushed,
-                              bool& out) {
+    auto updateLayerSnapshots(VsyncId vsyncId, nsecs_t frameTimeNs, nsecs_t expectedPresentTimeNs,
+                              bool transactionsFlushed, bool& out) {
         ftl::FakeGuard guard(kMainThreadContext);
-        return mFlinger->updateLayerSnapshots(vsyncId, frameTimeNs, transactionsFlushed, out);
+        return mFlinger->updateLayerSnapshots(vsyncId, frameTimeNs, expectedPresentTimeNs,
+                                              transactionsFlushed, out);
     }
     /* ------------------------------------------------------------------------
      * Read-write access to private data to set up preconditions and assert
