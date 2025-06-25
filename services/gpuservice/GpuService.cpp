@@ -60,11 +60,14 @@ const std::string sAngleGlesDriverSuffix = "angle";
 
 const char* const GpuService::SERVICE_NAME = "gpu";
 
+const std::string kConfigFilePath = "/system/etc/angle/feature_config_vk.binarypb";
+
 GpuService::GpuService()
       : mGpuMem(std::make_shared<GpuMem>()),
         mGpuWork(std::make_shared<gpuwork::GpuWork>()),
         mGpuStats(std::make_unique<GpuStats>()),
-        mGpuMemTracer(std::make_unique<GpuMemTracer>()) {
+        mGpuMemTracer(std::make_unique<GpuMemTracer>()),
+        mFeatureOverrideParser(kConfigFilePath) {
 
     mGpuMemAsyncInitThread = std::make_unique<std::thread>([this] (){
         mGpuMem->initialize();
@@ -141,12 +144,7 @@ std::string GpuService::getPersistGraphicsEgl() {
 }
 
 FeatureOverrides GpuService::getFeatureOverrides() {
-    if (!graphicsenv_flags::angle_feature_overrides()) {
-        FeatureOverrides featureOverrides;
-        return featureOverrides;
-    }
-
-    return mFeatureOverrideParser.getFeatureOverrides();
+    return mFeatureOverrideParser.getCachedFeatureOverrides();
 }
 
 void GpuService::setUpdatableDriverPath(const std::string& driverPath) {
@@ -245,7 +243,7 @@ status_t GpuService::doDump(int fd, const Vector<String16>& args, bool /*asProto
 }
 
 status_t GpuService::cmdFeatureOverrides(int out, int /*err*/) {
-    dprintf(out, "%s\n", mFeatureOverrideParser.getFeatureOverrides().toString().c_str());
+    dprintf(out, "%s\n", mFeatureOverrideParser.getCachedFeatureOverrides().toString().c_str());
     return NO_ERROR;
 }
 
