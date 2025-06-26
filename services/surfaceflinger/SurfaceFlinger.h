@@ -1674,6 +1674,8 @@ private:
     void sfdo_scheduleComposite();
     void sfdo_scheduleCommit();
     void sfdo_forceClientComposition(bool enabled);
+    status_t sfdo_forcePacesetter(PhysicalDisplayId displayId);
+    void sfdo_resetForcedPacesetter();
 };
 
 class SurfaceComposerAIDL : public gui::BnSurfaceComposer {
@@ -1816,6 +1818,8 @@ public:
                                       int64_t afterVsync) override;
     binder::Status addActivePictureListener(const sp<gui::IActivePictureListener>& listener);
     binder::Status removeActivePictureListener(const sp<gui::IActivePictureListener>& listener);
+    binder::Status forcePacesetter(int64_t displayId) override;
+    binder::Status resetForcedPacesetter() override;
 
 private:
     static const constexpr bool kUsePermissionCache = true;
