@@ -51,6 +51,7 @@ public:
     bool use_skia_tracing() const;
 
     /// Trunk stable server (R/W) flags ///
+    bool add_first_vsync_to_tracker() const;
     bool adpf_cpu_effects_loadup() const;
     bool adpf_gpu_sf() const;
     bool adpf_native_session_manager() const;
