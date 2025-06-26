@@ -3606,7 +3606,6 @@ TEST_F(SingleTouchInputMapperTest, Process_WhenVirtualKeyIsPressedAndMovedOutOfB
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3630,7 +3629,6 @@ TEST_F(SingleTouchInputMapperTest, Process_WhenVirtualKeyIsPressedAndMovedOutOfB
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3653,7 +3651,6 @@ TEST_F(SingleTouchInputMapperTest, Process_WhenVirtualKeyIsPressedAndMovedOutOfB
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3703,7 +3700,6 @@ TEST_F(SingleTouchInputMapperTest, Process_WhenTouchStartsOutsideDisplayAndMoves
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3726,7 +3722,6 @@ TEST_F(SingleTouchInputMapperTest, Process_WhenTouchStartsOutsideDisplayAndMoves
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3771,7 +3766,6 @@ TEST_F(SingleTouchInputMapperTest, Process_NormalSingleTouchGesture_VirtualDispl
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3798,7 +3792,6 @@ TEST_F(SingleTouchInputMapperTest, Process_NormalSingleTouchGesture_VirtualDispl
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3823,7 +3816,6 @@ TEST_F(SingleTouchInputMapperTest, Process_NormalSingleTouchGesture_VirtualDispl
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3866,7 +3858,6 @@ TEST_F(SingleTouchInputMapperTest, Process_NormalSingleTouchGesture) {
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3891,7 +3882,6 @@ TEST_F(SingleTouchInputMapperTest, Process_NormalSingleTouchGesture) {
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -3914,7 +3904,6 @@ TEST_F(SingleTouchInputMapperTest, Process_NormalSingleTouchGesture) {
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6104,7 +6093,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6123,7 +6111,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(2), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6154,7 +6141,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(2), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6183,7 +6169,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(2), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6206,7 +6191,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(1, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6231,7 +6215,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(1, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6258,7 +6241,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(2), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6287,7 +6269,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(2), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6310,7 +6291,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
@@ -6333,7 +6313,6 @@ TEST_F(MultiTouchInputMapperTest, Process_NormalMultiTouchGesture_WithoutTrackin
     ASSERT_EQ(0, motionArgs.flags);
     ASSERT_EQ(AMETA_SHIFT_LEFT_ON | AMETA_SHIFT_ON, motionArgs.metaState);
     ASSERT_EQ(0, motionArgs.buttonState);
-    ASSERT_EQ(0, motionArgs.edgeFlags);
     ASSERT_EQ(size_t(1), motionArgs.getPointerCount());
     ASSERT_EQ(0, motionArgs.pointerProperties[0].id);
     ASSERT_EQ(ToolType::FINGER, motionArgs.pointerProperties[0].toolType);
