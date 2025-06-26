@@ -496,6 +496,7 @@ void ASurfaceTransaction_setCrop(ASurfaceTransaction* _Nonnull transaction,
 
 /**
  * Specifies the position in the parent's space where the surface will be drawn.
+ * Only permits finite values to be set.
  *
  * \param x The x position to render the surface.
  * \param y The y position to render the surface.
@@ -519,6 +520,7 @@ void ASurfaceTransaction_setBufferTransform(ASurfaceTransaction* _Nonnull transa
 
 /**
  * Sets an x and y scale of a surface with (0, 0) as the centerpoint of the scale.
+ * Only permits finite values to be set.
  *
  * \param xScale The scale in the x direction. Must be greater than 0.
  * \param yScale The scale in the y direction. Must be greater than 0.

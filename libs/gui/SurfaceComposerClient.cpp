@@ -1322,6 +1322,7 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setPosit
         mStatus = BAD_INDEX;
         return *this;
     }
+    LOG_ALWAYS_FATAL_IF(!isfinite(x) || !isfinite(y), "setPosition called with infinite values");
     s->what |= layer_state_t::ePositionChanged;
     s->x = x;
     s->y = y;
@@ -1462,6 +1463,8 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setMatri
         mStatus = BAD_INDEX;
         return *this;
     }
+    LOG_ALWAYS_FATAL_IF(!isfinite(dsdx) || !isfinite(dtdx) || !isfinite(dtdy) || !isfinite(dsdy),
+                        "setMatrix called with infinite values");
     s->what |= layer_state_t::eMatrixChanged;
     layer_state_t::matrix22_t matrix;
     matrix.dsdx = dsdx;
