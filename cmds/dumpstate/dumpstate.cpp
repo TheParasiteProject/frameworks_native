@@ -3620,6 +3620,10 @@ void Dumpstate::MaybeSavePlaceholderScreenshot() {
     // is saved for backwards compatibility.
     std::string path = ds.GetPath(ds.CalledByApi() ? "-png.tmp" : ".png");
     if (android::os::CopyFileToFile(DEFAULT_SCREENSHOT_PATH, path)) {
+        if (chown(path.c_str(), AID_SHELL, AID_SHELL)) {
+            MYLOGE("Unable to change ownership of copied screenshot %s: %s\n", path.c_str(),
+                   strerror(errno));
+        }
         MYLOGD("Saved fallback screenshot on %s\n", path.c_str());
     } else {
         MYLOGE("Failed to save fallback screenshot on %s\n", path.c_str());
@@ -4038,6 +4042,10 @@ void Progress::Save() {
     std::string content = android::base::StringPrintf("%d %d\n", runs, average);
     if (!android::base::WriteStringToFile(content, path_)) {
         MYLOGE("Could not save stats on %s\n", path_.c_str());
+    }
+
+    if (chown(path_.c_str(), AID_SHELL, AID_SHELL)) {
+        MYLOGE("Unable to change ownership of %s: %s\n", path_.c_str(), strerror(errno));
     }
 }
 
