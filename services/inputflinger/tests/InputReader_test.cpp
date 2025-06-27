@@ -3098,6 +3098,21 @@ TEST_F(InputDeviceTest, KernelBufferOverflowResetsMappers) {
     mapper.assertProcessWasCalled();
 }
 
+TEST_F(InputDeviceTest, Configure_AssignsVirtualDevice) {
+    mDevice->addMapper<FakeInputMapper>(EVENTHUB_ID, mFakePolicy->getReaderConfiguration(),
+                                        AINPUT_SOURCE_KEYBOARD);
+    mFakePolicy->addVirtualDevice(DEVICE_LOCATION);
+    std::list<NotifyArgs> unused =
+            mDevice->configure(ARBITRARY_TIME, mFakePolicy->getReaderConfiguration(),
+                               /*changes=*/{});
+    ASSERT_TRUE(mDevice->isVirtualDevice());
+
+    mFakePolicy->removeVirtualDevice(DEVICE_LOCATION);
+    unused += mDevice->configure(ARBITRARY_TIME, mFakePolicy->getReaderConfiguration(),
+                                 InputReaderConfiguration::Change::VIRTUAL_DEVICES);
+    ASSERT_FALSE(mDevice->isVirtualDevice());
+}
+
 // --- TouchInputMapperTest ---
 
 class TouchInputMapperTest : public InputMapperTest {
