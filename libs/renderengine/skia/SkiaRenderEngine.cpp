@@ -874,7 +874,8 @@ void SkiaRenderEngine::drawLayersInternal(
                                    SkData::MakeWithCString(layerSettings.str().c_str()));
         }
         // Layers have a local transform that should be applied to them
-        canvas->concat(getSkM44(layer.geometry.positionTransform).asM33());
+        SkMatrix positionTransform = getSkM44(layer.geometry.positionTransform).asM33();
+        canvas->concat(positionTransform);
 
         const auto [bounds, roundRectClip] =
                 getBoundsAndClip(layer.geometry.boundaries, layer.geometry.roundedCornersCrop,
@@ -957,6 +958,9 @@ void SkiaRenderEngine::drawLayersInternal(
             }
         }
 
+        bool enableAntiAlias =
+                supportsFastRotatedClipRRectAA() || positionTransform.rectStaysRect();
+
         {
             SFTRACE_NAME("OutsetRendering");
             SkRRect otherCrop;
@@ -966,7 +970,7 @@ void SkiaRenderEngine::drawLayersInternal(
             // Outset rendering needs to be clipped by parent.
             SkAutoCanvasRestore acr(canvas, true);
             if (!otherCrop.isEmpty()) {
-                canvas->clipRRect(otherCrop, true);
+                canvas->clipRRect(otherCrop, enableAntiAlias);
             }
 
             if (layer.shadow.length > 0) {
@@ -1018,7 +1022,8 @@ void SkiaRenderEngine::drawLayersInternal(
                                    layer.borderSettings.strokeWidth);
 
                 SkPaint paint;
-                paint.setAntiAlias(true);
+                // When rotated / scaling the lack of AA is imperceptible for the outline.
+                paint.setAntiAlias(enableAntiAlias);
                 paint.setColor(layer.borderSettings.color);
                 paint.setStyle(SkPaint::kFill_Style);
                 canvas->drawDRRect(outlineRect, preferredOriginalBounds, paint);
@@ -1291,7 +1296,7 @@ void SkiaRenderEngine::drawLayersInternal(
         }
 
         if (!roundRectClip.isEmpty()) {
-            canvas->clipRRect(roundRectClip, true);
+            canvas->clipRRect(roundRectClip, enableAntiAlias);
         }
 
         if (!bounds.isRect()) {
