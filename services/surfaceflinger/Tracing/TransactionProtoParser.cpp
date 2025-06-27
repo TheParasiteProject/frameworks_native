@@ -76,6 +76,7 @@ perfetto::protos::TransactionState TransactionProtoParser::toProto(
     for (auto& mergedTransactionId : t.mergedTransactionIds) {
         proto.mutable_merged_transaction_ids()->Add(mergedTransactionId);
     }
+    proto.set_apply_token(reinterpret_cast<uint64_t>(t.applyToken.get()));
 
     return proto;
 }
