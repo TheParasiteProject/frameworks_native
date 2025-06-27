@@ -98,6 +98,9 @@
     },
     {
       "name": "binderStatsPusherUnitTest"
+    },
+    {
+      "name": "binderRpcTestNoLegacy"
     }
   ],
   "presubmit-large": [
