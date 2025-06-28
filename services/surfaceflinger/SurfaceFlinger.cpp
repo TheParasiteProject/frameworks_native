@@ -198,11 +198,14 @@ using base::StringAppendF;
 using display::PhysicalDisplay;
 using display::PhysicalDisplays;
 using frontend::TransactionHandler;
+using gui::CaptureMode;
 using gui::DisplayInfo;
 using gui::GameMode;
 using gui::IDisplayEventConnection;
 using gui::IWindowInfosListener;
 using gui::LayerMetadata;
+using gui::ProtectedLayerMode;
+using gui::SecureLayerMode;
 using gui::WindowInfo;
 using gui::aidl_utils::binderStatusFromStatusT;
 using scheduler::VsyncModulator;
@@ -7493,7 +7496,7 @@ void SurfaceFlinger::setSchedAttr(bool enabled, const char* whence) {
 namespace {
 
 ui::Dataspace pickBestDataspace(ui::Dataspace requestedDataspace, ui::ColorMode colorMode,
-                                bool capturingHdrLayers, bool hintForSeamlessTransition) {
+                                bool capturingHdrLayers, bool preserveDisplayColors) {
     if (requestedDataspace != ui::Dataspace::UNKNOWN) {
         return requestedDataspace;
     }
@@ -7550,7 +7553,8 @@ void SurfaceFlinger::captureDisplay(const DisplayCaptureArgs& args,
         return;
     }
 
-    if (captureArgs.captureSecureLayers && !hasCaptureBlackoutContentPermission()) {
+    if (captureArgs.secureLayerMode == SecureLayerMode::Capture &&
+        !hasCaptureBlackoutContentPermission()) {
         ALOGD("Attempting to capture secure layers without CAPTURE_BLACKOUT_CONTENT");
         invokeScreenCaptureError(PERMISSION_DENIED, captureListener);
         return;
@@ -7574,9 +7578,13 @@ void SurfaceFlinger::captureDisplay(const DisplayCaptureArgs& args,
                                   .dataspace = static_cast<ui::Dataspace>(captureArgs.dataspace),
                                   .disableBlur = false,
                                   .isGrayscale = captureArgs.grayscale,
-                                  .isSecure = captureArgs.captureSecureLayers,
-                                  .includeProtected = captureArgs.allowProtected,
-                                  .seamlessTransition = captureArgs.hintForSeamlessTransition,
+                                  .isSecure =
+                                          captureArgs.secureLayerMode == SecureLayerMode::Capture,
+                                  .includeProtected = captureArgs.protectedLayerMode ==
+                                          ProtectedLayerMode::Capture,
+                                  .preserveDisplayColors = captureArgs.preserveDisplayColors,
+                                  .requireDpuReadback =
+                                          captureArgs.captureMode == CaptureMode::RequireOptimized,
                                   .debugName = "ScreenCapture"};
 
     captureScreenCommon(screenshotArgs, static_cast<ui::PixelFormat>(captureArgs.pixelFormat),
@@ -7598,9 +7606,9 @@ void SurfaceFlinger::captureDisplay(DisplayId displayId, const CaptureArgs& args
                                   .frameScaleY = args.frameScaleY,
                                   .disableBlur = false,
                                   .isGrayscale = false,
-                                  .isSecure = args.captureSecureLayers,
+                                  .isSecure = args.secureLayerMode == SecureLayerMode::Capture,
                                   .includeProtected = false,
-                                  .seamlessTransition = args.hintForSeamlessTransition,
+                                  .preserveDisplayColors = args.preserveDisplayColors,
                                   .debugName = "ScreenCapture"};
 
     captureScreenCommon(screenshotArgs, static_cast<ui::PixelFormat>(args.pixelFormat),
@@ -7626,7 +7634,8 @@ void SurfaceFlinger::captureLayers(const LayerCaptureArgs& args,
         return;
     }
 
-    if (captureArgs.captureSecureLayers && !hasCaptureBlackoutContentPermission()) {
+    if (captureArgs.secureLayerMode == SecureLayerMode::Capture &&
+        !hasCaptureBlackoutContentPermission()) {
         ALOGD("Attempting to capture secure layers without CAPTURE_BLACKOUT_CONTENT");
         invokeScreenCaptureError(PERMISSION_DENIED, captureListener);
         return;
@@ -7661,9 +7670,11 @@ void SurfaceFlinger::captureLayers(const LayerCaptureArgs& args,
                                   .frameScaleY = captureArgs.frameScaleY,
                                   .disableBlur = false,
                                   .isGrayscale = captureArgs.grayscale,
-                                  .isSecure = captureArgs.captureSecureLayers,
-                                  .includeProtected = captureArgs.allowProtected,
-                                  .seamlessTransition = captureArgs.hintForSeamlessTransition,
+                                  .isSecure =
+                                          captureArgs.secureLayerMode == SecureLayerMode::Capture,
+                                  .includeProtected = captureArgs.protectedLayerMode ==
+                                          ProtectedLayerMode::Capture,
+                                  .preserveDisplayColors = captureArgs.preserveDisplayColors,
                                   .debugName = "ScreenCapture"};
 
     captureScreenCommon(screenshotArgs, static_cast<ui::PixelFormat>(captureArgs.pixelFormat),
@@ -7685,15 +7696,23 @@ void SurfaceFlinger::attachReleaseFenceFutureToLayer(Layer* layer, LayerFE* laye
 // application to avoid being screenshot or drawn via unsecure display.
 bool SurfaceFlinger::layersHasProtectedLayer(
         const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers) const {
-    bool protectedLayerFound = false;
     for (auto& [_, layerFE] : layers) {
-        protectedLayerFound |=
-                (layerFE->mSnapshot->isVisible && layerFE->mSnapshot->hasProtectedContent);
-        if (protectedLayerFound) {
-            break;
+        if (layerFE->mSnapshot->isVisible && layerFE->mSnapshot->hasProtectedContent) {
+            return true;
         }
     }
-    return protectedLayerFound;
+    return false;
+}
+
+// Loop over all visible layers to see whether there's any secure layer.
+bool SurfaceFlinger::layersHasSecureLayer(
+        const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers) const {
+    for (auto& [_, layerFE] : layers) {
+        if (layerFE->mSnapshot->isVisible && layerFE->mSnapshot->isSecure) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // Getting layer snapshots and accessing display state should take place on
@@ -7713,6 +7732,11 @@ SurfaceFlinger::setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args) {
                     return base::unexpected<status_t>(status);
                 }
 
+                args.layers = getLayerSnapshotsForScreenshots(args.snapshotRequest);
+                args.hasProtectedLayer = layersHasProtectedLayer(args.layers);
+                const bool hasProtectedOrDisallowedSecureLayers = args.hasProtectedLayer ||
+                        (!args.isSecure && layersHasSecureLayer(args.layers));
+
                 bool capturingDisplay =
                         std::holds_alternative<DisplayId>(args.captureTypeVariant) ||
                         std::holds_alternative<sp<IBinder>>(args.captureTypeVariant);
@@ -7723,10 +7747,20 @@ SurfaceFlinger::setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args) {
                         FlagManager::getInstance().productionize_readback_screenshot() &&
                         capturingDisplay && args.snapshotRequest.excludeLayerIds.empty() &&
                         !args.disableBlur && !args.isGrayscale &&
-                        args.dataspace == ui::Dataspace::UNKNOWN;
+                        args.dataspace == ui::Dataspace::UNKNOWN &&
+                        // DPU readback doesn't support rotation, scaling or translation.
+                        args.transform.getOrientation() == ui::Transform::ROT_0 &&
+                        args.transform.getScaleX() == 1.0f && args.transform.getScaleY() == 1.0f &&
+                        args.transform.tx() == 0.0f && args.transform.ty() == 0.0f &&
+                        !hasProtectedOrDisallowedSecureLayers;
 
-                // TODO: we need to check for a uniform transform too. I.e., no screen rotation, no
-                // scaling, etc.
+                if (!canDpuReadback && args.requireDpuReadback) {
+                    if (hasProtectedOrDisallowedSecureLayers) {
+                        return base::unexpected<status_t>(PERMISSION_DENIED);
+                    } else {
+                        return base::unexpected<status_t>(INVALID_OPERATION);
+                    }
+                }
                 if (canDpuReadback) {
                     auto displayId = *args.displayIdVariant;
                     if (std::holds_alternative<PhysicalDisplayId>(displayId)) {
@@ -7750,14 +7784,13 @@ SurfaceFlinger::setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args) {
                                                                  "screenshot");
                             mReadbackRequests.emplace_back(*asPhysicalDisplayId(displayId),
                                                            readbackBuffer, args.captureListener,
-                                                           args.seamlessTransition, args.isSecure);
+                                                           args.preserveDisplayColors,
+                                                           args.isSecure);
                             scheduleComposite(FrameHint::kNone);
                             return ScreenshotStrategy::Readback;
                         }
                     }
                 }
-
-                args.layers = getLayerSnapshotsForScreenshots(args.snapshotRequest);
 
                 // Non-threaded RenderEngine eventually returns to the main thread a 2nd time
                 // to complete the screenshot. Release fences should only be added during the 2nd
@@ -7804,12 +7837,13 @@ void SurfaceFlinger::captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat r
                 return isHdrLayer(*(layer.second->mSnapshot.get()));
             });
 
+    // Check if the RenderEngine supports protected content.
+    // This is vital for an edge case where the codec/display IP supports DRM,
+    // but the GPU IP doesn't. Without this, we might have protected layers,
+    // yet allocating a protected buffer (via GPU) is undefined, and rendering
+    // to it would be broken.
     const bool supportsProtected = getRenderEngine().supportsProtectedContent();
-    bool hasProtectedLayer = false;
-    if (args.includeProtected && supportsProtected) {
-        hasProtectedLayer = layersHasProtectedLayer(args.layers);
-    }
-    const bool isProtected = hasProtectedLayer && args.includeProtected && supportsProtected;
+    const bool isProtected = args.hasProtectedLayer && args.includeProtected && supportsProtected;
     const uint32_t usage = GRALLOC_USAGE_HW_COMPOSER | GRALLOC_USAGE_HW_RENDER |
             GRALLOC_USAGE_HW_TEXTURE |
             (isProtected ? GRALLOC_USAGE_PROTECTED
@@ -7836,7 +7870,7 @@ void SurfaceFlinger::captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat r
     std::shared_ptr<renderengine::impl::ExternalTexture> hdrTexture;
     std::shared_ptr<renderengine::impl::ExternalTexture> gainmapTexture;
 
-    if (hasHdrLayer && !args.seamlessTransition &&
+    if (hasHdrLayer && !args.preserveDisplayColors &&
         FlagManager::getInstance().true_hdr_screenshots()) {
         const auto hdrBuffer =
                 getFactory().createGraphicBuffer(buffer->getWidth(), buffer->getHeight(),
@@ -8108,18 +8142,19 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::renderScreenImpl(
     }
 
     const bool enableLocalTonemapping =
-            FlagManager::getInstance().local_tonemap_screenshots() && !args.seamlessTransition;
+            FlagManager::getInstance().local_tonemap_screenshots() && !args.preserveDisplayColors;
 
     captureResults.capturedDataspace =
             pickBestDataspace(args.dataspace, args.colorMode, captureResults.capturedHdrLayers,
-                              args.seamlessTransition);
+                              args.preserveDisplayColors);
 
     // Only clamp the display brightness if this is not a seamless transition.
     // Otherwise for seamless transitions it's important to match the current
     // display state as the buffer will be shown under these same conditions, and we
     // want to avoid any flickers.
     if (captureResults.capturedHdrLayers) {
-        if (!enableLocalTonemapping && args.sdrWhitePointNits > 1.0f && !args.seamlessTransition) {
+        if (!enableLocalTonemapping && args.sdrWhitePointNits > 1.0f &&
+            !args.preserveDisplayColors) {
             // Restrict the amount of HDR "headroom" in the screenshot to avoid
             // over-dimming the SDR portion. 2.0 chosen by experimentation
             constexpr float kMaxScreenshotHeadroom = 2.0f;
@@ -8134,7 +8169,7 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::renderScreenImpl(
 
     auto renderIntent = RenderIntent::TONE_MAP_COLORIMETRIC;
     // Screenshots leaving the device should be colorimetric
-    if (args.dataspace == ui::Dataspace::UNKNOWN && args.seamlessTransition) {
+    if (args.dataspace == ui::Dataspace::UNKNOWN && args.preserveDisplayColors) {
         renderIntent = args.renderIntent;
     }
 
@@ -8192,7 +8227,7 @@ ftl::SharedFuture<FenceResult> SurfaceFlinger::renderScreenImpl(
 
         // Screenshots leaving the device must not dim in gamma space.
         const bool dimInGammaSpaceForEnhancedScreenshots =
-                mDimInGammaSpaceForEnhancedScreenshots && args.seamlessTransition;
+                mDimInGammaSpaceForEnhancedScreenshots && args.preserveDisplayColors;
 
         std::shared_ptr<ScreenCaptureOutput> output = createScreenCaptureOutput(
                 ScreenCaptureOutputArgs{.compositionEngine = *compositionEngine,
@@ -10053,7 +10088,7 @@ void SurfaceFlinger::validateForReadback(LayerFE* layer) {
                 auto snapshot = layer->mSnapshot.get();
                 if (snapshot->isVisible &&
                     ((!request.isSecure && snapshot->isSecure) ||
-                     (!request.seamlessTransition && isHdrLayer(*(layer->mSnapshot.get()))) ||
+                     (!request.preserveDisplayColors && isHdrLayer(*(layer->mSnapshot.get()))) ||
                      snapshot->hasProtectedContent)) {
                     // TODO: The clients that want this path are okay with dropping the
                     // screenshot request on the floor and erroring out. BUT: for clients that

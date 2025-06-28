@@ -211,7 +211,7 @@ void CompositionTest::captureScreenComposition() {
     auto future = mFlinger.renderScreenImpl(mDisplay, sourceCrop, ui::Dataspace::V0_SRGB, layers,
                                             mCaptureScreenBuffer,
                                             /* disableBlur */ false, mDisplay->isSecure(),
-                                            /* seamlessTransition */ true);
+                                            /* preserveDisplayColors */ true);
     ASSERT_TRUE(future.valid());
     const auto fenceResult = future.get();
 
