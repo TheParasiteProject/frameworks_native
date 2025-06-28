@@ -228,6 +228,8 @@ static inline void PrintTo(const Geometry& settings, ::std::ostream* os) {
     *os << "Geometry {";
     *os << "\n    .boundaries = ";
     PrintTo(settings.boundaries, os);
+    *os << "\n    .originalBounds = ";
+    PrintTo(settings.originalBounds, os);
     *os << "\n    .positionTransform = ";
     PrintMatrix(settings.positionTransform, os);
     *os << "\n    .roundedCornersRadiusX = " << settings.roundedCornersRadius.x;
@@ -328,6 +330,10 @@ static inline void PrintTo(const LayerSettings& settings, ::std::ostream* os) {
         *os << "\n    .luts = ";
         PrintTo(settings.luts, os);
     }
+
+    *os << "\n    .borderSettings = " << settings.borderSettings.toString();
+    *os << "\n    .boxShadowSettings = " << settings.boxShadowSettings.toString();
+
     *os << "\n}";
 }
 

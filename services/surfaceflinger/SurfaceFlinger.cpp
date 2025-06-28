@@ -2536,8 +2536,8 @@ void SurfaceFlinger::updateLayerHistory(nsecs_t now) {
 }
 
 bool SurfaceFlinger::updateLayerSnapshots(VsyncId vsyncId, nsecs_t frameTimeNs,
-                                          bool flushTransactions, bool& outTransactionsAreEmpty)
-        EXCLUDES(mStateLock) {
+                                          nsecs_t expectedPresentTimeNs, bool flushTransactions,
+                                          bool& outTransactionsAreEmpty) EXCLUDES(mStateLock) {
     using Changes = frontend::RequestedLayerState::Changes;
     SFTRACE_CALL();
     SFTRACE_NAME_FOR_TRACK(WorkloadTracer::TRACK_NAME, "Transaction Handling");
@@ -2674,9 +2674,12 @@ bool SurfaceFlinger::updateLayerSnapshots(VsyncId vsyncId, nsecs_t frameTimeNs,
                 // The last latch time is used to classify a missed frame as buffer stuffing
                 // instead of a missed frame. This is used to identify scenarios where we
                 // could not latch a buffer or apply a transaction due to backpressure.
-                // We only update the latch time for buffer less layers here, the latch time
+                // We only update the latch time for bufferless layers here, the latch time
                 // is updated for buffer layers when the buffer is latched.
-                it->second->updateLastLatchTime(latchTime);
+                it->second->updateFrameTimelinePastTimestamps({
+                        .latchTime = latchTime,
+                        .expectedPresentTime = expectedPresentTimeNs,
+                });
             }
             continue;
         }
@@ -2686,7 +2689,7 @@ bool SurfaceFlinger::updateLayerSnapshots(VsyncId vsyncId, nsecs_t frameTimeNs,
         if (willReleaseBufferOnLatch) {
             mLayersWithBuffersRemoved.emplace(it->second);
         }
-        it->second->latchBufferImpl(unused, latchTime, bgColorOnly);
+        it->second->latchBufferImpl(unused, latchTime, expectedPresentTimeNs, bgColorOnly);
         newDataLatched = true;
 
         frontend::LayerSnapshot* snapshot = mLayerSnapshotBuilder.getSnapshot(it->second->sequence);
@@ -2839,6 +2842,7 @@ bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
         const bool flushTransactions = clearTransactionFlags(eTransactionFlushNeeded);
         bool transactionsAreEmpty = false;
         mustComposite |= updateLayerSnapshots(vsyncId, pacesetterFrameTarget.frameBeginTime().ns(),
+                                              pacesetterFrameTarget.expectedPresentTime().ns(),
                                               flushTransactions, transactionsAreEmpty);
 
         // Tell VsyncTracker that we are going to present this frame before scheduling
@@ -4837,7 +4841,7 @@ void SurfaceFlinger::setTransactionFlags(uint32_t mask, TransactionSchedule sche
     if (const bool scheduled = transactionFlags & mask; !scheduled) {
         if (FlagManager::getInstance().resync_on_tx() &&
                 FlagManager::getInstance().vsync_predictor_predicts_within_threshold()) {
-            mScheduler->resync();
+            mScheduler->resync(IEventThreadCallback::ResyncCaller::Transaction);
         }
         scheduleCommit(frameHint);
     } else if (frameHint == FrameHint::kActive) {
@@ -4942,8 +4946,18 @@ TransactionHandler::TransactionReadiness SurfaceFlinger::transactionReadyBufferC
                                            " < %" PRId64,
                                            layer->name.c_str(), layer->barrierFrameNumber,
                                            s.bufferData->barrierFrameNumber);
-                            ready = TransactionReadiness::NotReadyBarrier;
-                            return TraverseBuffersReturnValues::STOP_TRAVERSAL;
+                            bool timeout = std::chrono::nanoseconds(flushState.queueProcessTime -
+                                                                    transaction.postTime) >
+                                    std::chrono::seconds(4);
+                            if (timeout) {
+                                TransactionTraceWriter::getInstance()
+                                .invoke("IgnoreBarrierDueToTimeout",
+                                        /* overwrite= */ false);
+                                SFTRACE_FORMAT("IgnoreBarrierDueToTimeout %s", layer->name.c_str());
+                            } else {
+                                ready = TransactionReadiness::NotReadyBarrier;
+                                return TraverseBuffersReturnValues::STOP_TRAVERSAL;
+                            }
                         }
                     }
                 }

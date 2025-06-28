@@ -24,9 +24,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef BINDER_DISABLE_BLOB
 #include <sys/mman.h>
-#include <sys/resource.h>
-#include <sys/stat.h>
+#endif // BINDER_DISABLE_BLOB
 #include <sys/types.h>
 #include <unistd.h>
 #include <algorithm>
@@ -135,7 +135,7 @@ static void FdTagClose(int fd, const void* addr) {
         close(fd);
     }
 }
-#else
+#elif defined(BINDER_WITH_KERNEL_IPC)
 static void FdTag(int fd, const void* old_addr, const void* new_addr) {
     (void)fd;
     (void)old_addr;
@@ -2794,6 +2794,7 @@ static void do_nothing_release_func(const uint8_t* data, size_t dataSize,
     (void)objects;
     (void)objectsCount;
 }
+#ifdef BINDER_WITH_KERNEL_IPC
 static void delete_data_release_func(const uint8_t* data, size_t dataSize,
                                      const binder_size_t* objects, size_t objectsCount) {
     delete[] data;
@@ -2801,6 +2802,7 @@ static void delete_data_release_func(const uint8_t* data, size_t dataSize,
     (void)objects;
     (void)objectsCount;
 }
+#endif // BINDER_WITH_KERNEL_IPC
 
 void Parcel::makeDangerousViewOf(Parcel* p) {
     if (p->isForRpc()) {
@@ -3500,6 +3502,7 @@ size_t Parcel::getOpenAshmemSize() const
 
 // --- Parcel::Blob ---
 
+#ifndef BINDER_DISABLE_BLOB
 Parcel::Blob::Blob() :
         mFd(-1), mData(nullptr), mSize(0), mMutable(false) {
 }
@@ -3530,5 +3533,6 @@ void Parcel::Blob::clear() {
     mSize = 0;
     mMutable = false;
 }
+#endif // BINDER_DISABLE_BLOB
 
 } // namespace android
