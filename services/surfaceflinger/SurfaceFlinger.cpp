@@ -5214,25 +5214,24 @@ status_t SurfaceFlinger::setTransactionState(TransactionState&& transactionState
         }
     }
 
-    QueuedTransactionState state{
-            transactionState.mFrameTimelineInfo,
-            std::move(resolvedStates),
-            std::move(transactionState.mDisplayStates),
-            flags,
-            applyToken,
-            std::move(inputWindowCommands),
-            transactionState.mDesiredPresentTime,
-            transactionState.mIsAutoTimestamp,
-            std::move(uncacheBufferIds),
-            postTime,
-            transactionState.mCallbacks.mHasListenerCallbacks,
-            transactionState.mCallbacks.mFlattenedListenerCallbacks,
-            originPid,
-            originUid,
-            transactionState.getId(),
-            transactionState.mMergedTransactionIds,
-            transactionState.mEarlyWakeupInfos,
-    };
+    QueuedTransactionState state{transactionState.mFrameTimelineInfo,
+                                 std::move(resolvedStates),
+                                 std::move(transactionState.mDisplayStates),
+                                 flags,
+                                 applyToken,
+                                 std::move(inputWindowCommands),
+                                 transactionState.mDesiredPresentTime,
+                                 transactionState.mIsAutoTimestamp,
+                                 std::move(uncacheBufferIds),
+                                 postTime,
+                                 transactionState.mCallbacks.mHasListenerCallbacks,
+                                 transactionState.mCallbacks.mFlattenedListenerCallbacks,
+                                 originPid,
+                                 originUid,
+                                 transactionState.getId(),
+                                 transactionState.mMergedTransactionIds,
+                                 transactionState.mEarlyWakeupInfos,
+                                 std::move(transactionState.mBarriers)};
     state.workloadHint = queuedWorkload;
 
     if (mTransactionTracing) {
