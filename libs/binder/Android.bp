@@ -732,7 +732,7 @@ cc_library {
 }
 
 cc_library {
-    name: "libbinder_rpc_no_legacy",
+    name: "libbinder_rpc_no_blob",
     vendor_available: true,
     defaults: [
         "libbinder_common_defaults",

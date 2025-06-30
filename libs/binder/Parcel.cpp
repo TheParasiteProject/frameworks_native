@@ -24,9 +24,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifndef BINDER_DISABLE_BLOB
 #include <sys/mman.h>
-#endif // BINDER_DISABLE_BLOB
+#include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <algorithm>
@@ -3500,7 +3500,6 @@ size_t Parcel::getOpenAshmemSize() const
 
 // --- Parcel::Blob ---
 
-#ifndef BINDER_DISABLE_BLOB
 Parcel::Blob::Blob() :
         mFd(-1), mData(nullptr), mSize(0), mMutable(false) {
 }
@@ -3531,6 +3530,5 @@ void Parcel::Blob::clear() {
     mSize = 0;
     mMutable = false;
 }
-#endif // BINDER_DISABLE_BLOB
 
 } // namespace android
