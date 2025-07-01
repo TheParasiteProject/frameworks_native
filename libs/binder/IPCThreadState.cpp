@@ -1626,6 +1626,7 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
    case BR_CLEAR_FREEZE_NOTIFICATION_DONE:
         {
             BpBinder* proxy = (BpBinder*)mIn.readPointer();
+            proxy->getPrivateAccessor().onFrozenStateChangeListenerRemoved();
             proxy->getWeakRefs()->decWeak(proxy);
         }
         break;
