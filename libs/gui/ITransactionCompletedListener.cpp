@@ -182,6 +182,10 @@ status_t TransactionStats::writeToParcel(Parcel* output) const {
     if (err != NO_ERROR) {
         return err;
     }
+    err = output->writeStrongBinderVector(transactionHandles);
+    if (err != NO_ERROR) {
+        return err;
+    }
     err = output->writeInt64(latchTime);
     if (err != NO_ERROR) {
         return err;
@@ -203,6 +207,10 @@ status_t TransactionStats::writeToParcel(Parcel* output) const {
 
 status_t TransactionStats::readFromParcel(const Parcel* input) {
     status_t err = input->readParcelableVector(&callbackIds);
+    if (err != NO_ERROR) {
+        return err;
+    }
+    err = input->readStrongBinderVector(&transactionHandles);
     if (err != NO_ERROR) {
         return err;
     }
@@ -251,16 +259,6 @@ status_t ListenerStats::readFromParcel(const Parcel* input) {
         transactionStats.push_back(stats);
     }
     return NO_ERROR;
-}
-
-ListenerStats ListenerStats::createEmpty(
-        const sp<IBinder>& listener,
-        const std::unordered_set<CallbackId, CallbackIdHash>& callbackIds) {
-    ListenerStats listenerStats;
-    listenerStats.listener = listener;
-    listenerStats.transactionStats.emplace_back(callbackIds);
-
-    return listenerStats;
 }
 
 class BpTransactionCompletedListener : public SafeBpInterface<ITransactionCompletedListener> {
@@ -332,7 +330,7 @@ ListenerCallbacks ListenerCallbacks::filter(CallbackId::Type type) const {
             filteredCallbackIds.push_back(callbackId);
         }
     }
-    return ListenerCallbacks(transactionCompletedListener, filteredCallbackIds);
+    return ListenerCallbacks(transactionCompletedListener, filteredCallbackIds, transactionHandles);
 }
 
 status_t CallbackId::writeToParcel(Parcel* output) const {

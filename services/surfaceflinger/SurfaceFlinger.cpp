@@ -5453,9 +5453,9 @@ uint32_t SurfaceFlinger::updateLayerCallbacksAndStats(const FrameTimelineInfo& f
         ALOGW("Attempt to set client state with a null layer handle");
     }
     if (layer == nullptr) {
-        for (auto& [listener, callbackIds] : s.listeners) {
+        for (auto& [listener, callbackIds, transactionHandles] : s.listeners) {
             mTransactionCallbackInvoker.addCallbackHandle(
-                    sp<CallbackHandle>::make(listener, callbackIds, s.surface));
+                    sp<CallbackHandle>::make(listener, callbackIds, transactionHandles, s.surface));
         }
         return 0;
     }
@@ -5465,9 +5465,9 @@ uint32_t SurfaceFlinger::updateLayerCallbacksAndStats(const FrameTimelineInfo& f
 
     std::vector<sp<CallbackHandle>> callbackHandles;
     if ((what & layer_state_t::eHasListenerCallbacksChanged) && (!filteredListeners.empty())) {
-        for (auto& [listener, callbackIds] : filteredListeners) {
+        for (auto& [listener, callbackIds, transactionHandles] : filteredListeners) {
             callbackHandles.emplace_back(
-                    sp<CallbackHandle>::make(listener, callbackIds, s.surface));
+                    sp<CallbackHandle>::make(listener, callbackIds, transactionHandles, s.surface));
         }
     }
 
