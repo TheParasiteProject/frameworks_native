@@ -4927,7 +4927,8 @@ TransactionHandler::TransactionReadiness SurfaceFlinger::transactionReadyBufferC
                                                       s.bufferData->acquireFence
                                                               ? s.bufferData->acquireFence
                                                               : Fence::NO_FENCE,
-                                                      currentMaxAcquiredBufferCount);
+                                                      currentMaxAcquiredBufferCount,
+                                                      false /* removeFromCache */);
                         }
 
                         // Delete the entire state at this point and not just release the buffer
@@ -5214,25 +5215,24 @@ status_t SurfaceFlinger::setTransactionState(TransactionState&& transactionState
         }
     }
 
-    QueuedTransactionState state{
-            transactionState.mFrameTimelineInfo,
-            std::move(resolvedStates),
-            std::move(transactionState.mDisplayStates),
-            flags,
-            applyToken,
-            std::move(inputWindowCommands),
-            transactionState.mDesiredPresentTime,
-            transactionState.mIsAutoTimestamp,
-            std::move(uncacheBufferIds),
-            postTime,
-            transactionState.mCallbacks.mHasListenerCallbacks,
-            transactionState.mCallbacks.mFlattenedListenerCallbacks,
-            originPid,
-            originUid,
-            transactionState.getId(),
-            transactionState.mMergedTransactionIds,
-            transactionState.mEarlyWakeupInfos,
-    };
+    QueuedTransactionState state{transactionState.mFrameTimelineInfo,
+                                 std::move(resolvedStates),
+                                 std::move(transactionState.mDisplayStates),
+                                 flags,
+                                 applyToken,
+                                 std::move(inputWindowCommands),
+                                 transactionState.mDesiredPresentTime,
+                                 transactionState.mIsAutoTimestamp,
+                                 std::move(uncacheBufferIds),
+                                 postTime,
+                                 transactionState.mCallbacks.mHasListenerCallbacks,
+                                 transactionState.mCallbacks.mFlattenedListenerCallbacks,
+                                 originPid,
+                                 originUid,
+                                 transactionState.getId(),
+                                 transactionState.mMergedTransactionIds,
+                                 transactionState.mEarlyWakeupInfos,
+                                 std::move(transactionState.mBarriers)};
     state.workloadHint = queuedWorkload;
 
     if (mTransactionTracing) {
@@ -5454,9 +5454,9 @@ uint32_t SurfaceFlinger::updateLayerCallbacksAndStats(const FrameTimelineInfo& f
         ALOGW("Attempt to set client state with a null layer handle");
     }
     if (layer == nullptr) {
-        for (auto& [listener, callbackIds] : s.listeners) {
+        for (auto& [listener, callbackIds, transactionHandles] : s.listeners) {
             mTransactionCallbackInvoker.addCallbackHandle(
-                    sp<CallbackHandle>::make(listener, callbackIds, s.surface));
+                    sp<CallbackHandle>::make(listener, callbackIds, transactionHandles, s.surface));
         }
         return 0;
     }
@@ -5466,9 +5466,9 @@ uint32_t SurfaceFlinger::updateLayerCallbacksAndStats(const FrameTimelineInfo& f
 
     std::vector<sp<CallbackHandle>> callbackHandles;
     if ((what & layer_state_t::eHasListenerCallbacksChanged) && (!filteredListeners.empty())) {
-        for (auto& [listener, callbackIds] : filteredListeners) {
+        for (auto& [listener, callbackIds, transactionHandles] : filteredListeners) {
             callbackHandles.emplace_back(
-                    sp<CallbackHandle>::make(listener, callbackIds, s.surface));
+                    sp<CallbackHandle>::make(listener, callbackIds, transactionHandles, s.surface));
         }
     }
 

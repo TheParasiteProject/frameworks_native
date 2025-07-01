@@ -256,6 +256,7 @@ flag {
   namespace: "core_graphics"
   description: "Allows devices to use DPU readback for fullscreen screenshots"
   bug: "384816457"
+  is_exported: true
 } # readback_screenshot
 
 flag {
