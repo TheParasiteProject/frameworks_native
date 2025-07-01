@@ -125,7 +125,7 @@ using TrustedPresentationCallback = std::function<void(void*, bool)>;
 
 class ReleaseCallbackThread {
 public:
-    void addReleaseCallback(const ReleaseCallbackId, sp<Fence>);
+    void addReleaseCallback(const ReleaseCallbackId, sp<Fence>, bool removeFromCache);
     void threadMain();
 
 private:
@@ -133,7 +133,7 @@ private:
     std::mutex mMutex;
     bool mStarted GUARDED_BY(mMutex) = false;
     std::condition_variable mReleaseCallbackPending;
-    std::queue<std::tuple<const ReleaseCallbackId, const sp<Fence>>> mCallbackInfos
+    std::queue<std::tuple<const ReleaseCallbackId, const sp<Fence>, bool>> mCallbackInfos
             GUARDED_BY(mMutex);
 };
 
@@ -913,6 +913,8 @@ public:
 
     static void notifyShutdown();
 
+    void removeBufferFromLocalCache(uint64_t bufferId);
+
 protected:
     ReleaseCallbackThread mReleaseCallbackThread;
 
@@ -1107,7 +1109,7 @@ public:
     // BnTransactionCompletedListener overrides
     void onTransactionCompleted(ListenerStats stats) override;
     void onReleaseBuffer(ReleaseCallbackId, sp<Fence> releaseFence,
-                         uint32_t currentMaxAcquiredBufferCount) override;
+                         uint32_t currentMaxAcquiredBufferCount, bool removeFromCache) override;
 
     void removeReleaseBufferCallback(const ReleaseCallbackId& callbackId);
 

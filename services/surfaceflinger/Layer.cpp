@@ -733,7 +733,8 @@ void Layer::callReleaseBufferCallback(const sp<ITransactionCompletedListener>& l
     }
 
     if (listener) {
-        listener->onReleaseBuffer(callbackId, fence, currentMaxAcquiredBufferCount);
+        listener->onReleaseBuffer(callbackId, fence, currentMaxAcquiredBufferCount,
+                                  false /* removeFromCache */);
     }
 
     if (!mBufferReleaseChannel) {

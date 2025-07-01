@@ -4927,7 +4927,8 @@ TransactionHandler::TransactionReadiness SurfaceFlinger::transactionReadyBufferC
                                                       s.bufferData->acquireFence
                                                               ? s.bufferData->acquireFence
                                                               : Fence::NO_FENCE,
-                                                      currentMaxAcquiredBufferCount);
+                                                      currentMaxAcquiredBufferCount,
+                                                      false /* removeFromCache */);
                         }
 
                         // Delete the entire state at this point and not just release the buffer
