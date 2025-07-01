@@ -50,6 +50,7 @@ public:
 
 struct QueuedTransactionState {
     QueuedTransactionState() = default;
+    QueuedTransactionState(QueuedTransactionState&&) = default;
 
     QueuedTransactionState(const FrameTimelineInfo& frameTimelineInfo,
                            std::vector<ResolvedComposerState> composerStates,
@@ -148,6 +149,11 @@ struct QueuedTransactionState {
     std::vector<uint64_t> mergedTransactionIds;
     std::vector<gui::EarlyWakeupInfo> earlyWakeupInfos;
     ftl::Flags<adpf::Workload> workloadHint;
+
+private:
+    friend class TransactionTracingTest_addTransactions_Test;
+    // Only accessed in tests.
+    QueuedTransactionState(const QueuedTransactionState&) = default;
 };
 
 } // namespace android
