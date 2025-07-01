@@ -39,7 +39,7 @@ std::unique_ptr<RenderEngineThreaded> RenderEngineThreaded::create(CreateInstanc
 }
 
 RenderEngineThreaded::RenderEngineThreaded(CreateInstanceFactory factory)
-      : RenderEngine(Threaded::YES) {
+      : RenderEngine(Threaded::Yes) {
     SFTRACE_CALL();
 
     std::lock_guard lockThread(mThreadMutex);

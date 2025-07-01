@@ -77,14 +77,14 @@ std::pair<uint32_t, uint32_t> getDisplaySize() {
 
 static std::unique_ptr<RenderEngine> createRenderEngine(
         RenderEngine::Threaded threaded, RenderEngine::GraphicsApi graphicsApi,
-        RenderEngine::BlurAlgorithm blurAlgorithm = RenderEngine::BlurAlgorithm::KAWASE) {
+        RenderEngine::BlurAlgorithm blurAlgorithm = RenderEngine::BlurAlgorithm::Kawase) {
     auto args = RenderEngineCreationArgs::Builder()
                         .setPixelFormat(static_cast<int>(ui::PixelFormat::RGBA_8888))
                         .setImageCacheSize(1)
                         .setEnableProtectedContext(true)
                         .setPrecacheToneMapperShaderOnly(false)
                         .setBlurAlgorithm(blurAlgorithm)
-                        .setContextPriority(RenderEngine::ContextPriority::REALTIME)
+                        .setContextPriority(RenderEngine::ContextPriority::Realtime)
                         .setThreaded(threaded)
                         .setGraphicsApi(graphicsApi)
                         .build();
@@ -310,16 +310,16 @@ void BM_homescreen_edgeExtension(benchmark::State& benchState, Args&&... args) {
     benchDrawLayers(*re, layers, benchState, "homescreen_edge_extension");
 }
 
-BENCHMARK_CAPTURE(BM_homescreen_blur, gaussian, RenderEngine::Threaded::YES,
-                  RenderEngine::GraphicsApi::GL, RenderEngine::BlurAlgorithm::GAUSSIAN);
+BENCHMARK_CAPTURE(BM_homescreen_blur, gaussian, RenderEngine::Threaded::Yes,
+                  RenderEngine::GraphicsApi::GL, RenderEngine::BlurAlgorithm::Gaussian);
 
-BENCHMARK_CAPTURE(BM_homescreen_blur, kawase, RenderEngine::Threaded::YES,
-                  RenderEngine::GraphicsApi::GL, RenderEngine::BlurAlgorithm::KAWASE);
+BENCHMARK_CAPTURE(BM_homescreen_blur, kawase, RenderEngine::Threaded::Yes,
+                  RenderEngine::GraphicsApi::GL, RenderEngine::BlurAlgorithm::Kawase);
 
-BENCHMARK_CAPTURE(BM_homescreen_blur, kawase_dual_filter, RenderEngine::Threaded::YES,
-                  RenderEngine::GraphicsApi::GL, RenderEngine::BlurAlgorithm::KAWASE_DUAL_FILTER);
+BENCHMARK_CAPTURE(BM_homescreen_blur, kawase_dual_filter, RenderEngine::Threaded::Yes,
+                  RenderEngine::GraphicsApi::GL, RenderEngine::BlurAlgorithm::KawaseDualFilter);
 
-BENCHMARK_CAPTURE(BM_homescreen, SkiaGLThreaded, RenderEngine::Threaded::YES,
+BENCHMARK_CAPTURE(BM_homescreen, SkiaGLThreaded, RenderEngine::Threaded::Yes,
                   RenderEngine::GraphicsApi::GL);
 
 #if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS_EDGE_EXTENSION_SHADER

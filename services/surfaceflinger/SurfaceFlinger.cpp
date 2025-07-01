@@ -847,19 +847,19 @@ void chooseRenderEngineType(renderengine::RenderEngineCreationArgs::Builder& bui
     // TODO: b/293371537 - Once GraphiteVk is deemed relatively stable, log a warning that
     // PROPERTY_DEBUG_RENDERENGINE_BACKEND is deprecated
     if (strcmp(prop, "skiagl") == 0) {
-        builder.setThreaded(renderengine::RenderEngine::Threaded::NO)
+        builder.setThreaded(renderengine::RenderEngine::Threaded::No)
                 .setGraphicsApi(renderengine::RenderEngine::GraphicsApi::GL);
     } else if (strcmp(prop, "skiaglthreaded") == 0) {
-        builder.setThreaded(renderengine::RenderEngine::Threaded::YES)
+        builder.setThreaded(renderengine::RenderEngine::Threaded::Yes)
                 .setGraphicsApi(renderengine::RenderEngine::GraphicsApi::GL);
     } else if (strcmp(prop, "skiavk") == 0) {
-        builder.setThreaded(renderengine::RenderEngine::Threaded::NO)
-                .setGraphicsApi(renderengine::RenderEngine::GraphicsApi::VK);
+        builder.setThreaded(renderengine::RenderEngine::Threaded::No)
+                .setGraphicsApi(renderengine::RenderEngine::GraphicsApi::Vk);
     } else if (strcmp(prop, "skiavkthreaded") == 0) {
-        builder.setThreaded(renderengine::RenderEngine::Threaded::YES)
-                .setGraphicsApi(renderengine::RenderEngine::GraphicsApi::VK);
+        builder.setThreaded(renderengine::RenderEngine::Threaded::Yes)
+                .setGraphicsApi(renderengine::RenderEngine::GraphicsApi::Vk);
     } else {
-        const auto kVulkan = renderengine::RenderEngine::GraphicsApi::VK;
+        const auto kVulkan = renderengine::RenderEngine::GraphicsApi::Vk;
 // TODO: b/341728634 - Clean up conditional compilation.
 // Note: this guard in particular must check e.g.
 // COM_ANDROID_GRAPHICS_SURFACEFLINGER_FLAGS_GRAPHITE_RENDERENGINE directly (instead of calling e.g.
@@ -881,8 +881,8 @@ void chooseRenderEngineType(renderengine::RenderEngineCreationArgs::Builder& bui
                 (FlagManager::getInstance().vulkan_renderengine() &&
                  renderengine::RenderEngine::canSupport(kVulkan));
 
-        builder.setSkiaBackend(useGraphite ? renderengine::RenderEngine::SkiaBackend::GRAPHITE
-                                           : renderengine::RenderEngine::SkiaBackend::GANESH);
+        builder.setSkiaBackend(useGraphite ? renderengine::RenderEngine::SkiaBackend::Graphite
+                                           : renderengine::RenderEngine::SkiaBackend::Ganesh);
         builder.setGraphicsApi(useVulkan ? kVulkan : renderengine::RenderEngine::GraphicsApi::GL);
     }
 }
@@ -893,21 +893,21 @@ void chooseRenderEngineType(renderengine::RenderEngineCreationArgs::Builder& bui
  */
 renderengine::RenderEngine::BlurAlgorithm chooseBlurAlgorithm(bool supportsBlur) {
     if (!supportsBlur) {
-        return renderengine::RenderEngine::BlurAlgorithm::NONE;
+        return renderengine::RenderEngine::BlurAlgorithm::None;
     }
 
     auto const algorithm = base::GetProperty(PROPERTY_DEBUG_RENDERENGINE_BLUR_ALGORITHM, "");
     if (algorithm == "gaussian") {
-        return renderengine::RenderEngine::BlurAlgorithm::GAUSSIAN;
+        return renderengine::RenderEngine::BlurAlgorithm::Gaussian;
     } else if (algorithm == "kawase2") {
-        return renderengine::RenderEngine::BlurAlgorithm::KAWASE_DUAL_FILTER;
+        return renderengine::RenderEngine::BlurAlgorithm::KawaseDualFilter;
     } else if (algorithm == "kawase") {
-        return renderengine::RenderEngine::BlurAlgorithm::KAWASE;
+        return renderengine::RenderEngine::BlurAlgorithm::Kawase;
     } else {
         if (FlagManager::getInstance().window_blur_kawase2()) {
-            return renderengine::RenderEngine::BlurAlgorithm::KAWASE_DUAL_FILTER;
+            return renderengine::RenderEngine::BlurAlgorithm::KawaseDualFilter;
         }
-        return renderengine::RenderEngine::BlurAlgorithm::KAWASE;
+        return renderengine::RenderEngine::BlurAlgorithm::Kawase;
     }
 }
 
@@ -929,8 +929,8 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
                            .setBlurAlgorithm(chooseBlurAlgorithm(mSupportsBlur))
                            .setContextPriority(
                                    useContextPriority
-                                           ? renderengine::RenderEngine::ContextPriority::REALTIME
-                                           : renderengine::RenderEngine::ContextPriority::MEDIUM);
+                                           ? renderengine::RenderEngine::ContextPriority::Realtime
+                                           : renderengine::RenderEngine::ContextPriority::Medium);
     chooseRenderEngineType(builder);
     mRenderEngine = renderengine::RenderEngine::create(builder.build());
     mCompositionEngine->setRenderEngine(mRenderEngine.get());
