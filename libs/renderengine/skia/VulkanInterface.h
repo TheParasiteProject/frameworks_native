@@ -55,6 +55,8 @@ public:
     const std::vector<std::string>& getInstanceExtensionNames() { return mInstanceExtensionNames; }
     const std::vector<std::string>& getDeviceExtensionNames() { return mDeviceExtensionNames; }
 
+    uint32_t driverVersion() const { return mDriverVersion; }
+
 private:
     struct VulkanFuncs {
         PFN_vkCreateSemaphore vkCreateSemaphore = nullptr;
@@ -81,6 +83,7 @@ private:
     VkQueue mQueue = VK_NULL_HANDLE;
     int mQueueIndex = 0;
     uint32_t mApiVersion = 0;
+    uint32_t mDriverVersion = 0;
     skgpu::VulkanExtensions mVulkanExtensions;
     VkPhysicalDeviceFeatures2* mPhysicalDeviceFeatures2 = nullptr;
     VkPhysicalDeviceSamplerYcbcrConversionFeatures* mSamplerYcbcrConversionFeatures = nullptr;

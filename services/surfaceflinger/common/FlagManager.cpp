@@ -167,6 +167,7 @@ void FlagManager::dump(std::string& result) const {
     DUMP_ACONFIG_FLAG(renderable_buffer_usage);
     DUMP_ACONFIG_FLAG(restore_blur_step);
     DUMP_ACONFIG_FLAG(parse_edid_version_and_input_type);
+    DUMP_ACONFIG_FLAG(shader_disk_cache);
     DUMP_ACONFIG_FLAG(skip_invisible_windows_in_input);
     DUMP_ACONFIG_FLAG(stable_edid_ids);
     DUMP_ACONFIG_FLAG(stop_layer);
@@ -282,6 +283,7 @@ FLAG_MANAGER_ACONFIG_FLAG(connected_display_hdr_v2, "debug.sf.connected_display_
 FLAG_MANAGER_ACONFIG_FLAG(deprecate_frame_tracker, "");
 FLAG_MANAGER_ACONFIG_FLAG(parse_edid_version_and_input_type,
                           "debug.sf.parse_edid_version_and_input_type");
+FLAG_MANAGER_ACONFIG_FLAG(shader_disk_cache, "");
 FLAG_MANAGER_ACONFIG_FLAG(skip_invisible_windows_in_input, "");
 FLAG_MANAGER_ACONFIG_FLAG(stop_layer, "");
 FLAG_MANAGER_ACONFIG_FLAG(begone_bright_hlg, "debug.sf.begone_bright_hlg");

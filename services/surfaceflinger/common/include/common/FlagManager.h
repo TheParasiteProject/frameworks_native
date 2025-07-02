@@ -106,6 +106,7 @@ public:
     bool renderable_buffer_usage() const;
     bool restore_blur_step() const;
     bool parse_edid_version_and_input_type() const;
+    bool shader_disk_cache() const;
     bool skip_invisible_windows_in_input() const;
     bool stable_edid_ids() const;
     bool stop_layer() const;
