@@ -444,9 +444,9 @@ status_t BBinder::transact(
     const uint64_t transactionMs = to_ms(std::chrono::steady_clock::now() - startTime);
     if (transactionMs > 1000lu) {
         ALOGW("Binder transaction to %s code %" PRIu32 " took %" PRIu64
-              "ms. Data size: %zu. Reply size: %zu.",
+              "ms. Data bytes: %zu Reply bytes: %zu Flags: %d",
               String8(getInterfaceDescriptor()).c_str(), code, transactionMs, data.dataSize(),
-              reply ? reply->dataSize() : 0u);
+              reply ? reply->dataSize() : 0u, flags);
     }
 
     return err;
