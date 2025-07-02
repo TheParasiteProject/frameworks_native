@@ -123,7 +123,7 @@ perfetto::protos::LayerState TransactionProtoParser::toProto(
         matrixProto->set_dtdy(layer.matrix.dtdy);
     }
     if (layer.what & layer_state_t::eCornerRadiusChanged) {
-        proto.set_corner_radius(layer.cornerRadius);
+        proto.set_corner_radius(layer.cornerRadii.topLeft.x);
     }
     if (layer.what & layer_state_t::eBackgroundBlurRadiusChanged) {
         proto.set_background_blur_radius(layer.backgroundBlurRadius);
@@ -395,7 +395,7 @@ void TransactionProtoParser::fromProto(const perfetto::protos::LayerState& proto
         layer.matrix.dtdy = matrixProto.dtdy();
     }
     if (proto.what() & layer_state_t::eCornerRadiusChanged) {
-        layer.cornerRadius = proto.corner_radius();
+        layer.cornerRadii.topLeft.x = proto.corner_radius();
     }
     if (proto.what() & layer_state_t::eBackgroundBlurRadiusChanged) {
         layer.backgroundBlurRadius = proto.background_blur_radius();

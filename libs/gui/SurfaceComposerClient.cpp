@@ -1549,25 +1549,35 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setCrop(
 
 SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setCornerRadius(
         const sp<SurfaceControl>& sc, float cornerRadius) {
+    return setCornerRadius(sc, gui::CornerRadii(cornerRadius));
+}
+
+SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setCornerRadius(
+        const sp<SurfaceControl>& sc, const gui::CornerRadii& radii) {
     layer_state_t* s = getLayerState(sc);
     if (!s) {
         mStatus = BAD_INDEX;
         return *this;
     }
     s->what |= layer_state_t::eCornerRadiusChanged;
-    s->cornerRadius = cornerRadius;
+    s->cornerRadii = radii;
     return *this;
 }
 
 SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setClientDrawnCornerRadius(
         const sp<SurfaceControl>& sc, float clientDrawnCornerRadius) {
+    return setClientDrawnCornerRadius(sc, gui::CornerRadii(clientDrawnCornerRadius));
+}
+
+SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setClientDrawnCornerRadius(
+        const sp<SurfaceControl>& sc, const gui::CornerRadii& radii) {
     layer_state_t* s = getLayerState(sc);
     if (!s) {
         mStatus = BAD_INDEX;
         return *this;
     }
     s->what |= layer_state_t::eClientDrawnCornerRadiusChanged;
-    s->clientDrawnCornerRadius = clientDrawnCornerRadius;
+    s->clientDrawnCornerRadii = radii;
     return *this;
 }
 

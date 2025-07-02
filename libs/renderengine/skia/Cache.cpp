@@ -80,7 +80,7 @@ static void drawElevationShadowLayers(SkiaRenderEngine* renderengine,
             .geometry =
                     Geometry{
                             .boundaries = rect,
-                            .roundedCornersRadius = {50.f, 50.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(50.f),
                             .roundedCornersCrop = rect,
                     },
             .alpha = 1,
@@ -101,7 +101,7 @@ static void drawElevationShadowLayers(SkiaRenderEngine* renderengine,
             .geometry =
                     Geometry{
                             .boundaries = smallerRect,
-                            .roundedCornersRadius = {50.f, 50.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(50.f),
                             .roundedCornersCrop = rect,
                     },
             .source =
@@ -173,7 +173,7 @@ static void drawBoxShadowLayers(SkiaRenderEngine* renderengine, const DisplaySet
                     Geometry{
                             .boundaries = rect,
                             .originalBounds = rect,
-                            .roundedCornersRadius = {32.0f, 32.0f},
+                            .roundedCornersRadii = android::gui::CornerRadii(32.0f),
                             .roundedCornersCrop = rect,
                             .otherCrop = FloatRect(-16384, -16384, 16384, 16384),
                     },
@@ -234,7 +234,8 @@ static void drawImageLayers(SkiaRenderEngine* renderengine, const DisplaySetting
             // In reduced shader mode, all non-zero round rect radii get the same code path.
             for (float roundedCornersRadius : {0.0f, 50.0f}) {
                 // roundedCornersCrop is always set, but the radius triggers the behavior
-                layer.geometry.roundedCornersRadius = {roundedCornersRadius, roundedCornersRadius};
+                layer.geometry.roundedCornersRadii =
+                        android::gui::CornerRadii(roundedCornersRadius);
                 for (bool isOpaque : {true, false}) {
                     layer.source.buffer.isOpaque = isOpaque;
                     for (auto alpha : {half(.2f), half(1.0f)}) {
@@ -267,7 +268,7 @@ static void drawSolidLayers(SkiaRenderEngine* renderengine, const DisplaySetting
     for (auto transform : {mat4(), kScaleAndTranslate}) {
         layer.geometry.positionTransform = transform;
         for (float roundedCornersRadius : {0.0f, 50.f}) {
-            layer.geometry.roundedCornersRadius = {roundedCornersRadius, roundedCornersRadius};
+            layer.geometry.roundedCornersRadii = android::gui::CornerRadii(roundedCornersRadius);
             auto layers = std::vector<LayerSettings>{layer};
             renderengine->drawLayers(display, layers, dstTexture, base::unique_fd());
         }
@@ -322,7 +323,7 @@ static void drawClippedLayers(SkiaRenderEngine* renderengine, const DisplaySetti
             .geometry =
                     Geometry{
                             .boundaries = rect,
-                            .roundedCornersRadius = {27.f, 27.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(27.f),
                             .roundedCornersCrop =
                                     FloatRect(0, 0, displayRect.width(), displayRect.height()),
                     },
@@ -358,7 +359,7 @@ static void drawPIPImageLayer(SkiaRenderEngine* renderengine, const DisplaySetti
                             // which happens in this layer because the roundrect crop is just a bit
                             // larger than the layer bounds.
                             .positionTransform = kFlip,
-                            .roundedCornersRadius = {94.2551f, 94.2551f},
+                            .roundedCornersRadii = android::gui::CornerRadii(94.2551f),
                             .roundedCornersCrop = FloatRect(-93.75, 0, displayRect.width() + 93.75,
                                                             displayRect.height()),
                     },
@@ -390,7 +391,7 @@ static void drawHolePunchLayer(SkiaRenderEngine* renderengine, const DisplaySett
                             // clipRRect is used instead of drawRRect
                             .boundaries = small,
                             .positionTransform = kScaleAndTranslate,
-                            .roundedCornersRadius = {50.f, 50.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(50.f),
                             .roundedCornersCrop = rect,
                     },
             .source =
@@ -419,7 +420,7 @@ static void drawImageDimmedLayers(SkiaRenderEngine* renderengine, const DisplayS
                             // The position transform doesn't matter when the reduced shader mode
                             // in in effect. A matrix transform stage is always included.
                             .positionTransform = mat4(),
-                            .roundedCornersRadius = {0.f, 0.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(0.f),
                             .roundedCornersCrop = rect,
                     },
             .source = PixelSource{.buffer = Buffer{.buffer = srcTexture,
@@ -463,7 +464,7 @@ static void drawTransparentImageDimmedLayers(SkiaRenderEngine* renderengine,
     };
 
     for (auto roundedCornerRadius : {0.f, 50.f}) {
-        layer.geometry.roundedCornersRadius = {roundedCornerRadius, roundedCornerRadius};
+        layer.geometry.roundedCornersRadii = android::gui::CornerRadii(roundedCornerRadius);
         for (auto alpha : {0.5f, 1.0f}) {
             layer.alpha = alpha;
             for (auto isOpaque : {true, false}) {
@@ -501,7 +502,7 @@ static void drawClippedDimmedImageLayers(SkiaRenderEngine* renderengine,
                     Geometry{
                             .boundaries = boundary,
                             .positionTransform = mat4(),
-                            .roundedCornersRadius = {27.f, 27.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(27.f),
                             .roundedCornersCrop = rect,
                     },
             .source = PixelSource{.buffer =
@@ -521,8 +522,7 @@ static void drawClippedDimmedImageLayers(SkiaRenderEngine* renderengine,
 
     for (size_t i = 0; i < transforms.size(); i++) {
         layer.geometry.positionTransform = transforms[i];
-        layer.geometry.roundedCornersRadius = {radius, radius};
-
+        layer.geometry.roundedCornersRadii = android::gui::CornerRadii(radius);
         std::vector<LayerSettings> layers;
 
         for (auto layerWhitePoint : kLayerWhitePoints) {
@@ -571,7 +571,7 @@ static void drawBT2020ImageLayers(SkiaRenderEngine* renderengine, const DisplayS
                             // The position transform doesn't matter when the reduced shader mode
                             // in in effect. A matrix transform stage is always included.
                             .positionTransform = mat4(),
-                            .roundedCornersRadius = {0.f, 0.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(0.f),
                             .roundedCornersCrop = rect,
                     },
             .source = PixelSource{.buffer = Buffer{.buffer = srcTexture,
@@ -607,7 +607,7 @@ static void drawBT2020ClippedImageLayers(SkiaRenderEngine* renderengine,
                     Geometry{
                             .boundaries = boundary,
                             .positionTransform = kScaleAsymmetric,
-                            .roundedCornersRadius = {64.1f, 64.1f},
+                            .roundedCornersRadii = android::gui::CornerRadii(64.1f),
                             .roundedCornersCrop = rect,
                     },
             .source = PixelSource{.buffer =
@@ -638,7 +638,7 @@ static void drawExtendedHDRImageLayers(SkiaRenderEngine* renderengine,
                             // The position transform doesn't matter when the reduced shader mode
                             // in in effect. A matrix transform stage is always included.
                             .positionTransform = mat4(),
-                            .roundedCornersRadius = {50.f, 50.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(50.f),
                             .roundedCornersCrop = rect,
                     },
             .source = PixelSource{.buffer = Buffer{.buffer = srcTexture,
@@ -650,7 +650,7 @@ static void drawExtendedHDRImageLayers(SkiaRenderEngine* renderengine,
     };
 
     for (auto roundedCornerRadius : {0.f, 50.f}) {
-        layer.geometry.roundedCornersRadius = {roundedCornerRadius, roundedCornerRadius};
+        layer.geometry.roundedCornersRadii = android::gui::CornerRadii(roundedCornerRadius);
         for (auto alpha : {0.5f, 1.f}) {
             layer.alpha = alpha;
             std::vector<LayerSettings> layers;
@@ -676,7 +676,7 @@ static void drawP3ImageLayers(SkiaRenderEngine* renderengine, const DisplaySetti
                             // The position transform doesn't matter when the reduced shader mode
                             // in in effect. A matrix transform stage is always included.
                             .positionTransform = mat4(),
-                            .roundedCornersRadius = {50.f, 50.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(50.f),
                             .roundedCornersCrop = rect,
                     },
             .source = PixelSource{.buffer = Buffer{.buffer = srcTexture,
@@ -737,7 +737,7 @@ static void drawExtendedHDRFilteredImageLayers(SkiaRenderEngine* renderengine, c
                             // The position transform doesn't matter when the reduced shader mode
                             // in in effect. A matrix transform stage is always included.
                             .positionTransform = mat4(),
-                            .roundedCornersRadius = {50.f, 50.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(50.f),
                             .roundedCornersCrop = rect,
                     },
             .source = PixelSource{.buffer = Buffer{.buffer = srcTexture,
@@ -749,7 +749,7 @@ static void drawExtendedHDRFilteredImageLayers(SkiaRenderEngine* renderengine, c
     };
 
     for (auto roundedCornerRadius : {0.f, 50.f}) {
-        layer.geometry.roundedCornersRadius = {roundedCornerRadius, roundedCornerRadius};
+        layer.geometry.roundedCornersRadii = android::gui::CornerRadii(roundedCornerRadius);
         for (auto alpha : {0.5f, 1.f}) {
             layer.alpha = alpha;
             std::vector<LayerSettings> layers;
@@ -778,7 +778,7 @@ static void drawExtendedHDRFilteredImageShadowLayers(SkiaRenderEngine* rendereng
                             // The position transform doesn't matter when the reduced shader mode
                             // in in effect. A matrix transform stage is always included.
                             .positionTransform = mat4(),
-                            .roundedCornersRadius = {50.f, 50.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(50.f),
                             .roundedCornersCrop = rect,
                     },
             .source = PixelSource{.buffer = Buffer{.buffer = srcTexture,
@@ -793,16 +793,16 @@ static void drawExtendedHDRFilteredImageShadowLayers(SkiaRenderEngine* rendereng
             .geometry =
                     Geometry{
                             .boundaries = smallerRect,
-                            .roundedCornersRadius = {50.f, 50.f},
+                            .roundedCornersRadii = android::gui::CornerRadii(50.f),
                             .roundedCornersCrop = smallerRect,
                     },
-            .source = PixelSource{.buffer = Buffer{.buffer =srcTexture,
+            .source = PixelSource{.buffer = Buffer{.buffer = srcTexture,
                                                    .useTextureFiltering = true,
                                                    .usePremultipliedAlpha = true,
                                                    .isOpaque = false,
                                                    .maxLuminanceNits = 0.f}},
             .alpha = 1,
-        .sourceDataspace = ui::Dataspace::V0_SRGB,
+            .sourceDataspace = ui::Dataspace::V0_SRGB,
     };
 
     for (auto alpha : {0.5f, 1.f}) {

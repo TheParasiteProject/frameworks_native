@@ -280,6 +280,13 @@ flag {
  } # resync_on_tx
 
 flag {
+  name: "set_distinct_corner_radii"
+  namespace: "window_surfaces"
+  description: "Add support for API to set distinct radii for each corner"
+  bug: "406554726"
+ } # set_distinct_corner_radii
+
+flag {
   name: "skip_invisible_windows_in_input"
   namespace: "window_surfaces"
   description: "Only send visible windows to input list"
@@ -385,5 +392,15 @@ flag {
   description: "Flag for using Kawase2 algorithm for window blur"
   bug: "353826438"
 } # window_blur_kawase2
+
+flag {
+  name: "window_blur_kawase2_fix_aliasing"
+  namespace: "core_graphics"
+  description: "Flag for mitigating aliasing in Kawase2 window blur"
+  bug: "33968507"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+} # window_blur_kawase2_fix_aliasing
 
 # IMPORTANT - please keep alphabetize to reduce merge conflicts
