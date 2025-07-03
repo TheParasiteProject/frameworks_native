@@ -31,6 +31,7 @@
 
 #include <math.h>
 
+#include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <android/input.h>
 #include <com_android_input_flags.h>
@@ -1484,6 +1485,7 @@ std::list<NotifyArgs> TouchInputMapper::cookAndDispatch(nsecs_t when, nsecs_t re
     bool consumed;
     out += consumeRawTouches(when, readTime, policyFlags, consumed /*byref*/);
     if (consumed) {
+        LOG_IF(INFO, debugRawEvents()) << "Touch consumed by consumeRawTouches, eventTime=" << when;
         mCurrentRawState.rawPointerData.clear();
     }
 
@@ -1724,6 +1726,7 @@ std::list<NotifyArgs> TouchInputMapper::consumeRawTouches(nsecs_t when, nsecs_t 
         }
         if (!hoveringPointersInFrame) {
             // All hovering pointers are outside the physical frame.
+            LOG(WARNING) << "Dropping hover, all pointers are outside the physical frame";
             outConsumed = true;
             return out;
         }
@@ -1762,6 +1765,8 @@ std::list<NotifyArgs> TouchInputMapper::consumeRawTouches(nsecs_t when, nsecs_t 
                     }
                 }
             }
+            LOG(WARNING) << "Dropping pointer " << id << " at (" << pointer.x << ", " << pointer.y
+                         << "), it is outside of the physical frame";
             outConsumed = true;
             return out;
         }
