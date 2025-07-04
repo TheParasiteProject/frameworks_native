@@ -55,9 +55,9 @@
 #include "DebugConfig.h"
 #include "InputDispatcher.h"
 #include "InputEventTimeline.h"
+#include "InputTracingPerfettoBackend.h"
+#include "InputTracingThreadedBackend.h"
 #include "trace/InputTracer.h"
-#include "trace/InputTracingPerfettoBackend.h"
-#include "trace/ThreadedBackend.h"
 
 #define INDENT "  "
 #define INDENT2 "    "
@@ -90,13 +90,13 @@ bool isInputTracingEnabled() {
 }
 
 // Create the input tracing backend that writes to perfetto from a single thread.
-std::unique_ptr<trace::InputTracingBackendInterface> createInputTracingBackendIfEnabled(
+std::unique_ptr<input_trace::InputTracingBackendInterface> createInputTracingBackendIfEnabled(
         JNIEnv* env) {
     if (!isInputTracingEnabled()) {
         return nullptr;
     }
-    return std::make_unique<trace::impl::ThreadedBackend<
-            trace::impl::PerfettoBackend>>(trace::impl::PerfettoBackend(), env);
+    return std::make_unique<input_trace::impl::ThreadedBackend<
+            input_trace::impl::PerfettoBackend>>(input_trace::impl::PerfettoBackend(), env);
 }
 
 template <class Entry>
@@ -898,9 +898,9 @@ std::string dumpWindowForTouchOcclusion(const WindowInfo& info, bool isTouchedWi
 InputDispatcher::InputDispatcher(InputDispatcherPolicyInterface& policy, JNIEnv* env)
       : InputDispatcher(policy, createInputTracingBackendIfEnabled(env), env) {}
 
-InputDispatcher::InputDispatcher(InputDispatcherPolicyInterface& policy,
-                                 std::unique_ptr<trace::InputTracingBackendInterface> traceBackend,
-                                 JNIEnv* env)
+InputDispatcher::InputDispatcher(
+        InputDispatcherPolicyInterface& policy,
+        std::unique_ptr<input_trace::InputTracingBackendInterface> traceBackend, JNIEnv* env)
       : mJniEnv(env),
         mPolicy(policy),
 
