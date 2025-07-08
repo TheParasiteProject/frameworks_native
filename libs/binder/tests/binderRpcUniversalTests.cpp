@@ -75,7 +75,7 @@ TEST_P(BinderRpc, MultipleSessions) {
         GTEST_SKIP() << "This test requires a multi-threaded service";
     }
 
-    auto proc = createRpcTestSocketServerProcess({.numThreads = 1, .numSessions = 5});
+    auto proc = createRpcTestSocketServerProcess({.numMaxThreads = 1, .numSessions = 5});
     for (auto session : proc.proc->sessions) {
         ASSERT_NE(nullptr, session.root);
         EXPECT_EQ(OK, session.root->pingBinder());
@@ -298,7 +298,7 @@ TEST_P(BinderRpc, CannotMixBindersBetweenTwoSessionsToTheSameServer) {
         GTEST_SKIP() << "This test requires a multi-threaded service";
     }
 
-    auto proc = createRpcTestSocketServerProcess({.numThreads = 1, .numSessions = 2});
+    auto proc = createRpcTestSocketServerProcess({.numMaxThreads = 1, .numSessions = 2});
 
     sp<IBinder> outBinder;
     EXPECT_EQ(INVALID_OPERATION,
@@ -494,7 +494,7 @@ TEST_P(BinderRpc, Callbacks) {
 
                 size_t numIncomingConnections = clientOrServerSingleThreaded() ? 0 : 1;
                 auto proc = createRpcTestSocketServerProcess(
-                        {.numThreads = 1,
+                        {.numMaxThreads = 1,
                          .numSessions = 1,
                          .numIncomingConnectionsBySession = {numIncomingConnections}});
                 auto cb = sp<MyBinderRpcCallback>::make();

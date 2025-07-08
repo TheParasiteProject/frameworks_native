@@ -132,6 +132,13 @@ status_t RpcServer::setupInetServer(const char* address, unsigned int port,
 void RpcServer::setMaxThreads(size_t threads) {
     LOG_ALWAYS_FATAL_IF(threads <= 0, "RpcServer is useless without threads");
     LOG_ALWAYS_FATAL_IF(mJoinThreadRunning, "Cannot set max threads while running");
+    if (sp<IBinder> root = getRootObject(); root != nullptr) {
+        LOG_ALWAYS_FATAL_IF(threads < root->getMinRpcThreads(),
+                            "RpcServer can not satisfy the root object's minimum "
+                            "thread requirements of %d with the requested max "
+                            "thread count of %zu",
+                            root->getMinRpcThreads(), threads);
+    }
     mMaxThreads = threads;
 }
 
@@ -156,10 +163,25 @@ void RpcServer::setSupportedFileDescriptorTransportModes(
     }
 }
 
+static void logMaxThreadOverwrite(size_t max, uint16_t min, bool isPerSession) {
+    ALOGW("Overriding this RpcServer's max threads (%zu) based on the min threads required "
+          "(%d) by the %s object that is being set.",
+          max, min, isPerSession ? "per-session root" : "root");
+}
+
+void RpcServer::maybeOverwriteMaxThreads(const sp<IBinder>& binder) {
+    uint16_t minThreads = binder->getMinRpcThreads();
+    if (mMaxThreads < minThreads) {
+        logMaxThreadOverwrite(mMaxThreads, minThreads, false);
+        mMaxThreads = binder->getMinRpcThreads();
+    }
+}
+
 void RpcServer::setRootObject(const sp<IBinder>& binder) {
     RpcMutexLockGuard _l(mLock);
     mRootObjectFactory = nullptr;
     mRootObjectWeak = mRootObject = binder;
+    maybeOverwriteMaxThreads(binder);
 }
 
 void RpcServer::setRootObjectWeak(const wp<IBinder>& binder) {
@@ -167,6 +189,10 @@ void RpcServer::setRootObjectWeak(const wp<IBinder>& binder) {
     mRootObject.clear();
     mRootObjectFactory = nullptr;
     mRootObjectWeak = binder;
+
+    sp<IBinder> s = binder.promote();
+    if (s == nullptr) return;
+    maybeOverwriteMaxThreads(s);
 }
 void RpcServer::setPerSessionRootObject(
         std::function<sp<IBinder>(wp<RpcSession> session, const void*, size_t)>&& makeObject) {
@@ -518,7 +544,6 @@ void RpcServer::establishConnection(
             } while (server->mSessions.end() != server->mSessions.find(sessionId));
 
             session = sp<RpcSession>::make(nullptr);
-            session->setMaxIncomingThreads(server->mMaxThreads);
             if (!session->setProtocolVersion(protocolVersion)) return;
 
             if (header.fileDescriptorTransportMode <
@@ -541,8 +566,11 @@ void RpcServer::establishConnection(
                         server->mRootObjectFactory(wp<RpcSession>(session), addr.data(), addrLen);
                 if (sessionSpecificRoot == nullptr) {
                     ALOGE("Warning: server returned null from root object factory");
+                } else {
+                    server->maybeOverwriteMaxThreads(sessionSpecificRoot);
                 }
             }
+            session->setMaxIncomingThreads(server->mMaxThreads);
 
             if (!session->setForServer(server, server, sessionId, sessionSpecificRoot)) {
                 ALOGE("Failed to attach server to session");
