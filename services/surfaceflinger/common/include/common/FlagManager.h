@@ -62,6 +62,7 @@ public:
     bool graphite_renderengine_preview_rollout() const;
     bool increase_missed_frame_jank_threshold() const;
     bool monitor_buffer_fences() const;
+    bool offload_gpu_composition() const;
     bool readback_screenshot() const;
     bool reset_model_flushes_fence() const;
     bool resync_on_tx() const;
