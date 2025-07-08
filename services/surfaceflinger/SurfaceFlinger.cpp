@@ -5765,7 +5765,7 @@ void SurfaceFlinger::initializeDisplays() {
     }
 
     std::vector<QueuedTransactionState> transactions;
-    transactions.emplace_back(state);
+    transactions.emplace_back(std::move(state));
 
     {
         Mutex::Autolock lock(mStateLock);
