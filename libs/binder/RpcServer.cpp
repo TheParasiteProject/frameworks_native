@@ -158,12 +158,14 @@ void RpcServer::setSupportedFileDescriptorTransportModes(
 
 void RpcServer::setRootObject(const sp<IBinder>& binder) {
     RpcMutexLockGuard _l(mLock);
+    LOG_ALWAYS_FATAL_IF(mJoinThreadRunning, "Cannot set root object while running");
     mRootObjectFactory = nullptr;
     mRootObjectWeak = mRootObject = binder;
 }
 
 void RpcServer::setRootObjectWeak(const wp<IBinder>& binder) {
     RpcMutexLockGuard _l(mLock);
+    LOG_ALWAYS_FATAL_IF(mJoinThreadRunning, "Cannot set root object while running");
     mRootObject.clear();
     mRootObjectFactory = nullptr;
     mRootObjectWeak = binder;
