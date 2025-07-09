@@ -624,6 +624,17 @@ status_t RpcState::transactInternal(const sp<RpcSession::RpcConnection>& connect
         address = RPC_SPECIAL_TRANSACTION_ADDRESS;
     }
 
+    scope_guard onBinderLeavingGuard = make_scope_guard([&]() {
+        if (!maybeBinder) return;
+        if (status_t status = cancelBinderLeaving(session, address); status != OK) {
+            ALOGE("Failed to fix reference count when canceling transaction %s",
+                  statusToString(status).c_str());
+            (void)session->shutdownAndWait(false);
+            // we'd like to return DEAD_OBJECT from the outer function here, but
+            // rpcSend will immediately fail
+        }
+    });
+
     if (!(flags & IBinder::FLAG_ONEWAY)) {
         LOG_ALWAYS_FATAL_IF(reply == nullptr,
                             "Reply parcel must be used for synchronous transaction.");
@@ -661,10 +672,17 @@ status_t RpcState::transactInternal(const sp<RpcSession::RpcConnection>& connect
                                                        &bodySize),
                         "Too much data %zu", data.dataSize());
 
+    if (bodySize >= binder::kRpcTransactionTemporaryLimitBytes - sizeof(RpcWireHeader)) {
+        // fail here rather than having client allocate a huge amount of data
+        ALOGE("Transaction for code %d too large: %" PRIu32 " body size bytes.", code, bodySize);
+        return FAILED_TRANSACTION;
+    }
+
     // At this point, all errors imply a protocol break and the transaction must be shut
     // down to avoid leaks. Any errors before this point while constructing this Parcel
     // can be ignored.
     data.rpcSend();
+    onBinderLeavingGuard.release();
 
     RpcWireHeader command{
             .command = RPC_COMMAND_TRANSACT,
@@ -1297,10 +1315,28 @@ processTransactInternalTailCall:
                                                                 rpcFields->mObjectPositions.size()};
 
     uint32_t bodySize;
-    LOG_ALWAYS_FATAL_IF(__builtin_add_overflow(rpcReplyWireSize, reply.dataSize(), &bodySize) ||
-                                __builtin_add_overflow(objectTableSpan.byteSize(), bodySize,
-                                                       &bodySize),
-                        "Too much data for reply %zu", reply.dataSize());
+    while (true) {
+        LOG_ALWAYS_FATAL_IF(__builtin_add_overflow(rpcReplyWireSize, reply.dataSize(), &bodySize) ||
+                                    __builtin_add_overflow(objectTableSpan.byteSize(), bodySize,
+                                                           &bodySize),
+                            "Too much data for reply %zu", reply.dataSize());
+
+        if (bodySize < binder::kRpcTransactionTemporaryLimitBytes - sizeof(RpcWireHeader)) {
+            break;
+        }
+
+        // Fail here, rather than requesting the client to allocate a huge amount.
+        // See waitForReply. There we have a separate rpcRec for the header (at the
+        // time of writing). However, it's better to impose the limit over the
+        // entire packet, as +/- a few bytes doesn't matter, this would work even
+        // if those are combined, and it errs on making the packet here slightly
+        // smaller.
+        ALOGE("Reply transaction for code %d too large: %" PRIu32 " body size bytes.",
+              transaction->code, bodySize);
+        reply.setDataSize(0);
+        objectTableSpan.clear();
+        replyStatus = FAILED_TRANSACTION; // match kernel binder
+    }
 
     // Ownership of objects in Parcel is considered to be the receiver at this point. All errors
     // above should be sent through "replyStatus" anyway. However, for other Parcel which are
