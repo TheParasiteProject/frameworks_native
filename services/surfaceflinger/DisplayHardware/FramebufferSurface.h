@@ -75,11 +75,11 @@ private:
 
     const PhysicalDisplayId mDisplayId;
 
-    const ui::Size mLimitedSize;
-
     // Framebuffer size has a dimension limitation in pixels based on the graphics capabilities of
     // the device.
     const ui::Size mMaxSize;
+
+    const ui::Size mLimitedSize;
 
     // mCurrentBufferIndex is the slot index of the current buffer or
     // INVALID_BUFFER_SLOT to indicate that either there is no current buffer
