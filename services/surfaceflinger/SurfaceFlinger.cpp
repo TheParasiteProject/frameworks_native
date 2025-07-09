@@ -2548,6 +2548,8 @@ void SurfaceFlinger::updateLayerHistory(nsecs_t now) {
                 .frameRateSelectionPriority = snapshot->frameRateSelectionPriority,
                 .isSmallDirty = snapshot->isSmallDirty,
                 .isFrontBuffered = snapshot->isFrontBuffered(),
+                .refreshRateSelector =
+                        mScheduler->selectorPtrForLayerStack(snapshot->outputFilter.layerStack),
         };
 
         if (snapshot->changes.any(Changes::Geometry | Changes::Visibility)) {

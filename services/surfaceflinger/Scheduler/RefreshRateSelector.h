@@ -20,10 +20,12 @@
 #include <utility>
 #include <variant>
 
+#include <common/LayerFilter.h>
 #include <ftl/concat.h>
 #include <ftl/optional.h>
 #include <ftl/unit.h>
 #include <gui/DisplayEventReceiver.h>
+#include <ui/LayerStack.h>
 
 #include <scheduler/Fps.h>
 #include <scheduler/FrameRateMode.h>
@@ -421,6 +423,13 @@ public:
 
     std::vector<float> getSupportedFrameRates() const EXCLUDES(mLock);
 
+    LayerFilter getLayerFilter() const EXCLUDES(mLock) {
+        std::lock_guard lock(mLock);
+        return mLayerFilter;
+    }
+
+    void setLayerFilter(LayerFilter layerFilter) EXCLUDES(mLock);
+
 private:
     friend struct TestableRefreshRateSelector;
 
@@ -528,6 +537,8 @@ private:
     std::optional<Policy> mOverridePolicy GUARDED_BY(mLock);
 
     unsigned mNumModeSwitchesInPolicy GUARDED_BY(kMainThreadContext) = 0;
+
+    LayerFilter mLayerFilter GUARDED_BY(mLock);
 
     mutable std::mutex mLock;
 

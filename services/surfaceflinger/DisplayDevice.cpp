@@ -209,6 +209,9 @@ ui::Dataspace DisplayDevice::getCompositionDataSpace() const {
 
 void DisplayDevice::setLayerFilter(LayerFilter filter) {
     mCompositionDisplay->setLayerFilter(filter);
+    if (mRefreshRateSelector) {
+        mRefreshRateSelector->setLayerFilter(filter);
+    }
     if (mRefreshRateOverlay) {
         mRefreshRateOverlay->setLayerStack(filter.layerStack);
     }

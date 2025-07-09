@@ -88,7 +88,7 @@ protected:
         // LayerHistory::summarize makes no guarantee of the order of the elements in the summary
         // however, for testing only, a stable order is required, therefore we sort the list here.
         // Any tests requiring ordered results must create layers with names.
-        auto summary = history().summarize(*mScheduler->refreshRateSelector(), now);
+        auto summary = history().summarize(now);
         std::sort(summary.begin(), summary.end(),
                   [](const RefreshRateSelector::LayerRequirement& lhs,
                      const RefreshRateSelector::LayerRequirement& rhs) -> bool {

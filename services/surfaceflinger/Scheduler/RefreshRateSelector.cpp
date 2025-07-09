@@ -1522,6 +1522,11 @@ std::vector<float> RefreshRateSelector::getSupportedFrameRates() const {
     return supportedFrameRates;
 }
 
+void RefreshRateSelector::setLayerFilter(LayerFilter layerFilter) {
+    std::scoped_lock lock(mLock);
+    mLayerFilter = layerFilter;
+}
+
 FpsRange RefreshRateSelector::getSupportedFrameRateRangeLocked() const {
     using fps_approx_ops::operator<;
     if (mMaxRefreshRateModeIt->second->getPeakFps() < kMinSupportedFrameRate) {
