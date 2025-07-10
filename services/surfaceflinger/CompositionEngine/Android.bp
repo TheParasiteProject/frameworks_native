@@ -162,10 +162,11 @@ cc_test {
     ],
     static_libs: [
         "libcompositionengine_mocks",
-        "libgui_mocks",
-        "librenderengine_mocks",
+        "libflagtest",
         "libgmock",
         "libgtest",
+        "libgui_mocks",
+        "librenderengine_mocks",
     ],
     shared_libs: [
         "libbinder_ndk",
