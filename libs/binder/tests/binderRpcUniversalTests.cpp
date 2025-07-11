@@ -145,21 +145,34 @@ TEST_P(BinderRpc, ObjectCountRight) {
     Parcel data;
     data.markForBinder(proc.rootBinder);
 
-    data.writeStrongBinder(nullptr); // not considered an object
+    EXPECT_EQ(OK, data.writeStrongBinder(nullptr)); // not considered an object
     EXPECT_EQ(0u, data.objectsCount());
-    data.writeStrongBinder(sp<BBinder>::make());
+    EXPECT_EQ(OK, data.writeStrongBinder(sp<BBinder>::make()));
 
-    if (proc.proc->sessions.at(0).session->getProtocolVersion() >=
-        RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS) {
+    const bool binderInObjects = proc.proc->sessions.at(0).session->getProtocolVersion() >=
+            RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS;
+
+    if (binderInObjects) {
         EXPECT_EQ(1u, data.objectsCount());
     } else {
         EXPECT_EQ(0u, data.objectsCount());
     }
 
-    // TODO(b/424526253#comment5): this should be deleted by Parcel unless
-    // the Parcel is sent, but since it's not sent and processed currently,
-    // we leak the binder.
-    proc.forceShutdown();
+    Parcel data2;
+    data2.markForBinder(proc.rootBinder);
+    EXPECT_EQ(OK, data2.writeStrongBinder(sp<BBinder>::make()));
+    EXPECT_EQ(OK, data.appendFrom(&data2, 0, data2.dataSize()));
+
+    if (binderInObjects) {
+        EXPECT_EQ(2u, data.objectsCount());
+        EXPECT_EQ(1u, data2.objectsCount());
+    } else {
+        EXPECT_EQ(0u, data.objectsCount());
+        EXPECT_EQ(0u, data2.objectsCount());
+
+        // the old protocol will leak the binder object in this case
+        proc.forceShutdown();
+    }
 }
 
 TEST_P(BinderRpc, UnknownTransaction) {
