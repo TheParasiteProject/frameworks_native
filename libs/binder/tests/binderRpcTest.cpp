@@ -1959,6 +1959,8 @@ static std::vector<SocketType> testSocketTypes(bool hasPreconnected = true) {
 static std::vector<BinderRpc::ParamType> getBinderRpcParams() {
     std::vector<BinderRpc::ParamType> ret;
 
+    // IF YOU ARE MAKING MAJOR CHANGES TO RPC BINDER, SET THIS TO 'true' TO RUN ALL COMBINATIONS OF
+    // TESTS
     constexpr bool full = false;
 
     for (const auto& type : testSocketTypes()) {
@@ -1968,6 +1970,14 @@ static std::vector<BinderRpc::ParamType> getBinderRpcParams() {
                     for (const auto& serverVersion : testVersions()) {
                         for (bool singleThreaded : {false, true}) {
                             for (bool noKernel : noKernelValues()) {
+                                // SKIP combinatorial testing of old versions, since otherwise this
+                                // test takes way too long
+                                if (!full &&
+                                    (clientVersion != RPC_WIRE_PROTOCOL_VERSION &&
+                                     serverVersion != RPC_WIRE_PROTOCOL_VERSION) &&
+                                    security != RpcSecurity::RAW)
+                                    continue;
+
                                 ret.push_back(BinderRpc::ParamType{
                                         .type = type,
                                         .security = security,

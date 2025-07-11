@@ -140,6 +140,28 @@ TEST_P(BinderRpc, AppendSeparateFormats) {
     EXPECT_EQ(BAD_TYPE, p2.appendFrom(&p1, 0, p1.dataSize()));
 }
 
+TEST_P(BinderRpc, ObjectCountRight) {
+    auto proc = createRpcTestSocketServerProcess({});
+    Parcel data;
+    data.markForBinder(proc.rootBinder);
+
+    data.writeStrongBinder(nullptr); // not considered an object
+    EXPECT_EQ(0u, data.objectsCount());
+    data.writeStrongBinder(sp<BBinder>::make());
+
+    if (proc.proc->sessions.at(0).session->getProtocolVersion() >=
+        RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS) {
+        EXPECT_EQ(1u, data.objectsCount());
+    } else {
+        EXPECT_EQ(0u, data.objectsCount());
+    }
+
+    // TODO(b/424526253#comment5): this should be deleted by Parcel unless
+    // the Parcel is sent, but since it's not sent and processed currently,
+    // we leak the binder.
+    proc.forceShutdown();
+}
+
 TEST_P(BinderRpc, UnknownTransaction) {
     auto proc = createRpcTestSocketServerProcess({});
     Parcel data;
