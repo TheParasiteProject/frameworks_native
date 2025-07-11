@@ -31,6 +31,8 @@
 #include <android/gui/IActivePictureListener.h>
 #include <android/gui/IJankListener.h>
 #include <android/gui/ISurfaceComposerClient.h>
+#include <common/FlagManager.h>
+#include <common/LayerFilter.h>
 #include <common/trace.h>
 #include <cutils/atomic.h>
 #include <cutils/compiler.h>
@@ -69,7 +71,6 @@
 #include <scheduler/interface/ICompositor.h>
 #include <ui/FenceResult.h>
 
-#include <common/FlagManager.h>
 #include "ActivePictureTracker.h"
 #include "Display/DisplayModeController.h"
 #include "Display/PhysicalDisplay.h"
@@ -1118,9 +1119,9 @@ private:
 
     // mark a region of a layer stack dirty. this updates the dirty
     // region of all screens presenting this layer stack.
-    void invalidateLayerStack(const ui::LayerFilter& layerFilter, const Region& dirty);
+    void invalidateLayerStack(const LayerFilter& layerFilter, const Region& dirty);
 
-    ui::LayerFilter makeLayerFilterForDisplay(DisplayIdVariant displayId, ui::LayerStack layerStack)
+    LayerFilter makeLayerFilterForDisplay(DisplayIdVariant displayId, ui::LayerStack layerStack)
             REQUIRES(mStateLock) {
         return {layerStack,
                 asPhysicalDisplayId(displayId)
