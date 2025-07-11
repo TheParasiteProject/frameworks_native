@@ -68,7 +68,6 @@ public:
     bool refresh_rate_overlay_on_external_display() const;
     bool vsync_predictor_rate_change_with_aligned_sequence() const;
     bool unify_refresh_rate_callbacks() const;
-    bool vsync_predictor_recovery() const;
     bool vsync_predictor_predicts_within_threshold() const;
 
     /// Trunk stable readonly flags ///

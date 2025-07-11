@@ -225,8 +225,7 @@ bool VSyncPredictor::addVsyncTimestamp(nsecs_t timestamp) {
     // Calculated slope over the period of time can become outdated as the new timestamps are
     // stored. Using idealPeriod instead provides a rate which is valid at all the times.
     auto const currentPeriod = mDisplayModePtr->getVrrConfig() &&
-                    (FlagManager::getInstance().vsync_predictor_recovery() ||
-                     FlagManager::getInstance().vsync_predictor_predicts_within_threshold())
+                    (FlagManager::getInstance().vsync_predictor_predicts_within_threshold())
             ? idealPeriod()
             : it->second.slope;
 
