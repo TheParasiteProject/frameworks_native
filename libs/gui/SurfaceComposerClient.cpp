@@ -2369,6 +2369,12 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setConte
     return *this;
 }
 
+SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::addTransactionBarrier(
+        gui::TransactionBarrier barrier) {
+    mState.mBarriers.emplace_back(std::move(barrier));
+    return *this;
+}
+
 // ---------------------------------------------------------------------------
 
 DisplayState& SurfaceComposerClient::Transaction::getDisplayState(const sp<IBinder>& token) {
