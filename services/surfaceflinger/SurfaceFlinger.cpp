@@ -123,6 +123,7 @@
 #include <vector>
 
 #include <common/FlagManager.h>
+#include <common/LayerFilter.h>
 #include <gui/LayerStatePermissions.h>
 #include <gui/SchedulingPolicy.h>
 #include <gui/SyncScreenCaptureListener.h>
@@ -4771,7 +4772,7 @@ void SurfaceFlinger::doCommitTransactions() {
     mCurrentState.colorMatrixChanged = false;
 }
 
-void SurfaceFlinger::invalidateLayerStack(const ui::LayerFilter& layerFilter, const Region& dirty) {
+void SurfaceFlinger::invalidateLayerStack(const LayerFilter& layerFilter, const Region& dirty) {
     for (const auto& [token, displayDevice] : FTL_FAKE_GUARD(mStateLock, mDisplays)) {
         auto display = displayDevice->getCompositionDisplay();
         if (display->includesLayer(layerFilter)) {
