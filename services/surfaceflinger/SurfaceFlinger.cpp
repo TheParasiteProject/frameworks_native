@@ -1254,6 +1254,8 @@ void SurfaceFlinger::getDynamicDisplayInfoInternal(ui::DynamicDisplayInfo*& info
         outMode.sfVsyncOffset = vsyncConfigSet.late.sfOffset;
         outMode.group = mode->getGroup();
 
+        outMode.outputType = static_cast<ui::OutputType>(mode->getHdrOutputType());
+
         // This is how far in advance a buffer must be queued for
         // presentation at a given time.  If you want a buffer to appear
         // on the screen at time N, you must submit the buffer before
@@ -9255,6 +9257,7 @@ void SurfaceComposerAIDL::getDynamicDisplayInfoInternal(ui::DynamicDisplayInfo& 
         outMode.sfVsyncOffset = mode.sfVsyncOffset;
         outMode.presentationDeadline = mode.presentationDeadline;
         outMode.group = mode.group;
+        outMode.outputType = static_cast<int32_t>(mode.outputType);
         std::transform(mode.supportedHdrTypes.begin(), mode.supportedHdrTypes.end(),
                        std::back_inserter(outMode.supportedHdrTypes),
                        [](const ui::Hdr& value) { return static_cast<int32_t>(value); });
