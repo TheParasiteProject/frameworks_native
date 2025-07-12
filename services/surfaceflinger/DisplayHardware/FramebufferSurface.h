@@ -39,11 +39,6 @@ class HWComposer;
 
 class FramebufferSurface : public ConsumerBase, public compositionengine::DisplaySurface {
 public:
-    FramebufferSurface(HWComposer& hwc, PhysicalDisplayId displayId,
-                       const sp<IGraphicBufferProducer>& producer,
-                       const sp<IGraphicBufferConsumer>& consumer, const ui::Size& size,
-                       const ui::Size& maxSize);
-
     virtual status_t beginFrame(bool mustRecompose);
     virtual status_t prepareFrame(CompositionType compositionType);
     virtual status_t advanceFrame(float hdrSdrRatio);
@@ -58,6 +53,12 @@ public:
 
 private:
     friend class FramebufferSurfaceTest;
+    friend class sp<FramebufferSurface>;
+
+    FramebufferSurface(HWComposer& hwc, PhysicalDisplayId displayId,
+                       const sp<IGraphicBufferProducer>& producer,
+                       const sp<IGraphicBufferConsumer>& consumer, const ui::Size& size,
+                       const ui::Size& maxSize);
 
     void initializeConsumer();
 
@@ -75,11 +76,11 @@ private:
 
     const PhysicalDisplayId mDisplayId;
 
-    const ui::Size mLimitedSize;
-
     // Framebuffer size has a dimension limitation in pixels based on the graphics capabilities of
     // the device.
     const ui::Size mMaxSize;
+
+    const ui::Size mLimitedSize;
 
     // mCurrentBufferIndex is the slot index of the current buffer or
     // INVALID_BUFFER_SLOT to indicate that either there is no current buffer
