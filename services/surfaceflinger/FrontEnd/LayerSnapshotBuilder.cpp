@@ -24,6 +24,7 @@
 #include <numeric>
 #include <optional>
 
+#include <android/gui/ISystemContentPriorityConstants.h>
 #include <android/gui/Vec2.h>
 #include <common/FlagManager.h>
 #include <common/trace.h>
@@ -978,6 +979,14 @@ void LayerSnapshotBuilder::updateSnapshot(LayerSnapshot& snapshot, const Args& a
         snapshot.changes.any(RequestedLayerState::Changes::Geometry |
                              RequestedLayerState::Changes::Input)) {
         updateInput(snapshot, requested, parentSnapshot, path, args);
+    }
+
+    if (forceUpdate || snapshot.clientChanges & layer_state_t::eSystemContentPriorityChanged) {
+        if (requested.systemContentPriority == gui::ISystemContentPriorityConstants::Unset) {
+            snapshot.systemContentPriority = parentSnapshot.systemContentPriority;
+        } else {
+            snapshot.systemContentPriority = requested.systemContentPriority;
+        }
     }
 
     // computed snapshot properties
