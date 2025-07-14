@@ -515,7 +515,8 @@ void TransactionCompletedListener::onTransactionCompleted(ListenerStats listener
                                       transactionStats.presentFence,
                                       surfaceStats.previousReleaseFence, surfaceStats.transformHint,
                                       surfaceStats.eventStats,
-                                      surfaceStats.currentMaxAcquiredBufferCount);
+                                      surfaceStats.currentMaxAcquiredBufferCount,
+                                      surfaceStats.cornerRadii);
             }
 
             callbackFunction(transactionStats.latchTime, transactionStats.presentFence,
@@ -546,7 +547,8 @@ void TransactionCompletedListener::onTransactionCompleted(ListenerStats listener
                                       transactionStats.presentFence,
                                       surfaceStats.previousReleaseFence, surfaceStats.transformHint,
                                       surfaceStats.eventStats,
-                                      surfaceStats.currentMaxAcquiredBufferCount);
+                                      surfaceStats.currentMaxAcquiredBufferCount,
+                                      surfaceStats.cornerRadii);
                 if (callbacksMap[callbackId].surfaceControls[surfaceStats.surfaceControl] &&
                     surfaceStats.transformHint.has_value()) {
                     callbacksMap[callbackId]
@@ -1524,12 +1526,7 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setCorne
 }
 
 SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setClientDrawnCornerRadius(
-        const sp<SurfaceControl>& sc, float clientDrawnCornerRadius) {
-    return setClientDrawnCornerRadius(sc, gui::CornerRadii(clientDrawnCornerRadius));
-}
-
-SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setClientDrawnCornerRadius(
-        const sp<SurfaceControl>& sc, const gui::CornerRadii& radii) {
+        const sp<SurfaceControl>& sc, const gui::CornerRadii& radii, const FloatRect& crop) {
     layer_state_t* s = getLayerState(sc);
     if (!s) {
         mStatus = BAD_INDEX;
@@ -1537,6 +1534,7 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setClien
     }
     s->what |= layer_state_t::eClientDrawnCornerRadiusChanged;
     s->clientDrawnCornerRadii = radii;
+    s->clientDrawnCornerRadiusCrop = crop;
     return *this;
 }
 

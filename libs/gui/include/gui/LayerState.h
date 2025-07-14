@@ -392,6 +392,7 @@ struct layer_state_t {
     matrix22_t matrix;
     gui::CornerRadii cornerRadii;
     gui::CornerRadii clientDrawnCornerRadii;
+    FloatRect clientDrawnCornerRadiusCrop;
     uint32_t backgroundBlurRadius;
     float backgroundBlurScale;
 
