@@ -131,7 +131,6 @@ void FlagManager::dump(std::string& result) const {
     DUMP_ACONFIG_FLAG(resync_on_tx);
     DUMP_ACONFIG_FLAG(vsync_predictor_rate_change_with_aligned_sequence);
     DUMP_ACONFIG_FLAG(unify_refresh_rate_callbacks);
-    DUMP_ACONFIG_FLAG(vsync_predictor_recovery);
     DUMP_ACONFIG_FLAG(vsync_predictor_predicts_within_threshold);
 
     /// Trunk stable readonly flags ///
@@ -302,7 +301,6 @@ FLAG_MANAGER_ACONFIG_FLAG(resync_on_tx, "");
 FLAG_MANAGER_ACONFIG_FLAG(reset_model_flushes_fence, "");
 FLAG_MANAGER_ACONFIG_FLAG(vsync_predictor_rate_change_with_aligned_sequence, "")
 FLAG_MANAGER_ACONFIG_FLAG(unify_refresh_rate_callbacks, "");
-FLAG_MANAGER_ACONFIG_FLAG(vsync_predictor_recovery, "");
 FLAG_MANAGER_ACONFIG_FLAG(vsync_predictor_predicts_within_threshold, "");
 
 /// Trunk stable server (R/W) flags from outside SurfaceFlinger ///

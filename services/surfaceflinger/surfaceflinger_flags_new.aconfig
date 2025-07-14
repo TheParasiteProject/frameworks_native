@@ -349,16 +349,6 @@ flag {
 } # vsync_predictor_rate_change_with_aligned_sequence
 
 flag {
-  name: "vsync_predictor_recovery"
-  namespace: "core_graphics"
-  description: "Recover the vsync predictor from bad vsync model"
-  bug: "385059265"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
- } # vsync_predictor_recovery
-
-flag {
   name: "vsync_predictor_predicts_within_threshold"
   namespace: "core_graphics"
   description: "VSyncPredictor to ignore vsyncs before the given threshold for period and intercept calculation"
