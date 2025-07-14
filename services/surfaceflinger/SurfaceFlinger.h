@@ -876,6 +876,9 @@ private:
     // Checks if a secure layer exists in a list of layers.
     bool layersHasSecureLayer(const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers) const;
 
+    // Checks if any hdr layer exists in a list of layers
+    bool layersHasHdrLayer(const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers) const;
+
     using OutputCompositionState = compositionengine::impl::OutputCompositionState;
 
     struct SnapshotRequestArgs {

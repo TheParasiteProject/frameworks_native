@@ -7715,6 +7715,13 @@ bool SurfaceFlinger::layersHasSecureLayer(
     return false;
 }
 
+bool SurfaceFlinger::layersHasHdrLayer(
+        const std::vector<std::pair<Layer*, sp<LayerFE>>>& layers) const {
+    return std::any_of(layers.cbegin(), layers.cend(), [this](const auto& layer) {
+        return isHdrLayer(*(layer.second->mSnapshot.get()));
+    });
+}
+
 // Getting layer snapshots and accessing display state should take place on
 // main thread. Accessing display requires mStateLock, and contention for
 // this lock is reduced when grabbed from the main thread, thus also reducing
@@ -7737,6 +7744,11 @@ SurfaceFlinger::setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args) {
                 const bool hasProtectedOrDisallowedSecureLayers = args.hasProtectedLayer ||
                         (!args.isSecure && layersHasSecureLayer(args.layers));
 
+                // If there's HDR layers that don't preserve display colors we need to tonemap on
+                // the GPU, and therefore cannot readback
+                const bool hasHdrLayersButDoesNotPreserveColors =
+                        !args.preserveDisplayColors && layersHasHdrLayer(args.layers);
+
                 bool capturingDisplay =
                         std::holds_alternative<DisplayId>(args.captureTypeVariant) ||
                         std::holds_alternative<sp<IBinder>>(args.captureTypeVariant);
@@ -7752,7 +7764,8 @@ SurfaceFlinger::setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args) {
                         args.transform.getOrientation() == ui::Transform::ROT_0 &&
                         args.transform.getScaleX() == 1.0f && args.transform.getScaleY() == 1.0f &&
                         args.transform.tx() == 0.0f && args.transform.ty() == 0.0f &&
-                        !hasProtectedOrDisallowedSecureLayers;
+                        !hasProtectedOrDisallowedSecureLayers &&
+                        !hasHdrLayersButDoesNotPreserveColors;
 
                 if (!canDpuReadback && args.requireDpuReadback) {
                     if (hasProtectedOrDisallowedSecureLayers) {
@@ -7838,11 +7851,6 @@ void SurfaceFlinger::captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat r
         return;
     }
 
-    const bool hasHdrLayer =
-            std::any_of(args.layers.cbegin(), args.layers.cend(), [this](const auto& layer) {
-                return isHdrLayer(*(layer.second->mSnapshot.get()));
-            });
-
     // Check if the RenderEngine supports protected content.
     // This is vital for an edge case where the codec/display IP supports DRM,
     // but the GPU IP doesn't. Without this, we might have protected layers,
@@ -7876,7 +7884,7 @@ void SurfaceFlinger::captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat r
     std::shared_ptr<renderengine::impl::ExternalTexture> hdrTexture;
     std::shared_ptr<renderengine::impl::ExternalTexture> gainmapTexture;
 
-    if (hasHdrLayer && !args.preserveDisplayColors &&
+    if (layersHasHdrLayer(args.layers) && !args.preserveDisplayColors &&
         FlagManager::getInstance().true_hdr_screenshots()) {
         const auto hdrBuffer =
                 getFactory().createGraphicBuffer(buffer->getWidth(), buffer->getHeight(),
