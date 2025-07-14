@@ -874,6 +874,15 @@ std::optional<vec2> PointerChoreographer::getMouseCursorPosition(ui::LogicalDisp
     return std::nullopt;
 }
 
+std::optional<vec2> PointerChoreographer::getMouseCursorPositionInLogicalDisplay(
+        ui::LogicalDisplayId displayId) {
+    std::scoped_lock _l(getLock());
+    if (auto it = mMousePointersByDisplay.find(displayId); it != mMousePointersByDisplay.end()) {
+        return it->second->getPositionInLogicalDisplay();
+    }
+    return std::nullopt;
+}
+
 void PointerChoreographer::setShowTouchesEnabled(bool enabled) {
     PointerDisplayChange pointerDisplayChange;
 
