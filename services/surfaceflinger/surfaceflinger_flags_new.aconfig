@@ -273,6 +273,9 @@ flag {
   namespace: "window_surfaces"
   description: "Add support for API to set distinct radii for each corner"
   bug: "406554726"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
  } # set_distinct_corner_radii
 
 flag {
