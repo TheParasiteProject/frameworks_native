@@ -14,16 +14,6 @@ flag {
 } # add_first_vsync_to_tracker
 
 flag {
-  name: "adpf_cpu_effects_loadup"
-  namespace: "window_surfaces"
-  description: "Enables CPU loadup hints for effects using client composition"
-  bug: "409887260"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
-} # adpf_cpu_effects_loadup
-
-flag {
   name: "adpf_fmq_sf"
   namespace: "game"
   description: "Guards use of the ADPF FMQ system specifically for SurfaceFlinger"
@@ -283,6 +273,9 @@ flag {
   namespace: "window_surfaces"
   description: "Add support for API to set distinct radii for each corner"
   bug: "406554726"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
  } # set_distinct_corner_radii
 
 flag {
@@ -357,16 +350,6 @@ flag {
     purpose: PURPOSE_BUGFIX
   }
 } # vsync_predictor_rate_change_with_aligned_sequence
-
-flag {
-  name: "vsync_predictor_recovery"
-  namespace: "core_graphics"
-  description: "Recover the vsync predictor from bad vsync model"
-  bug: "385059265"
-  metadata {
-    purpose: PURPOSE_BUGFIX
-  }
- } # vsync_predictor_recovery
 
 flag {
   name: "vsync_predictor_predicts_within_threshold"

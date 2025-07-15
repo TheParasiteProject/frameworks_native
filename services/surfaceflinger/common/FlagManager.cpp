@@ -30,6 +30,7 @@
 #include <android_os.h>
 #include <com_android_graphics_libgui_flags.h>
 #include <com_android_graphics_surfaceflinger_flags.h>
+#include <com_android_input_flags.h>
 #include <com_android_server_display_feature_flags.h>
 
 namespace android {
@@ -116,7 +117,6 @@ void FlagManager::dump(std::string& result) const {
 
     /// Trunk stable server (R/W) flags ///
     DUMP_ACONFIG_FLAG(add_first_vsync_to_tracker);
-    DUMP_ACONFIG_FLAG(adpf_cpu_effects_loadup);
     DUMP_ACONFIG_FLAG(adpf_gpu_sf);
     DUMP_ACONFIG_FLAG(adpf_native_session_manager);
     DUMP_ACONFIG_FLAG(adpf_use_fmq_channel);
@@ -131,7 +131,6 @@ void FlagManager::dump(std::string& result) const {
     DUMP_ACONFIG_FLAG(resync_on_tx);
     DUMP_ACONFIG_FLAG(vsync_predictor_rate_change_with_aligned_sequence);
     DUMP_ACONFIG_FLAG(unify_refresh_rate_callbacks);
-    DUMP_ACONFIG_FLAG(vsync_predictor_recovery);
     DUMP_ACONFIG_FLAG(vsync_predictor_predicts_within_threshold);
 
     /// Trunk stable readonly flags ///
@@ -291,7 +290,6 @@ FLAG_MANAGER_ACONFIG_FLAG(window_blur_kawase2_fix_aliasing, "");
 /// Trunk stable server (R/W) flags ///
 FLAG_MANAGER_ACONFIG_FLAG(add_first_vsync_to_tracker, "")
 FLAG_MANAGER_ACONFIG_FLAG(refresh_rate_overlay_on_external_display, "")
-FLAG_MANAGER_ACONFIG_FLAG(adpf_cpu_effects_loadup, "");
 FLAG_MANAGER_ACONFIG_FLAG(adpf_gpu_sf, "")
 FLAG_MANAGER_ACONFIG_FLAG(adpf_native_session_manager, "");
 FLAG_MANAGER_ACONFIG_FLAG(buffer_stuffing_fix, "");
@@ -303,13 +301,13 @@ FLAG_MANAGER_ACONFIG_FLAG(resync_on_tx, "");
 FLAG_MANAGER_ACONFIG_FLAG(reset_model_flushes_fence, "");
 FLAG_MANAGER_ACONFIG_FLAG(vsync_predictor_rate_change_with_aligned_sequence, "")
 FLAG_MANAGER_ACONFIG_FLAG(unify_refresh_rate_callbacks, "");
-FLAG_MANAGER_ACONFIG_FLAG(vsync_predictor_recovery, "");
 FLAG_MANAGER_ACONFIG_FLAG(vsync_predictor_predicts_within_threshold, "");
 
 /// Trunk stable server (R/W) flags from outside SurfaceFlinger ///
 FLAG_MANAGER_ACONFIG_FLAG_IMPORTED(adpf_use_fmq_channel, "", android::os)
 FLAG_MANAGER_ACONFIG_FLAG_IMPORTED(correct_virtual_display_power_state, "",
                                    android::companion::virtualdevice::flags)
+FLAG_MANAGER_ACONFIG_FLAG_IMPORTED(connected_displays_cursor, "", com::android::input::flags)
 
 FLAG_MANAGER_ACONFIG_FLAG_IMPORTED(adpf_use_fmq_channel_fixed, "", android::os)
 FLAG_MANAGER_ACONFIG_FLAG_IMPORTED(luts_api, "",

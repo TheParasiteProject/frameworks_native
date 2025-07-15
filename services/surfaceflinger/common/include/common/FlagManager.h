@@ -52,12 +52,12 @@ public:
 
     /// Trunk stable server (R/W) flags ///
     bool add_first_vsync_to_tracker() const;
-    bool adpf_cpu_effects_loadup() const;
     bool adpf_gpu_sf() const;
     bool adpf_native_session_manager() const;
     bool adpf_use_fmq_channel() const;
     bool adpf_use_fmq_channel_fixed() const;
     bool buffer_stuffing_fix() const;
+    bool connected_displays_cursor() const;
     bool correct_virtual_display_power_state() const;
     bool graphite_renderengine_preview_rollout() const;
     bool increase_missed_frame_jank_threshold() const;
@@ -68,7 +68,6 @@ public:
     bool refresh_rate_overlay_on_external_display() const;
     bool vsync_predictor_rate_change_with_aligned_sequence() const;
     bool unify_refresh_rate_callbacks() const;
-    bool vsync_predictor_recovery() const;
     bool vsync_predictor_predicts_within_threshold() const;
 
     /// Trunk stable readonly flags ///
