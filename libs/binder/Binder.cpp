@@ -238,6 +238,22 @@ sp<IBinder> IBinder::lookupOrCreateWeak(const void* objectID, object_make_func m
     return proxy->lookupOrCreateWeak(objectID, make, makeArgs);
 }
 
+void IBinder::setMinRpcThreads(uint16_t min) {
+    if (BBinder* local = this->localBinder(); local != nullptr) {
+        local->setMinRpcThreads(min);
+    } else {
+        LOG_ALWAYS_FATAL("setMinRpcThreads only works for local BBinders.");
+    }
+}
+
+uint16_t IBinder::getMinRpcThreads() {
+    if (BBinder* local = this->localBinder(); local != nullptr) {
+        return local->getMinRpcThreads();
+    } else {
+        LOG_ALWAYS_FATAL("getMinRpcThreads only works for local BBinders.");
+    }
+}
+
 // ---------------------------------------------------------------------------
 
 class BBinder::RpcServerLink : public IBinder::DeathRecipient {
@@ -273,6 +289,8 @@ private:
 };
 BBinder::RpcServerLink::~RpcServerLink() {}
 
+static constexpr uint16_t kDefaultMinThreads = 1;
+
 class BBinder::Extras
 {
 public:
@@ -289,6 +307,7 @@ public:
     RpcMutex mLock;
     std::set<sp<RpcServerLink>> mRpcServerLinks;
     BpBinder::ObjectManager mObjectMgr;
+    uint16_t mMinThreads = kDefaultMinThreads;
 
     unique_fd mRecordingFd;
 };
@@ -628,6 +647,26 @@ void BBinder::setInheritRt(bool inheritRt) {
     }
 
     e->mInheritRt = inheritRt;
+}
+
+void BBinder::setMinRpcThreads(uint16_t min) {
+    LOG_ALWAYS_FATAL_IF(mParceled,
+                        "setMinRpcThreads() should not be called after a binder object "
+                        "is parceled/sent to another process");
+    Extras* e = mExtras.load(std::memory_order_acquire);
+    if (!e) {
+        e = getOrCreateExtras();
+        if (!e) return; // out of memory
+    }
+    e->mMinThreads = min;
+}
+
+uint16_t BBinder::getMinRpcThreads() const {
+    Extras* e = mExtras.load(std::memory_order_acquire);
+    if (!e) {
+        return kDefaultMinThreads;
+    }
+    return e->mMinThreads;
 }
 
 std::atomic<bool> BBinder::sGlobalInheritRt(false);
