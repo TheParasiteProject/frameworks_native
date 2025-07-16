@@ -254,8 +254,9 @@ status_t Parcel::flattenBinder(const sp<IBinder>& binder) {
     if (binder) local = binder->localBinder();
     if (local) local->setParceled();
 
-    if (const auto* rpcFields = maybeRpcFields()) {
+    if (auto* rpcFields = maybeRpcFields()) {
         if (binder) {
+            size_t dataPos = mDataPos;
             status_t status = writeInt32(RpcFields::TYPE_BINDER); // non-null
             if (status != OK) return status;
             uint64_t address;
@@ -265,6 +266,14 @@ status_t Parcel::flattenBinder(const sp<IBinder>& binder) {
             if (status != OK) return status;
             status = writeUint64(address);
             if (status != OK) return status;
+
+            if (rpcFields->mSession->getProtocolVersion() >=
+                RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS) {
+                rpcFields->mObjectPositions
+                        .insert(std::upper_bound(rpcFields->mObjectPositions.begin(),
+                                                 rpcFields->mObjectPositions.end(), dataPos),
+                                dataPos);
+            }
         } else {
             status_t status = writeInt32(RpcFields::TYPE_BINDER_NULL); // null
             if (status != OK) return status;
@@ -1153,8 +1162,10 @@ size_t Parcel::objectsCount() const
 {
     if (const auto* kernelFields = maybeKernelFields()) {
         return kernelFields->mObjectsSize;
+    } else if (auto* rpcFields = maybeRpcFields()) {
+        return rpcFields->mObjectPositions.size();
     }
-    return 0;
+    LOG_ALWAYS_FATAL("Must be for kernel or for RPC");
 }
 
 status_t Parcel::errorCheck() const
@@ -2915,7 +2926,12 @@ status_t Parcel::rpcSetDataReference(
 
     LOG_ALWAYS_FATAL_IF(session == nullptr);
 
-    if (objectTableSize != ancillaryFds.size()) {
+    bool sameSize = objectTableSize == ancillaryFds.size();
+    bool fitsIn = objectTableSize >= ancillaryFds.size(); // other positions are binders
+    bool bindersInObjectPositions = session->getProtocolVersion() >=
+            RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS;
+
+    if (!(bindersInObjectPositions ? fitsIn : sameSize)) {
         ALOGE("objectTableSize=%zu ancillaryFds.size=%zu", objectTableSize, ancillaryFds.size());
         relFunc(data, dataSize, nullptr, 0);
         return BAD_VALUE;
