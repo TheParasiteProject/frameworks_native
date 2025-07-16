@@ -385,8 +385,24 @@ status_t BBinder::stopRecordingTransactions() {
 
 const String16& BBinder::getInterfaceDescriptor() const
 {
+    // Throttle logging because getInterfaceDescriptor can be invoked a lot.
+    static std::atomic<std::chrono::steady_clock::time_point> sLastLogTime = {
+            std::chrono::steady_clock::time_point::min()};
+
+    auto lastLogTime = sLastLogTime.load(std::memory_order_acquire);
+    auto currentTime = std::chrono::steady_clock::now();
+    // Don't log more than once per second. The check is not strict, since it may happen that
+    // multiple theads read lastLogTime at the same time  but we don't want it to be strict
+    // for performance reasons.
+    // Note: Do not subtract time_point::min(), that would cause an arithmetic overflow.
+    if (lastLogTime == std::chrono::steady_clock::time_point::min() ||
+        to_ms(currentTime - lastLogTime) >= 1000) {
+        ALOGW("BBinder::getInterfaceDescriptor (this=%p). Override?", this);
+
+        sLastLogTime.store(currentTime, std::memory_order_release);
+    }
+
     [[clang::no_destroy]] static StaticString16 sBBinder(u"BBinder");
-    ALOGW("Reached BBinder::getInterfaceDescriptor (this=%p). Override?", this);
     return sBBinder;
 }
 
