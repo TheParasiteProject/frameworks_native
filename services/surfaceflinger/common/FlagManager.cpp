@@ -125,6 +125,7 @@ void FlagManager::dump(std::string& result) const {
     DUMP_ACONFIG_FLAG(graphite_renderengine_preview_rollout);
     DUMP_ACONFIG_FLAG(increase_missed_frame_jank_threshold);
     DUMP_ACONFIG_FLAG(monitor_buffer_fences);
+    DUMP_ACONFIG_FLAG(offload_gpu_composition);
     DUMP_ACONFIG_FLAG(readback_screenshot);
     DUMP_ACONFIG_FLAG(refresh_rate_overlay_on_external_display);
     DUMP_ACONFIG_FLAG(reset_model_flushes_fence);
@@ -296,6 +297,7 @@ FLAG_MANAGER_ACONFIG_FLAG(buffer_stuffing_fix, "");
 FLAG_MANAGER_ACONFIG_FLAG(graphite_renderengine_preview_rollout, "");
 FLAG_MANAGER_ACONFIG_FLAG(increase_missed_frame_jank_threshold, "");
 FLAG_MANAGER_ACONFIG_FLAG(monitor_buffer_fences, "");
+FLAG_MANAGER_ACONFIG_FLAG(offload_gpu_composition, "");
 FLAG_MANAGER_ACONFIG_FLAG(readback_screenshot, "")
 FLAG_MANAGER_ACONFIG_FLAG(resync_on_tx, "");
 FLAG_MANAGER_ACONFIG_FLAG(reset_model_flushes_fence, "");
