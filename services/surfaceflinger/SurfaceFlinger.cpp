@@ -66,6 +66,7 @@
 #include <ftl/concat.h>
 #include <ftl/fake_guard.h>
 #include <ftl/future.h>
+#include <ftl/small_vector.h>
 #include <ftl/unit.h>
 #include <gui/AidlUtil.h>
 #include <gui/BufferQueue.h>
@@ -437,6 +438,7 @@ SurfaceFlinger::SurfaceFlinger(Factory& factory, SkipInitializationTag)
         mFrameTracer(mFactory.createFrameTracer()),
         mFrameTimeline(mFactory.createFrameTimeline(mTimeStats, mPid)),
         mCompositionEngine(mFactory.createCompositionEngine()),
+        mOffloadedCompositionEngine(mFactory.createCompositionEngine()),
         mHwcServiceName(base::GetProperty("debug.sf.hwc_service_name"s, "default"s)),
         mTunnelModeEnabledReporter(sp<TunnelModeEnabledReporter>::make()),
         mEmulatedDisplayDensity(getDensityFromProperty("qemu.sf.lcd_density", false)),
@@ -935,6 +937,7 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
     chooseRenderEngineType(builder);
     mRenderEngine = renderengine::RenderEngine::create(builder.build());
     mCompositionEngine->setRenderEngine(mRenderEngine.get());
+    mOffloadedCompositionEngine->setRenderEngine(mRenderEngine.get());
     mMaxRenderTargetSize =
             std::min(getRenderEngine().getMaxTextureSize(), getRenderEngine().getMaxViewportDims());
 
@@ -947,6 +950,7 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
 
     mHWComposer = getFactory().createHWComposer(mHwcServiceName);
     mCompositionEngine->setHwComposer(mHWComposer.get());
+    mOffloadedCompositionEngine->setHwComposer(mHWComposer.get());
     auto& composer = mCompositionEngine->getHwComposer();
     composer.setCallback(*this);
     mDisplayModeController.setHwComposer(&composer);
@@ -2905,20 +2909,15 @@ bool SurfaceFlinger::commit(PhysicalDisplayId pacesetterId,
     return mustComposite && CC_LIKELY(mBootStage != BootStage::BOOTLOADER);
 }
 
-CompositeResultsPerDisplay SurfaceFlinger::composite(
-        PhysicalDisplayId pacesetterId, const scheduler::FrameTargeters& frameTargeters) {
-    SFTRACE_ASYNC_FOR_TRACK_BEGIN(WorkloadTracer::TRACK_NAME, "Composition",
-                                  WorkloadTracer::COMPOSITION_TRACE_COOKIE);
-    const scheduler::FrameTarget& pacesetterTarget =
-            frameTargeters.get(pacesetterId)->get()->target();
+SurfaceFlinger::RefreshArgsPartition SurfaceFlinger::addOutputsToRefreshArgs(
+        PhysicalDisplayId pacesetterId,
+        const compositionengine::CompositionRefreshArgs& refreshArgs,
+        const scheduler::FrameTargeters& frameTargeters) {
+    compositionengine::CompositionRefreshArgs mainThreadRefreshArgs = refreshArgs;
+    compositionengine::CompositionRefreshArgs offloadedRefreshArgs = refreshArgs;
 
-    const VsyncId vsyncId = pacesetterTarget.vsyncId();
-    SFTRACE_NAME(ftl::Concat(__func__, ' ', ftl::to_underlying(vsyncId)).c_str());
-
-    compositionengine::CompositionRefreshArgs refreshArgs;
-    refreshArgs.powerCallback = this;
+    const auto& pacesetterTarget = frameTargeters.get(pacesetterId)->get()->target();
     const auto& displays = FTL_FAKE_GUARD(mStateLock, mDisplays);
-    refreshArgs.outputs.reserve(displays.size());
 
     // Track layer stacks of physical displays that might be added to CompositionEngine
     // output. Layer stacks are not tracked in Display when we iterate through
@@ -2946,36 +2945,98 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
         return true;
     };
 
-    // Add outputs for physical displays.
+    // Partition displays: physical for main thread, virtual for offloaded.
     for (const auto& [id, targeter] : frameTargeters) {
         ftl::FakeGuard guard(mStateLock);
 
         if (const auto display = getCompositionDisplayLocked(id)) {
             const auto layerStack = physicalDisplayLayerStacks.get(id)->get();
             if (isUniqueOutputLayerStack(display->getId(), layerStack)) {
-                refreshArgs.outputs.push_back(display);
+                mainThreadRefreshArgs.outputs.push_back(display);
             }
         }
 
-        refreshArgs.frameTargets.try_emplace(id, &targeter->target());
+        mainThreadRefreshArgs.frameTargets.try_emplace(id, &targeter->target());
     }
+
+    const bool canOffloadGpuComposition =
+            FlagManager::getInstance().offload_gpu_composition() && mRenderEngine->isThreaded();
+    for (const auto& [_, display] : displays) {
+        if (!display->isVirtual()) {
+            continue;
+        }
+
+        const Fps refreshRate = display->getAdjustedRefreshRate();
+        if (refreshRate.isValid() &&
+            !mScheduler->isVsyncInPhase(pacesetterTarget.frameBeginTime(), refreshRate)) {
+            continue;
+        }
+
+        if (!isUniqueOutputLayerStack(display->getId(), display->getLayerStack())) {
+            continue;
+        }
+
+        // Offload GPU backed display to background thread
+        if (canOffloadGpuComposition && display->isGpuVirtualDisplay()) {
+            offloadedRefreshArgs.outputs.push_back(display->getCompositionDisplay());
+        } else {
+            mainThreadRefreshArgs.outputs.push_back(display->getCompositionDisplay());
+        }
+    }
+
+    // Populate properties for offload thread
+    if (offloadedRefreshArgs.outputs.empty()) {
+        return {.mainThreadRefreshArgs = std::move(mainThreadRefreshArgs),
+                .offloadedRefreshArgs = std::nullopt};
+    }
+    offloadedRefreshArgs.hasTrustedPresentationListener = false;
+    offloadedRefreshArgs.bufferIdsToUncache = {};
+
+    return {.mainThreadRefreshArgs = std::move(mainThreadRefreshArgs),
+            .offloadedRefreshArgs = offloadedRefreshArgs};
+}
+
+std::future<void> SurfaceFlinger::offloadGpuCompositedDisplays(
+        compositionengine::CompositionRefreshArgs offloadedRefreshArgs,
+        std::vector<std::pair<Layer*, LayerFE*>> offloadedLayers) {
+    auto offloadedCompositionPromise = std::make_shared<std::promise<void>>();
+    auto offloadedCompositionFuture = offloadedCompositionPromise->get_future();
+
+    for (auto& [layer, layerFE] : offloadedLayers) {
+        layer->onPreComposition(offloadedRefreshArgs.refreshStartTime);
+        attachReleaseFenceFutureToLayer(layer, layerFE,
+                                        layerFE->mSnapshot->outputFilter.layerStack);
+    }
+
+    BackgroundExecutor::getInstance().sendCallbacks(
+            {[offloadedRefreshArgs = std::move(offloadedRefreshArgs),
+              promise = std::move(offloadedCompositionPromise), this]() mutable {
+                mOffloadedCompositionEngine->present(offloadedRefreshArgs);
+                promise->set_value();
+            }});
+    return offloadedCompositionFuture;
+}
+
+CompositeResultsPerDisplay SurfaceFlinger::composite(
+        PhysicalDisplayId pacesetterId, const scheduler::FrameTargeters& frameTargeters) {
+    SFTRACE_ASYNC_FOR_TRACK_BEGIN(WorkloadTracer::TRACK_NAME, "Composition",
+                                  WorkloadTracer::COMPOSITION_TRACE_COOKIE);
+    const scheduler::FrameTarget& pacesetterTarget =
+            frameTargeters.get(pacesetterId)->get()->target();
+
+    const VsyncId vsyncId = pacesetterTarget.vsyncId();
+    SFTRACE_NAME(ftl::Concat(__func__, ' ', ftl::to_underlying(vsyncId)).c_str());
+
+    compositionengine::CompositionRefreshArgs refreshArgs;
+    // adpf load up hint
+    refreshArgs.powerCallback = this;
+    const auto& displays = FTL_FAKE_GUARD(mStateLock, mDisplays);
+    refreshArgs.outputs.reserve(displays.size());
 
     std::vector<DisplayId> displayIds;
     for (const auto& [_, display] : displays) {
         displayIds.push_back(display->getId());
         display->tracePowerMode();
-
-        // Add outputs for virtual displays.
-        if (display->isVirtual()) {
-            const Fps refreshRate = display->getAdjustedRefreshRate();
-
-            if (!refreshRate.isValid() ||
-                mScheduler->isVsyncInPhase(pacesetterTarget.frameBeginTime(), refreshRate)) {
-                if (isUniqueOutputLayerStack(display->getId(), display->getLayerStack())) {
-                    refreshArgs.outputs.push_back(display->getCompositionDisplay());
-                }
-            }
-        }
     }
     mPowerAdvisor->setDisplays(displayIds);
 
@@ -3015,51 +3076,33 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
     // Store the present time just before calling to the composition engine so we could notify
     // the scheduler.
     const auto presentTime = systemTime();
+    refreshArgs.refreshStartTime = presentTime;
+
+    auto [mainThreadRefreshArgs, optionalOffloadedRefreshArgs] =
+            addOutputsToRefreshArgs(pacesetterId, refreshArgs, frameTargeters);
 
     constexpr bool kCursorOnly = false;
-    const auto layers = moveSnapshotsToCompositionArgs(refreshArgs, kCursorOnly);
-
-    if (!mVisibleRegionsDirty) {
-        for (const auto& [token, display] : FTL_FAKE_GUARD(mStateLock, mDisplays)) {
-            auto compositionDisplay = display->getCompositionDisplay();
-            if (!compositionDisplay->getState().isEnabled) continue;
-            for (const auto* outputLayer : compositionDisplay->getOutputLayersOrderedByZ()) {
-                if (outputLayer->getLayerFE().getCompositionState() == nullptr) {
-                    // This is unexpected but instead of crashing, capture traces to disk
-                    // and recover gracefully by forcing CE to rebuild layer stack.
-                    ALOGE("Output layer %s for display %s %" PRIu64 " has a null "
-                          "snapshot. Forcing mVisibleRegionsDirty",
-                          outputLayer->getLayerFE().getDebugName(),
-                          compositionDisplay->getName().c_str(), compositionDisplay->getId().value);
-
-                    TransactionTraceWriter::getInstance().invoke(__func__, /* overwrite= */ false);
-                    mVisibleRegionsDirty = true;
-                    refreshArgs.updatingOutputGeometryThisFrame = mVisibleRegionsDirty;
-                    refreshArgs.updatingGeometryThisFrame = mVisibleRegionsDirty;
-                }
-            }
-        }
-    }
-    refreshArgs.refreshStartTime = systemTime(SYSTEM_TIME_MONOTONIC);
+    const auto layers = addLayerSnapshotsToCompositionArgs(mainThreadRefreshArgs, kCursorOnly);
+    setVisibleRegionDirtyIfNeeded(mainThreadRefreshArgs);
 
     for (auto& [layer, layerFE] : layers) {
-        layer->onPreComposition(refreshArgs.refreshStartTime);
+        layer->onPreComposition(mainThreadRefreshArgs.refreshStartTime);
 
         validateForReadback(layerFE);
     }
 
-    setupOutputsForReadback(refreshArgs.outputs);
+    setupOutputsForReadback(mainThreadRefreshArgs.outputs);
 
     for (auto& [layer, layerFE] : layers) {
         attachReleaseFenceFutureToLayer(layer, layerFE,
                                         layerFE->mSnapshot->outputFilter.layerStack);
     }
 
-    refreshArgs.layersWithQueuedFrames.reserve(mLayersWithQueuedFrames.size());
+    mainThreadRefreshArgs.layersWithQueuedFrames.reserve(mLayersWithQueuedFrames.size());
     for (auto& [layer, _] : mLayersWithQueuedFrames) {
         if (const auto& layerFE =
                     layer->getCompositionEngineLayerFE({static_cast<uint32_t>(layer->sequence)})) {
-            refreshArgs.layersWithQueuedFrames.push_back(layerFE);
+            mainThreadRefreshArgs.layersWithQueuedFrames.push_back(layerFE);
             // Some layers are not displayed and do not yet have a future release fence
             if (layerFE->getReleaseFencePromiseStatus() ==
                         LayerFE::ReleaseFencePromiseStatus::UNINITIALIZED ||
@@ -3072,12 +3115,25 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
         }
     }
 
-    mCompositionEngine->present(refreshArgs);
+    std::optional<std::future<void>> offloadedCompositionFuture;
+    std::vector<std::pair<Layer*, LayerFE*>> offloadedLayers;
+    if (optionalOffloadedRefreshArgs) {
+        setVisibleRegionDirtyIfNeeded(*optionalOffloadedRefreshArgs);
 
-    finalizeReadback(refreshArgs.outputs);
+        offloadedLayers =
+                addLayerSnapshotsToCompositionArgs(*optionalOffloadedRefreshArgs, kCursorOnly);
+        offloadedCompositionFuture =
+                offloadGpuCompositedDisplays(std::move(*optionalOffloadedRefreshArgs),
+                                             offloadedLayers);
+    }
+
+    mCompositionEngine->present(mainThreadRefreshArgs);
+
+    finalizeReadback(mainThreadRefreshArgs.outputs);
 
     ftl::Flags<adpf::Workload> compositedWorkload;
-    if (refreshArgs.updatingGeometryThisFrame || refreshArgs.updatingOutputGeometryThisFrame) {
+    if (mainThreadRefreshArgs.updatingGeometryThisFrame ||
+        mainThreadRefreshArgs.updatingOutputGeometryThisFrame) {
         compositedWorkload |= adpf::Workload::VISIBLE_REGION;
     }
     if (mFrontEndDisplayInfosChanged) {
@@ -3172,7 +3228,11 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
         }
     }
 
-    moveSnapshotsFromCompositionArgs(refreshArgs, layers);
+    moveSnapshotsFromCompositionArgs(mainThreadRefreshArgs, layers);
+    if (optionalOffloadedRefreshArgs) {
+        offloadedCompositionFuture->wait();
+        moveSnapshotsFromCompositionArgs(*optionalOffloadedRefreshArgs, offloadedLayers);
+    }
     mTimeStats->recordFrameDuration(pacesetterTarget.frameBeginTime().ns(), systemTime());
 
     // Send a power hint after presentation is finished.
@@ -3203,7 +3263,7 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
 
     TimeStats::ClientCompositionRecord clientCompositionRecord;
 
-    for (const auto& [_, display] : displays) {
+    for (const auto& [_, display] : FTL_FAKE_GUARD(mStateLock, mDisplays)) {
         const auto& state = display->getCompositionDisplay()->getState();
         CompositionCoverageFlags& flags =
                 mCompositionCoverage.try_emplace(display->getDisplayIdVariant()).first->second;
@@ -4500,7 +4560,7 @@ void SurfaceFlinger::updateCursorAsync() {
     }
 
     constexpr bool kCursorOnly = true;
-    const auto layers = moveSnapshotsToCompositionArgs(refreshArgs, kCursorOnly);
+    const auto layers = addLayerSnapshotsToCompositionArgs(refreshArgs, kCursorOnly);
     mCompositionEngine->updateCursorAsync(refreshArgs);
     moveSnapshotsFromCompositionArgs(refreshArgs, layers);
 }
@@ -8836,6 +8896,38 @@ std::shared_ptr<renderengine::ExternalTexture> SurfaceFlinger::getExternalTextur
     return nullptr;
 }
 
+void SurfaceFlinger::setVisibleRegionDirtyIfNeeded(
+        compositionengine::CompositionRefreshArgs& refreshArgs) {
+    if (mVisibleRegionsDirty) {
+        refreshArgs.updatingOutputGeometryThisFrame = mVisibleRegionsDirty;
+        refreshArgs.updatingGeometryThisFrame = mVisibleRegionsDirty;
+        return;
+    }
+
+    for (const auto& output : refreshArgs.outputs) {
+        if (!output->getState().isEnabled) {
+            continue;
+        }
+
+        for (const auto* outputLayer : output->getOutputLayersOrderedByZ()) {
+            if (outputLayer->getLayerFE().getCompositionState() == nullptr) {
+                // This is unexpected but instead of crashing, capture traces to disk
+                // and recover gracefully by forcing CE to rebuild layer stack.
+                ALOGE("Output layer %s for display %s %" PRIu64
+                      " has a null snapshot. Forcing mVisibleRegionsDirty",
+                      outputLayer->getLayerFE().getDebugName(), output->getName().c_str(),
+                      output->getDisplayId()->value);
+
+                TransactionTraceWriter::getInstance().invoke(__func__, /* overwrite= */ false);
+                mVisibleRegionsDirty = true;
+                refreshArgs.updatingOutputGeometryThisFrame = mVisibleRegionsDirty;
+                refreshArgs.updatingGeometryThisFrame = mVisibleRegionsDirty;
+                return;
+            }
+        }
+    }
+}
+
 void SurfaceFlinger::moveSnapshotsFromCompositionArgs(
         compositionengine::CompositionRefreshArgs& refreshArgs,
         const std::vector<std::pair<Layer*, LayerFE*>>& layers) {
@@ -8847,13 +8939,18 @@ void SurfaceFlinger::moveSnapshotsFromCompositionArgs(
     }
 }
 
-std::vector<std::pair<Layer*, LayerFE*>> SurfaceFlinger::moveSnapshotsToCompositionArgs(
+std::vector<std::pair<Layer*, LayerFE*>> SurfaceFlinger::addLayerSnapshotsToCompositionArgs(
         compositionengine::CompositionRefreshArgs& refreshArgs, bool cursorOnly) {
+    ui::DisplayVector<ui::LayerStack> expectedLayerStacks;
+    for (auto& output : refreshArgs.outputs) {
+        expectedLayerStacks.push_back(output->getState().layerFilter.layerStack);
+    }
+
     std::vector<std::pair<Layer*, LayerFE*>> layers;
     nsecs_t currentTime = systemTime();
     const bool needsMetadata = mCompositionEngine->getFeatureFlags().test(
             compositionengine::Feature::kSnapshotLayerMetadata);
-    mLayerSnapshotBuilder.forEachSnapshot(
+    mLayerSnapshotBuilder.forEachNonNullSnapshot(
             [&](std::unique_ptr<frontend::LayerSnapshot>& snapshot) FTL_FAKE_GUARD(
                     kMainThreadContext) {
                 if (cursorOnly &&
@@ -8863,6 +8960,11 @@ std::vector<std::pair<Layer*, LayerFE*>> SurfaceFlinger::moveSnapshotsToComposit
                 }
 
                 if (!snapshot->hasSomethingToDraw()) {
+                    return;
+                }
+
+                if (std::find(expectedLayerStacks.begin(), expectedLayerStacks.end(),
+                              snapshot->outputFilter.layerStack) == expectedLayerStacks.end()) {
                     return;
                 }
 
