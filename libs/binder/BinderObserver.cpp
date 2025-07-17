@@ -27,6 +27,10 @@ constexpr int kSendIntervalSec = 5;
 
 BinderObserver::CallInfo BinderObserver::onBeginTransaction(BBinder* binder, uint32_t code,
                                                             uid_t callingUid) {
+    if (!mConfig->isEnabled()) {
+        return {};
+    }
+
     // Sharding based on the pointer would be faster but would also increase the cardinality of
     // the different AIDLs that we report. Ideally, we want something stable within the
     // current boot session, so we use the interface descriptor.
@@ -34,21 +38,28 @@ BinderObserver::CallInfo BinderObserver::onBeginTransaction(BBinder* binder, uin
     String16 interfaceDescriptor =
             binder == nullptr ? kDeletedBinder : binder->getInterfaceDescriptor();
 
+    BinderObserverConfig::TrackingInfo trackingInfo =
+            mConfig->getTrackingInfo(interfaceDescriptor, code);
+
     return {
             .interfaceDescriptor = interfaceDescriptor,
             .code = code,
             .callingUid = callingUid,
-            .startTimeNanos = uptimeNanos(),
+            .trackingInfo = trackingInfo,
+            .startTimeNanos = trackingInfo.isTracked() ? uptimeNanos() : 0,
     };
 }
 
 void BinderObserver::onEndTransaction(const std::shared_ptr<BinderStatsSpscQueue>& queue,
                                       const CallInfo& callInfo) {
+    if (!mConfig->isEnabled() || !callInfo.trackingInfo.isTracked()) {
+        return;
+    }
     BinderCallData observerData = {
             .interfaceDescriptor = callInfo.interfaceDescriptor,
             .transactionCode = callInfo.code,
             .startTimeNanos = callInfo.startTimeNanos,
-            .endTimeNanos = uptimeNanos(),
+            .endTimeNanos = callInfo.trackingInfo.trackLatency ? uptimeNanos() : 0,
             .senderUid = callInfo.callingUid,
     };
     addStatMaybeFlush(queue, observerData);
