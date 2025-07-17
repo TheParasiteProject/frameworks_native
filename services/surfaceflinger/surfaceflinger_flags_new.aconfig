@@ -142,6 +142,16 @@ flag {
 } # disable_synthetic_vsync_for_performance
 
 flag {
+  name: "disable_transparent_region_hint"
+  namespace: "window_surfaces"
+  description: "Disable using transparent region hints when cropping layers"
+  bug: "428386342"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+} # disable_transparent_region_hint
+
+flag {
   name: "display_config_error_hal"
   namespace: "core_graphics"
   description: "Report HAL display configuration errors like modeset failure or link training failure"
