@@ -677,6 +677,10 @@ private:
             std::vector<std::variant<binder::unique_fd, binder::borrowed_fd>>&& ancillaryFds,
             release_func relFunc);
 
+    // This drops ownership of objects, as they are now taken by
+    // the remote object.
+    void rpcSend() const;
+
     status_t            finishWrite(size_t len);
     void                releaseObjects();
     void reacquireObjects(size_t objectSize);
@@ -1355,7 +1359,7 @@ private:
         RpcFields(const sp<RpcSession>& session);
 
         // Should always be non-null.
-        const sp<RpcSession> mSession;
+        sp<RpcSession> mSession;
 
         enum ObjectType : int32_t {
             TYPE_BINDER_NULL = 0,
@@ -1373,6 +1377,17 @@ private:
         //
         // Boxed to save space. Lazy allocated.
         std::unique_ptr<std::vector<std::variant<binder::unique_fd, binder::borrowed_fd>>> mFds;
+
+        enum class RpcSendState {
+            NOT_SENT, // this is a Parcel that is just constructed.
+            SENT,     // this Parcel has been sent over RPC binder.
+            RECEIVED, // this Parcel has been received over RPC binder.
+        };
+
+        // If this is NOT_SENT, then this object owns RPC resources and must clean them
+        // up. Otherwise, they must be acquired by the other side of the RPC
+        // connection.
+        mutable RpcSendState mSendState = RpcSendState::NOT_SENT;
     };
     std::variant<KernelFields, RpcFields> mVariantFields;
 

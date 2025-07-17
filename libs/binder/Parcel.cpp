@@ -260,7 +260,6 @@ status_t Parcel::flattenBinder(const sp<IBinder>& binder) {
             status_t status = writeInt32(RpcFields::TYPE_BINDER); // non-null
             if (status != OK) return status;
             uint64_t address;
-            // TODO(b/167966510): need to undo this if the Parcel is not sent
             status = rpcFields->mSession->state()->onBinderLeaving(rpcFields->mSession, binder,
                                                                    &address);
             if (status != OK) return status;
@@ -518,14 +517,24 @@ status_t Parcel::setData(const uint8_t* buffer, size_t len)
 }
 
 status_t Parcel::appendFrom(const Parcel* parcel, size_t offset, size_t len) {
+    // TODO: this method duplicates a lot of functionality from writeFileDescriptor and
+    // writeStrongBinder. Consider re-implementing this in terms of copying data, except
+    // at object offsets, where we write the object again.
+
     if (isForRpc() != parcel->isForRpc()) {
         ALOGE("Cannot append Parcel from one context to another. They may be different formats, "
               "and objects are specific to a context.");
         return BAD_TYPE;
     }
-    if (isForRpc() && maybeRpcFields()->mSession != parcel->maybeRpcFields()->mSession) {
-        ALOGE("Cannot append Parcels from different sessions");
-        return BAD_TYPE;
+    if (isForRpc()) {
+        if (maybeRpcFields()->mSession != parcel->maybeRpcFields()->mSession) {
+            ALOGE("Cannot append Parcels from different sessions");
+            return BAD_TYPE;
+        }
+        if (maybeRpcFields()->mSendState != RpcFields::RpcSendState::NOT_SENT) {
+            ALOGE("Can only build a Parcel when preparing to send it.");
+            return BAD_TYPE;
+        }
     }
 
     status_t err;
@@ -689,8 +698,42 @@ status_t Parcel::appendFrom(const Parcel* parcel, size_t offset, size_t len) {
                 if (status_t status = readInt32(&objectType); status != OK) {
                     return status;
                 }
-                if (objectType != RpcFields::TYPE_NATIVE_FILE_DESCRIPTOR) {
+
+                if (objectType == RpcFields::TYPE_BINDER) {
+                    uint64_t addr;
+                    if (status_t status = readUint64(&addr); status != OK) return status;
+
+                    sp<IBinder> binder = rpcFields->mSession->state()->lookupAddress(addr);
+                    if (binder == nullptr) {
+                        ALOGE("Invalid state could not find address: %" PRIu64
+                              ". Terminating!" PRIu64,
+                              addr);
+                        (void)rpcFields->mSession->shutdownAndWait(false);
+                        return BAD_VALUE;
+                    }
+
+                    uint64_t leavingAddress;
+                    if (status_t status =
+                                rpcFields->mSession->state()->onBinderLeaving(rpcFields->mSession,
+                                                                              binder,
+                                                                              &leavingAddress);
+                        status != OK) {
+                        return status;
+                    }
+
+                    if (addr != leavingAddress) {
+                        ALOGE("Inconsistent addresses: %" PRIu64 " vs %" PRIu64 ". Terminating!",
+                              addr, leavingAddress);
+                        (void)rpcFields->mSession->shutdownAndWait(false);
+                        return BAD_VALUE;
+                    }
+
                     continue;
+                }
+
+                if (objectType != RpcFields::TYPE_NATIVE_FILE_DESCRIPTOR) {
+                    ALOGE("RPC Binder does not support appending parcels with binders inside");
+                    return INVALID_OPERATION;
                 }
 
                 if (!mAllowFds) {
@@ -2917,6 +2960,17 @@ void Parcel::ipcSetDataReference(const uint8_t* data, size_t dataSize, const bin
 #endif // BINDER_WITH_KERNEL_IPC
 }
 
+void Parcel::rpcSend() const {
+    auto* rpcFields = maybeRpcFields();
+    // To support this, onBinderEntering needs to be re-run each time the Parcel is sent.
+    // Without this, objects would be freed too early, and it would cause the transaction to
+    // terminate. We are confident this is not needed though because hand-written interfaces
+    // won't typically work with RPC binder, and AIDL will never do this.
+    LOG_ALWAYS_FATAL_IF(rpcFields->mSendState != RpcFields::RpcSendState::NOT_SENT,
+                        "RPC Binder transactions can't be sent twice.");
+    rpcFields->mSendState = RpcFields::RpcSendState::SENT;
+}
+
 status_t Parcel::rpcSetDataReference(
         const sp<RpcSession>& session, const uint8_t* data, size_t dataSize,
         const uint32_t* objectTable, size_t objectTableSize,
@@ -2957,6 +3011,10 @@ status_t Parcel::rpcSetDataReference(
     mData = const_cast<uint8_t*>(data);
     mDataSize = mDataCapacity = dataSize;
     mOwner = relFunc;
+
+    LOG_ALWAYS_FATAL_IF(rpcFields->mSendState != RpcFields::RpcSendState::NOT_SENT,
+                        "RPC Binder transactions can't be sent twice.");
+    rpcFields->mSendState = RpcFields::RpcSendState::RECEIVED;
 
     rpcFields->mObjectPositions.reserve(objectTableSize);
     for (size_t i = 0; i < objectTableSize; i++) {
@@ -3002,6 +3060,7 @@ void Parcel::releaseObjects()
 {
     auto* kernelFields = maybeKernelFields();
     if (kernelFields == nullptr) {
+        truncateRpcObjects(0);
         return;
     }
 
@@ -3184,8 +3243,7 @@ status_t Parcel::restartWrite(size_t desired)
         kernelFields->mHasFds = false;
         kernelFields->mFdsKnown = true;
     } else if (auto* rpcFields = maybeRpcFields()) {
-        rpcFields->mObjectPositions.clear();
-        rpcFields->mFds.reset();
+        *rpcFields = RpcFields(rpcFields->mSession);
     }
     mAllowFds = true;
 
@@ -3423,6 +3481,37 @@ status_t Parcel::continueWrite(size_t desired)
 
 status_t Parcel::truncateRpcObjects(size_t newObjectsSize) {
     auto* rpcFields = maybeRpcFields();
+
+    switch (rpcFields->mSendState) {
+        case RpcFields::RpcSendState::NOT_SENT: {
+            for (size_t i = newObjectsSize; i < rpcFields->mObjectPositions.size(); i++) {
+                // this is only called during shutdown, position will be cleared
+                mDataPos = rpcFields->mObjectPositions[i];
+
+                int32_t objectType;
+                LOG_ALWAYS_FATAL_IF(OK != readInt32(&objectType),
+                                    "Inconsistent acquisition state.");
+                if (objectType != RpcFields::TYPE_BINDER) continue;
+                uint64_t addr;
+                LOG_ALWAYS_FATAL_IF(OK != readUint64(&addr), "Inconsistent acquisition state.");
+                if (status_t status =
+                            rpcFields->mSession->state()->cancelBinderLeaving(rpcFields->mSession,
+                                                                              addr);
+                    status != OK) {
+                    ALOGE("Unexpected failure releasing resources: %s",
+                          statusToString(status).c_str());
+                    (void)rpcFields->mSession->shutdownAndWait(false);
+                    return DEAD_OBJECT;
+                }
+            }
+        } break;
+        case RpcFields::RpcSendState::SENT:
+            break; // other side should handle it
+        case RpcFields::RpcSendState::RECEIVED:
+            // TODO(b/424526253): need to make sure all 'onBinderEntering' calls were made
+            break;
+    }
+
     if (newObjectsSize == 0) {
         rpcFields->mObjectPositions.clear();
         if (rpcFields->mFds) {
