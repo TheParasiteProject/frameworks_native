@@ -29,6 +29,7 @@
 #include "InputDispatcherPolicyInterface.h"
 #include "InputTarget.h"
 #include "InputThread.h"
+#include "InputTracingBackendInterface.h"
 #include "LatencyAggregator.h"
 #include "LatencyAggregatorWithHistograms.h"
 #include "LatencyTracker.h"
@@ -36,7 +37,6 @@
 #include "TouchState.h"
 #include "TouchedWindow.h"
 #include "trace/InputTracerInterface.h"
-#include "trace/InputTracingBackendInterface.h"
 
 #include <attestation/HmacKeyManager.h>
 #include <ftl/flags.h>
@@ -91,7 +91,8 @@ public:
     explicit InputDispatcher(InputDispatcherPolicyInterface& policy, JNIEnv* env);
     // Constructor used for testing.
     explicit InputDispatcher(InputDispatcherPolicyInterface&,
-                             std::unique_ptr<trace::InputTracingBackendInterface>, JNIEnv* env);
+                             std::unique_ptr<input_trace::InputTracingBackendInterface>,
+                             JNIEnv* env);
     ~InputDispatcher() override;
 
     void dump(std::string& dump) const override;
