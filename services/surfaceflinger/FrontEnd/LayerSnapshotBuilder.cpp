@@ -1042,7 +1042,10 @@ void LayerSnapshotBuilder::updateRoundedCorner(LayerSnapshot& snapshot,
     } else if (layerSettingsValid) {
         snapshot.roundedCorner = layerSettings;
     } else if (parentRoundedCornerValid) {
-        snapshot.roundedCorner = parentRoundedCorner;
+        if (doesChildOverlapParentCornerRegion(layerCropRect, parentRoundedCorner.cropRect,
+                                               parentRoundedCorner.requestedRadii)) {
+            snapshot.roundedCorner = parentRoundedCorner;
+        }
     }
 
     if (!clientDrawnRadii.isEmpty() &&
@@ -1055,6 +1058,35 @@ void LayerSnapshotBuilder::updateRoundedCorner(LayerSnapshot& snapshot,
     } else {
         snapshot.roundedCorner.radii = snapshot.roundedCorner.requestedRadii;
     }
+}
+
+bool LayerSnapshotBuilder::doesChildOverlapParentCornerRegion(const FloatRect& childCropRect,
+                                                              const FloatRect& parentCropRect,
+                                                              const gui::CornerRadii& parentRadii) {
+    if (childCropRect.isEmpty()) {
+        // If either child crop is empty then assume there is overlap
+        // so that child can inherit parent rounded corner state. Otherwise, the
+        // overlap computation will return false.
+        return true;
+    }
+    FloatRect parentCornerRegionTL(parentCropRect.left, parentCropRect.top,
+                                   parentCropRect.left + parentRadii.topLeft.x,
+                                   parentCropRect.top + parentRadii.topLeft.y);
+    FloatRect parentCornerRegionTR(parentCropRect.right - parentRadii.topRight.x,
+                                   parentCropRect.top, parentCropRect.right,
+                                   parentCropRect.top + parentRadii.topRight.y);
+    FloatRect parentCornerRegionBL(parentCropRect.left,
+                                   parentCropRect.bottom - parentRadii.bottomLeft.y,
+                                   parentCropRect.left + parentRadii.bottomLeft.x,
+                                   parentCropRect.bottom);
+    FloatRect parentCornerRegionBR(parentCropRect.right - parentRadii.bottomRight.x,
+                                   parentCropRect.bottom - parentRadii.bottomRight.y,
+                                   parentCropRect.right, parentCropRect.bottom);
+
+    return !childCropRect.intersect(parentCornerRegionTL).isEmpty() ||
+            !childCropRect.intersect(parentCornerRegionTR).isEmpty() ||
+            !childCropRect.intersect(parentCornerRegionBL).isEmpty() ||
+            !childCropRect.intersect(parentCornerRegionBR).isEmpty();
 }
 
 gui::CornerRadii LayerSnapshotBuilder::getClippedClientRadii(gui::CornerRadii requestedRadii,
