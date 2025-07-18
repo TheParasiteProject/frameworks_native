@@ -799,8 +799,8 @@ public:
 
         /**
          * Configures the relative importance of the contents of the layer with respect to the app's
-         * user experience. A lower priority value will give the layer preferred access to limited
-         * resources, such as picture processing, over a layer with a higher priority value.
+         * user experience. A higher priority value will give the layer preferred access to limited
+         * resources, such as picture processing, over a layer with a lower priority value.
          */
         Transaction& setContentPriority(const sp<SurfaceControl>& sc, int32_t contentPriority);
 
