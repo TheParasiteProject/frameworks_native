@@ -712,8 +712,9 @@ status_t RpcState::transactInternal(const sp<RpcSession::RpcConnection>& connect
         // executing.
         return drainCommands(connection, session, CommandType::CONTROL_ONLY);
     };
-    if (status_t status = rpcSend(connection, session, "transaction", iovs, countof(iovs),
-                                  std::ref(altPoll), rpcFields->mFds.get());
+    if (status_t status =
+                rpcSend(connection, session, "transaction", iovs, countof(iovs), std::ref(altPoll),
+                        rpcFields->mImpl ? &rpcFields->mImpl->mFds : nullptr);
         status != OK) {
         // rpcSend calls shutdownAndWait, so all refcounts should be reset. If we ever tolerate
         // errors here, then we may need to undo the binder-sent counts for the transaction as
@@ -1325,7 +1326,7 @@ processTransactInternalTailCall:
             objectTableSpan.toIovec(),
     };
     return rpcSend(connection, session, "reply", iovs, countof(iovs), std::nullopt,
-                   rpcFields->mFds.get());
+                   rpcFields->mImpl ? &rpcFields->mImpl->mFds : nullptr);
 }
 
 // THIS FUNCTION MUST SHUTDOWN IF IT ERRORS, ACCORDING TO processCommand.
@@ -1419,16 +1420,16 @@ status_t RpcState::validateParcel(const sp<RpcSession>& session, const Parcel& p
         return BAD_VALUE;
     }
 
-    if (rpcFields->mFds && !rpcFields->mFds->empty()) {
+    if (rpcFields->mImpl && !rpcFields->mImpl->mFds.empty()) {
         auto fileDescriptorTransportMode = session->getFileDescriptorTransportMode();
         size_t maxFdsPerMsg = getRpcTransportModeMaxFds(fileDescriptorTransportMode);
         if (RpcSession::FileDescriptorTransportMode::NONE == fileDescriptorTransportMode) {
             *errorMsg = "Parcel has file descriptors, but no file descriptor transport is enabled";
             return FDS_NOT_ALLOWED;
         }
-        if (rpcFields->mFds->size() > maxFdsPerMsg) {
+        if (rpcFields->mImpl->mFds.size() > maxFdsPerMsg) {
             *errorMsg = "Too many file descriptors in Parcel: ";
-            errorMsg->append(std::to_string(rpcFields->mFds->size()));
+            errorMsg->append(std::to_string(rpcFields->mImpl->mFds.size()));
             errorMsg->append(" (max is ");
             errorMsg->append(std::to_string(maxFdsPerMsg));
             errorMsg->append(")");

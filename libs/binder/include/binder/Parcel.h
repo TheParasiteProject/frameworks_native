@@ -1368,15 +1368,35 @@ private:
             TYPE_NATIVE_FILE_DESCRIPTOR = 2,
         };
 
-        // Sorted.
-        std::vector<uint32_t> mObjectPositions;
+        // Boxed to save space. Lazy allocated. Due to Parcel ABI restrictions.
+        struct Impl {
+            // File descriptors referenced by the parcel data. Should be indexed
+            // using the offsets in the parcel data. Don't assume the list is in the
+            // same order as `mObjectPositions`.
+            std::vector<std::variant<binder::unique_fd, binder::borrowed_fd>> mFds;
 
-        // File descriptors referenced by the parcel data. Should be indexed
-        // using the offsets in the parcel data. Don't assume the list is in the
-        // same order as `mObjectPositions`.
-        //
-        // Boxed to save space. Lazy allocated.
-        std::unique_ptr<std::vector<std::variant<binder::unique_fd, binder::borrowed_fd>>> mFds;
+            // Any binder written to a Parcel is automatically acquired. However, when
+            // you receive a binder, you have to acquire it.
+            //
+            // Before RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS:
+            // - binders are acquired the first time they are read
+            // - there may be leaks if an error happens before they are acquired
+            //
+            // After RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS
+            // - binders are acquired in rpcSetDataReference
+            //
+            // In either case, the first time a binder object is read, it is acquired
+            // into this list, and after that point, it is pulled from this list.
+            //
+            // object position -> binder
+            mutable std::map<uint32_t, sp<IBinder>> mAcquiredEnteringBinders;
+        };
+        const Impl& maybeMakeImpl() const {
+            if (mImpl == nullptr) {
+                mImpl = std::make_unique<Impl>();
+            }
+            return *mImpl;
+        }
 
         enum class RpcSendState {
             NOT_SENT, // this is a Parcel that is just constructed.
@@ -1384,6 +1404,10 @@ private:
             RECEIVED, // this Parcel has been received over RPC binder.
         };
 
+        // Layout below
+
+        std::vector<uint32_t> mObjectPositions; // Sorted
+        mutable std::unique_ptr<Impl> mImpl;
         // If this is NOT_SENT, then this object owns RPC resources and must clean them
         // up. Otherwise, they must be acquired by the other side of the RPC
         // connection.
