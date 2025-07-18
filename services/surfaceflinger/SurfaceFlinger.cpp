@@ -940,6 +940,7 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
     ALOGI("SurfaceFlinger's main thread ready to run. "
           "Initializing graphics H/W...");
     addTransactionReadyFilters();
+    mTransactionHandler.setTransactionBarrierTtl(std::chrono::seconds(5));
     Mutex::Autolock lock(mStateLock);
 
     // Get a RenderEngine for the given display / config (can't fail)
@@ -5106,6 +5107,9 @@ void SurfaceFlinger::addTransactionReadyFilters() {
             std::bind(&SurfaceFlinger::transactionReadyTimelineCheck, this, std::placeholders::_1));
     mTransactionHandler.addTransactionReadyFilter(
             std::bind(&SurfaceFlinger::transactionReadyBufferCheck, this, std::placeholders::_1));
+    mTransactionHandler.addTransactionReadyFilter(
+            std::bind(&TransactionHandler::isBarrierSignalledOrExpired, &mTransactionHandler,
+                      std::placeholders::_1));
 }
 
 // For tests only
