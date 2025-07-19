@@ -1990,7 +1990,7 @@ SurfaceComposerClient::Transaction& SurfaceComposerClient::Transaction::setInput
         mStatus = BAD_INDEX;
         return *this;
     }
-    s->updateInputWindowInfo(std::move(info));
+    s->updateInputWindowInfo(*info->getInfo());
     return *this;
 }
 

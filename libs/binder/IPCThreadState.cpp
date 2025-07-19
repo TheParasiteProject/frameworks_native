@@ -36,11 +36,9 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include "BinderObserver.h"
 #include "Utils.h"
 #include "binder_module.h"
-#include "BinderObserver.h"
-#include "BinderStatsSpscQueue.h"
-#include "BinderStatsUtils.h"
 
 #if (defined(__ANDROID__) || defined(__Fuchsia__)) && !defined(BINDER_WITH_KERNEL_IPC)
 #error Android and Fuchsia are expected to have BINDER_WITH_KERNEL_IPC
@@ -1076,15 +1074,14 @@ IPCThreadState::IPCThreadState()
     mIn.setDataCapacity(256);
     mOut.setDataCapacity(256);
 #ifdef BINDER_WITH_OBSERVERS
-    mBinderStatsQueue = std::make_shared<BinderStatsSpscQueue>();
-    ProcessState::self()->mBinderObserver->registerQueue(mBinderStatsQueue);
+    mBinderStatsQueue = mProcess->mBinderObserver->registerThread();
 #endif
 }
 
 IPCThreadState::~IPCThreadState()
 {
 #ifdef BINDER_WITH_OBSERVERS
-    ProcessState::self()->mBinderObserver->deregisterQueue(mBinderStatsQueue);
+    mProcess->mBinderObserver->deregisterThread(mBinderStatsQueue);
 #endif
 }
 
@@ -1508,49 +1505,22 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
                 std::string message = logStream.str();
                 ALOGI("%s", message.c_str());
             }
-#ifdef BINDER_WITH_OBSERVERS
-            int64_t startTimeNanos = uptimeNanos();
-            String16 interfaceDescriptor;
-            // TODO (b/299356196): collect aidl method name. Ensure this is performant.
-#endif
             if (tr.target.ptr) {
                 // We only have a weak reference on the target object, so we must first try to
                 // safely acquire a strong reference before doing anything else with it.
                 if (reinterpret_cast<RefBase::weakref_type*>(tr.target.ptr)
                             ->attemptIncStrong(this)) {
-                    error = reinterpret_cast<BBinder*>(tr.cookie)->transact(tr.code, buffer, &reply,
-                                                                            tr.flags);
-#ifdef BINDER_WITH_OBSERVERS
-                    interfaceDescriptor =
-                            reinterpret_cast<BBinder*>(tr.cookie)->getInterfaceDescriptor();
-#endif
-                    reinterpret_cast<BBinder*>(tr.cookie)->decStrong(this);
+                    BBinder* binder = reinterpret_cast<BBinder*>(tr.cookie);
+                    error = doTransactBinder(binder, tr.code, buffer, &reply, tr.flags);
+                    binder->decStrong(this);
                 } else {
-                    error = UNKNOWN_TRANSACTION;
-#ifdef BINDER_WITH_OBSERVERS
-                    [[clang::no_destroy]] static StaticString16 kDeletedBinder(u"<deleted_binder>");
-                    interfaceDescriptor = kDeletedBinder;
-#endif
+                    error = doTransactBinder(nullptr, tr.code, buffer, &reply, tr.flags);
                 }
-
             } else {
-                error = the_context_object->transact(tr.code, buffer, &reply, tr.flags);
-#ifdef BINDER_WITH_OBSERVERS
-                interfaceDescriptor = the_context_object->getInterfaceDescriptor();
-#endif
+                BBinder* binder = the_context_object.get();
+                error = doTransactBinder(binder, tr.code, buffer, &reply, tr.flags);
             }
-#ifdef BINDER_WITH_OBSERVERS
-            int64_t endTimeNanos = uptimeNanos();
-            BinderCallData observerData = {
-                    .interfaceDescriptor = interfaceDescriptor,
-                    .transactionCode = tr.code,
-                    .startTimeNanos = startTimeNanos,
-                    .endTimeNanos = endTimeNanos,
-                    .senderUid = tr.sender_euid,
-            };
-            ProcessState::self()->mBinderObserver->addStatMaybeFlush(mBinderStatsQueue,
-                                                                     observerData);
-#endif
+
             //ALOGI("<<<< TRANSACT from pid %d restore pid %d sid %s uid %d\n",
             //     mCallingPid, origPid, (origSid ? origSid : "<N/A>"), origUid);
 
@@ -1679,6 +1649,20 @@ status_t IPCThreadState::executeCommand(int32_t cmd)
     }
 
     return result;
+}
+
+status_t IPCThreadState::doTransactBinder(BBinder* binder, uint32_t code, const Parcel& data,
+                                          Parcel* reply, uint32_t flags) {
+#ifdef BINDER_WITH_OBSERVERS
+    BinderObserver::CallInfo callInfo =
+            mProcess->mBinderObserver->onBeginTransaction(binder, code, mCallingUid);
+#endif
+    status_t error =
+            binder != nullptr ? binder->transact(code, data, reply, flags) : UNKNOWN_TRANSACTION;
+#ifdef BINDER_WITH_OBSERVERS
+    mProcess->mBinderObserver->onEndTransaction(mBinderStatsQueue, callInfo);
+#endif
+    return error;
 }
 
 const void* IPCThreadState::getServingStackPointer() const {
