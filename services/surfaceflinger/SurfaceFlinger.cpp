@@ -100,6 +100,7 @@
 #include <ui/GraphicBufferAllocator.h>
 #include <ui/HdrRenderTypeUtils.h>
 #include <ui/LayerStack.h>
+#include <ui/OutputType.h>
 #include <ui/PixelFormat.h>
 #include <ui/StaticDisplayInfo.h>
 #include <unistd.h>
@@ -270,11 +271,14 @@ bool isAbove4k30(const ui::DisplayMode& outMode) {
             outMode.resolution.getHeight() >= FOUR_K_HEIGHT && refreshRate > 30_Hz;
 }
 
+bool contains(const std::vector<ui::Hdr>& displayHdrTypes, ui::Hdr hdrType) {
+    return std::find(displayHdrTypes.begin(), displayHdrTypes.end(), hdrType) !=
+            displayHdrTypes.end();
+}
+
 void excludeDolbyVisionIf4k30Present(const std::vector<ui::Hdr>& displayHdrTypes,
                                      ui::DisplayMode& outMode) {
-    if (isAbove4k30(outMode) &&
-        std::any_of(displayHdrTypes.begin(), displayHdrTypes.end(),
-                    [](ui::Hdr type) { return type == ui::Hdr::DOLBY_VISION_4K30; })) {
+    if (isAbove4k30(outMode) && contains(displayHdrTypes, ui::Hdr::DOLBY_VISION_4K30)) {
         for (ui::Hdr type : displayHdrTypes) {
             if (type != ui::Hdr::DOLBY_VISION_4K30 && type != ui::Hdr::DOLBY_VISION) {
                 outMode.supportedHdrTypes.push_back(type);
@@ -286,6 +290,23 @@ void excludeDolbyVisionIf4k30Present(const std::vector<ui::Hdr>& displayHdrTypes
                 outMode.supportedHdrTypes.push_back(type);
             }
         }
+    }
+}
+
+void filterHdrTypes(const std::vector<ui::Hdr>& displayHdrTypes, ui::DisplayMode& outMode) {
+    // Filter supported hdr types to match the mode's output type
+    switch (outMode.outputType) {
+        case ui::OutputType::OUTPUT_TYPE_INVALID:
+        case ui::OutputType::OUTPUT_TYPE_SYSTEM:
+            excludeDolbyVisionIf4k30Present(displayHdrTypes, outMode);
+            break;
+        case ui::OutputType::OUTPUT_TYPE_HDR10:
+            if (contains(displayHdrTypes, ui::Hdr::HDR10))
+                outMode.supportedHdrTypes.push_back(ui::Hdr::HDR10);
+            break;
+        case ui::OutputType::OUTPUT_TYPE_SDR:
+            outMode.supportedHdrTypes.clear();
+            break;
     }
 }
 
@@ -919,6 +940,7 @@ void SurfaceFlinger::init() FTL_FAKE_GUARD(kMainThreadContext) {
     ALOGI("SurfaceFlinger's main thread ready to run. "
           "Initializing graphics H/W...");
     addTransactionReadyFilters();
+    mTransactionHandler.setTransactionBarrierTtl(std::chrono::seconds(5));
     Mutex::Autolock lock(mStateLock);
 
     // Get a RenderEngine for the given display / config (can't fail)
@@ -1274,8 +1296,12 @@ void SurfaceFlinger::getDynamicDisplayInfoInternal(ui::DynamicDisplayInfo*& info
                 scheduler::Scheduler::getPresentationDeadline(peakFps,
                                                               Duration::fromNs(
                                                                       outMode.sfVsyncOffset));
-        excludeDolbyVisionIf4k30Present(display->getHdrCapabilities().getSupportedHdrTypes(),
-                                        outMode);
+        if (FlagManager::getInstance().connected_display_hdr_v2()) {
+            filterHdrTypes(display->getHdrCapabilities().getSupportedHdrTypes(), outMode);
+        } else {
+            excludeDolbyVisionIf4k30Present(display->getHdrCapabilities().getSupportedHdrTypes(),
+                                            outMode);
+        }
         info->supportedDisplayModes.push_back(outMode);
     }
 
@@ -5081,6 +5107,9 @@ void SurfaceFlinger::addTransactionReadyFilters() {
             std::bind(&SurfaceFlinger::transactionReadyTimelineCheck, this, std::placeholders::_1));
     mTransactionHandler.addTransactionReadyFilter(
             std::bind(&SurfaceFlinger::transactionReadyBufferCheck, this, std::placeholders::_1));
+    mTransactionHandler.addTransactionReadyFilter(
+            std::bind(&TransactionHandler::isBarrierSignalledOrExpired, &mTransactionHandler,
+                      std::placeholders::_1));
 }
 
 // For tests only
