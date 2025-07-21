@@ -930,11 +930,30 @@ void Scheduler::setLayerProperties(int32_t id, const android::scheduler::LayerPr
     mLayerHistory.setLayerProperties(id, properties);
 }
 
+bool Scheduler::canAnySelectorSwitch() const {
+    std::scoped_lock lock(mDisplayLock);
+    ftl::FakeGuard guard(kMainThreadContext);
+
+    bool canAnySelectorSwitch = false;
+    for (const auto& [_, display] : mDisplays) {
+        if (display.powerMode != hal::PowerMode::ON) {
+            continue;
+        }
+        if (display.selectorPtr->canSwitch()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Scheduler::chooseRefreshRateForContent(
         const surfaceflinger::frontend::LayerHierarchy* hierarchy,
         bool updateAttachedChoreographer) {
-    const auto selectorPtr = pacesetterSelectorPtr();
-    if (!selectorPtr->canSwitch()) return;
+    const bool canSwitch = FlagManager::getInstance().follower_arbitrary_refresh_rate_selection()
+            ? canAnySelectorSwitch()
+            : pacesetterSelectorPtr()->canSwitch();
+
+    if (!canSwitch) return;
 
     SFTRACE_CALL();
 
