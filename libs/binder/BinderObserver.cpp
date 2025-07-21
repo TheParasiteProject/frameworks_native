@@ -24,36 +24,6 @@
 
 namespace android {
 constexpr int kSendIntervalSec = 5;
-
-BinderObserver::CallInfo BinderObserver::onBeginTransaction(BBinder* binder, uint32_t code,
-                                                            uid_t callingUid) {
-    // Sharding based on the pointer would be faster but would also increase the cardinality of
-    // the different AIDLs that we report. Ideally, we want something stable within the
-    // current boot session, so we use the interface descriptor.
-    [[clang::no_destroy]] static const StaticString16 kDeletedBinder(u"<deleted_binder>");
-    String16 interfaceDescriptor =
-            binder == nullptr ? kDeletedBinder : binder->getInterfaceDescriptor();
-
-    return {
-            .interfaceDescriptor = interfaceDescriptor,
-            .code = code,
-            .callingUid = callingUid,
-            .startTimeNanos = uptimeNanos(),
-    };
-}
-
-void BinderObserver::onEndTransaction(const std::shared_ptr<BinderStatsSpscQueue>& queue,
-                                      const CallInfo& callInfo) {
-    BinderCallData observerData = {
-            .interfaceDescriptor = callInfo.interfaceDescriptor,
-            .transactionCode = callInfo.code,
-            .startTimeNanos = callInfo.startTimeNanos,
-            .endTimeNanos = uptimeNanos(),
-            .senderUid = callInfo.callingUid,
-    };
-    addStatMaybeFlush(queue, observerData);
-}
-
 bool BinderObserver::isFlushRequired(int64_t nowSec) {
     int64_t previousFlushTimeSec = mLastFlushTimeSec.load();
     return nowSec - previousFlushTimeSec >= kSendIntervalSec;
