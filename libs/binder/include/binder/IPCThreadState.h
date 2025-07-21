@@ -223,9 +223,6 @@ private:
                                                 status_t* statusBuffer);
     [[nodiscard]] status_t getAndExecuteCommand();
     [[nodiscard]] status_t executeCommand(int32_t command);
-    [[nodiscard]] status_t doTransactBinder(BBinder* binder, uint32_t code, const Parcel& data,
-                                            Parcel* reply, uint32_t flags);
-
     void processPendingDerefs();
     void processPostWriteDerefs();
 

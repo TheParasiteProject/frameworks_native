@@ -98,9 +98,6 @@
     },
     {
       "name": "binderStatsPusherUnitTest"
-    },
-    {
-      "name": "binderObserverConfigUnitTest"
     }
   ],
   "presubmit-large": [
