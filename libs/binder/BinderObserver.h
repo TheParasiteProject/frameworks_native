@@ -15,14 +15,10 @@
  */
 #pragma once
 
-#include <binder/Binder.h>
 #include <mutex>
-
-#include "BinderObserverConfig.h"
 #include "BinderStatsPusher.h"
 #include "BinderStatsSpscQueue.h"
 #include "BinderStatsUtils.h"
-#include "binder_module.h"
 
 namespace android {
 
@@ -52,24 +48,15 @@ public:
         String16 interfaceDescriptor;
         uint32_t code;
         uid_t callingUid;
-        BinderObserverConfig::TrackingInfo trackingInfo;
         int64_t startTimeNanos;
     };
 
     std::shared_ptr<BinderStatsSpscQueue> registerThread() {
-        if (!mConfig->isEnabled()) {
-            return nullptr;
-        }
         std::shared_ptr<BinderStatsSpscQueue> queue = std::make_shared<BinderStatsSpscQueue>();
         mBinderStatsCollector.registerQueue(queue);
         return queue;
     }
     void deregisterThread(std::shared_ptr<BinderStatsSpscQueue>& queue) {
-        if (!mConfig->isEnabled()) {
-            LOG_ALWAYS_FATAL_IF(queue != nullptr,
-                                "Non-null queue when BinderObserver is disabled.");
-            return;
-        }
         mBinderStatsCollector.deregisterQueue(queue);
     }
     CallInfo onBeginTransaction(BBinder* binder, uint32_t code, uid_t callingUid);
@@ -82,8 +69,6 @@ private:
                            const BinderCallData& stat);
     void flushStats(int64_t nowMillis);
     bool isFlushRequired(int64_t nowMillis);
-
-    std::unique_ptr<BinderObserverConfig> mConfig = BinderObserverConfig::createConfig();
     // Time since last flush time. Used to trigger a flush if more than kSendTimeoutSec
     // has elapsed since last flush.
     std::atomic<int64_t> mLastFlushTimeSec;
