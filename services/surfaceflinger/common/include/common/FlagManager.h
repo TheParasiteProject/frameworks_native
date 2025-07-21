@@ -61,6 +61,7 @@ public:
     bool connected_displays_cursor() const;
     bool correct_virtual_display_power_state() const;
     bool disable_transparent_region_hint() const;
+    bool filter_refresh_rates_within_config_group() const;
     bool frontend_caching_v0() const;
     bool graphite_renderengine_preview_rollout() const;
     bool increase_missed_frame_jank_threshold() const;

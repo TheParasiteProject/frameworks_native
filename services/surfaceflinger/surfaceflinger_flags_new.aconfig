@@ -152,6 +152,24 @@ flag {
 } # disable_transparent_region_hint
 
 flag {
+  name: "display_config_error_hal"
+  namespace: "core_graphics"
+  description: "Report HAL display configuration errors like modeset failure or link training failure"
+  bug: "374184110"
+  is_fixed_read_only: true
+} # display_config_error_hal
+
+flag {
+  name: "filter_refresh_rates_within_config_group"
+  namespace: "core_graphics"
+  description: "Filter refresh rates within a config group"
+  bug: "415374829"
+  metadata {
+    purpose: PURPOSE_BUGFIX
+  }
+} # filter_refresh_rates_within_config_group
+
+flag {
   name: "flush_buffer_slots_to_uncache"
   namespace: "core_graphics"
   description: "Flush DisplayCommands for disabled displays in order to uncache requested buffers."
