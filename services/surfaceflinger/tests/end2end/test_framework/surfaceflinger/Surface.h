@@ -35,6 +35,7 @@
 
 #include "test_framework/core/BufferId.h"
 #include "test_framework/surfaceflinger/events/BufferReleased.h"
+#include "test_framework/surfaceflinger/events/TransactionCommitted.h"
 #include "test_framework/surfaceflinger/events/TransactionCompleted.h"
 #include "test_framework/surfaceflinger/events/TransactionInitiated.h"
 
@@ -67,6 +68,9 @@ class Surface final : public std::enable_shared_from_this<Surface> {
         // Sent when a buffer release event was received for the surface.
         events::BufferReleased::AsyncConnector onBufferReleased;
 
+        // Sent when a transaction commit event is received for the surface.
+        events::TransactionCommitted::AsyncConnector onTransactionCommitted;
+
         // Sent when a transaction complete event is received for the surface.
         events::TransactionCompleted::AsyncConnector onTransactionCompleted;
     };
@@ -90,9 +94,11 @@ class Surface final : public std::enable_shared_from_this<Surface> {
     void commitBufferInternal(
             uint64_t frameNumber, const sp<GraphicBuffer>& buffer,
             ReleaseBufferCallback releaseCallback,
+            TransactionCompletedCallbackTakesContext transactionCommittedCallback,
             TransactionCompletedCallbackTakesContext transactionCompletedCallback);
 
     void onBufferRelease(uint64_t frameNumber, sp<GraphicBuffer> buffer, core::BufferId bufferId);
+    void onTransactionCommitted(uint64_t frameNumber, core::BufferId bufferId, Timestamp latchTime);
     void onTransactionCompleted(uint64_t frameNumber, core::BufferId bufferId, Timestamp latchTime);
     void ensureCallbacksCompletedBeforeShutdown();
 

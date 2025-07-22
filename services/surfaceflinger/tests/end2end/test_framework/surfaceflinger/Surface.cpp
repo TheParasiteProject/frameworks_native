@@ -45,6 +45,7 @@
 #include "test_framework/surfaceflinger/SimpleBufferPool.h"
 #include "test_framework/surfaceflinger/Surface.h"
 #include "test_framework/surfaceflinger/events/BufferReleased.h"
+#include "test_framework/surfaceflinger/events/TransactionCommitted.h"
 #include "test_framework/surfaceflinger/events/TransactionCompleted.h"
 #include "test_framework/surfaceflinger/events/TransactionInitiated.h"
 
@@ -70,8 +71,8 @@ Surface::Surface(Passkey passkey) {
     ftl::ignore(passkey);
 }
 
-auto Surface::init(const sp<SurfaceComposerClient>& flinger,
-                   const Surface::CreationArgs& args) -> base::expected<void, std::string> {
+auto Surface::init(const sp<SurfaceComposerClient>& flinger, const Surface::CreationArgs& args)
+        -> base::expected<void, std::string> {
     using namespace std::string_literals;
 
     constexpr auto kFlags = gui::ISurfaceComposerClient::eOpaque;
@@ -121,6 +122,7 @@ auto Surface::commitNextBuffer() -> uint64_t {
 
     commitBufferInternal(
             frameNumber, buffer,
+            /* buffer release */
             [weak = weak_from_this(), buffer, bufferId, frameNumber](
                     const ReleaseCallbackId& callbackId, const sp<Fence>& releaseFence,
                     std::optional<uint32_t> currentMaxAcquiredBufferCount) {
@@ -131,6 +133,19 @@ auto Surface::commitNextBuffer() -> uint64_t {
                     LOG(DEBUG) << "Target surface for buffer release callback is dead";
                 }
             },
+            /* committed */
+            [weak = weak_from_this(), frameNumber, bufferId](
+                    void* context, nsecs_t latchTime, const sp<Fence>& presentFence,
+                    const std::vector<SurfaceControlStats>& stats) {
+                ftl::ignore(context, presentFence, stats);
+                if (auto self = weak.lock()) {
+                    const auto timestamp = Timestamp(std::chrono::nanoseconds(latchTime));
+                    self->onTransactionCommitted(frameNumber, bufferId, timestamp);
+                } else {
+                    LOG(DEBUG) << "Target surface for transaction committed callback is dead.";
+                }
+            },
+            /* completed */
             [weak = weak_from_this(), frameNumber, bufferId](
                     void* context, nsecs_t latchTime, const sp<Fence>& presentFence,
                     const std::vector<SurfaceControlStats>& stats) {
@@ -155,6 +170,7 @@ auto Surface::commitNextBuffer() -> uint64_t {
 void Surface::commitBufferInternal(
         uint64_t frameNumber, const sp<GraphicBuffer>& buffer,
         ReleaseBufferCallback releaseCallback,
+        TransactionCompletedCallbackTakesContext transactionCommittedCallback,
         TransactionCompletedCallbackTakesContext transactionCompletedCallback) {
     SurfaceComposerClient::Transaction transaction;
 
@@ -165,6 +181,8 @@ void Surface::commitBufferInternal(
     constexpr int producerId = 0;
     transaction.setBuffer(mSurfaceControl, buffer, fence, frameNumber, producerId,
                           std::move(releaseCallback));
+
+    transaction.addTransactionCommittedCallback(std::move(transactionCommittedCallback), nullptr);
 
     // Note: transaction.setBuffer() internally and unconditionally sets a no-op transaction
     // completion callback. We must set ours AFTER that call, not before.
@@ -182,6 +200,18 @@ void Surface::onBufferRelease(uint64_t frameNumber, sp<GraphicBuffer> buffer,
             .surface = this,
             .frameNumber = frameNumber,
             .bufferId = bufferId,
+    });
+}
+
+void Surface::onTransactionCommitted(uint64_t frameNumber, core::BufferId bufferId,
+                                     Timestamp latchTime) {
+    LOG(VERBOSE) << __func__ << " framenumber " << frameNumber << " latchTime "
+                 << latchTime.time_since_epoch();
+    mCallbacks.onTransactionCommitted(events::TransactionCommitted{
+            .surface = this,
+            .frameNumber = frameNumber,
+            .bufferId = bufferId,
+            .latchTime = latchTime,
     });
 }
 
@@ -233,6 +263,11 @@ void Surface::ensureCallbacksCompletedBeforeShutdown() {
                 ftl::ignore(callbackId, releaseFence, currentMaxAcquiredBufferCount);
                 // Note: We don't signal a promise as this doesn't actually seem to be invoked by
                 // the next transaction!
+            },
+            [](void* context, nsecs_t latchTime, const sp<Fence>& presentFence,
+               const std::vector<SurfaceControlStats>& stats) {
+                ftl::ignore(context, latchTime, presentFence, stats);
+                LOG(VERBOSE) << "first cleanup transaction committed";
             },
             [&firstTransactionPromise](void* context, nsecs_t latchTime,
                                        const sp<Fence>& presentFence,
