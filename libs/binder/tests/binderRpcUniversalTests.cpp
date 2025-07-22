@@ -583,4 +583,27 @@ TEST_P(BinderRpc, AidlDelegatorTest) {
     EXPECT_EQ("cool cool ", doubled);
 }
 
+TEST_P(BinderRpc, WriteReadLocalRpcBinder) {
+    auto proc = createRpcTestSocketServerProcess({});
+    const bool binderInObjects = proc.proc->sessions.at(0).session->getProtocolVersion() >=
+            RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS;
+
+    sp<IBinder> b = sp<BBinder>::make();
+    Parcel p;
+    p.markForRpc(proc.proc->sessions[0].session);
+
+    EXPECT_EQ(OK, p.writeStrongBinder(b));
+
+    p.setDataPosition(0);
+
+    sp<IBinder> b2;
+    EXPECT_EQ(OK, p.readStrongBinder(&b2));
+    EXPECT_NE(b2, nullptr);
+    EXPECT_EQ(b, b2);
+    if (!binderInObjects) {
+        // the old protocol will leak the binder object in this case
+        proc.forceShutdown();
+    }
+}
+
 } // namespace android

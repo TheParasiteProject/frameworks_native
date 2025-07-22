@@ -381,19 +381,29 @@ status_t Parcel::unflattenBinder(sp<IBinder>* out) const
             if (status_t status = readUint64(&addr); status != OK) return status;
 
             if (binder == nullptr) {
-                if (status_t status =
-                            rpcFields->mSession->state()->onBinderEntering(rpcFields->mSession,
-                                                                           addr, &binder);
-                    status != OK)
-                    return status;
+                if (rpcFields->mSendState == RpcFields::RpcSendState::RECEIVED) {
+                    if (status_t status =
+                                rpcFields->mSession->state()->onBinderEntering(rpcFields->mSession,
+                                                                               addr, &binder);
+                        status != OK)
+                        return status;
 
-                acquiredEnteringBinders[objectPos] = binder;
+                    acquiredEnteringBinders[objectPos] = binder;
 
-                if (status_t status =
-                            rpcFields->mSession->state()->flushExcessBinderRefs(rpcFields->mSession,
-                                                                                addr, binder);
-                    status != OK) {
-                    return status;
+                    if (status_t status =
+                                rpcFields->mSession->state()
+                                        ->flushExcessBinderRefs(rpcFields->mSession, addr, binder);
+                        status != OK) {
+                        return status;
+                    }
+                } else {
+                    binder = rpcFields->mSession->state()->lookupAddress(addr);
+                    if (binder == nullptr) {
+                        ALOGE("Failed to lookup binder with address %" PRIu64
+                              " while not in the RECEIVED send state",
+                              addr);
+                        return BAD_VALUE;
+                    }
                 }
             }
         }
