@@ -316,7 +316,14 @@ void SkiaRenderEngine::setEnableTracing(bool tracingEnabled) {
 SkiaRenderEngine::SkiaRenderEngine(Threaded threaded, PixelFormat pixelFormat,
                                    BlurAlgorithm blurAlgorithm)
       : RenderEngine(threaded), mDefaultPixelFormat(pixelFormat) {
+    // Note: do not introduce further switching on flags here, or within individual blur filters.
+    // BlurAlgorithm should be the only determining factor.
     switch (blurAlgorithm) {
+        case BlurAlgorithm::None: {
+            ALOGD("Background Blurs Disabled");
+            mBlurFilter = nullptr;
+            break;
+        }
         case BlurAlgorithm::Gaussian: {
             ALOGD("Background Blurs Enabled (Gaussian algorithm)");
             mBlurFilter = new GaussianBlurFilter(mRuntimeEffectManager);
@@ -329,15 +336,12 @@ SkiaRenderEngine::SkiaRenderEngine(Threaded threaded, PixelFormat pixelFormat,
         }
         case BlurAlgorithm::KawaseDualFilter: {
             ALOGD("Background Blurs Enabled (Kawase dual-filtering algorithm)");
-            if (FlagManager::getInstance().window_blur_kawase2_fix_aliasing()) {
-                mBlurFilter = new KawaseBlurDualFilterV2(mRuntimeEffectManager);
-            } else {
-                mBlurFilter = new KawaseBlurDualFilter(mRuntimeEffectManager);
-            }
+            mBlurFilter = new KawaseBlurDualFilter(mRuntimeEffectManager);
             break;
         }
-        default: {
-            mBlurFilter = nullptr;
+        case BlurAlgorithm::KawaseDualFilterV2: {
+            ALOGD("Background Blurs Enabled (Kawase dual-filtering V2 algorithm)");
+            mBlurFilter = new KawaseBlurDualFilterV2(mRuntimeEffectManager);
             break;
         }
     }

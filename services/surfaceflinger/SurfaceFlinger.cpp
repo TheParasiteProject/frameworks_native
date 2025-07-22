@@ -923,13 +923,19 @@ renderengine::RenderEngine::BlurAlgorithm chooseBlurAlgorithm(bool supportsBlur)
     auto const algorithm = base::GetProperty(PROPERTY_DEBUG_RENDERENGINE_BLUR_ALGORITHM, "");
     if (algorithm == "gaussian") {
         return renderengine::RenderEngine::BlurAlgorithm::Gaussian;
-    } else if (algorithm == "kawase2") {
-        return renderengine::RenderEngine::BlurAlgorithm::KawaseDualFilter;
     } else if (algorithm == "kawase") {
         return renderengine::RenderEngine::BlurAlgorithm::Kawase;
+    } else if (algorithm == "kawase2") {
+        return renderengine::RenderEngine::BlurAlgorithm::KawaseDualFilter;
+    } else if (algorithm == "kawase2_fix_aliasing") {
+        return renderengine::RenderEngine::BlurAlgorithm::KawaseDualFilterV2;
     } else {
         if (FlagManager::getInstance().window_blur_kawase2()) {
-            return renderengine::RenderEngine::BlurAlgorithm::KawaseDualFilter;
+            if (FlagManager::getInstance().window_blur_kawase2_fix_aliasing()) {
+                return renderengine::RenderEngine::BlurAlgorithm::KawaseDualFilterV2;
+            } else {
+                return renderengine::RenderEngine::BlurAlgorithm::KawaseDualFilter;
+            }
         }
         return renderengine::RenderEngine::BlurAlgorithm::Kawase;
     }
