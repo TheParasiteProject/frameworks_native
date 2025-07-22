@@ -53,6 +53,7 @@ public:
     /// Trunk stable server (R/W) flags ///
     /// IMPORTANT - please keep alphabetize to reduce merge conflicts
     bool add_first_vsync_to_tracker() const;
+    bool anchor_list() const;
     bool adpf_gpu_sf() const;
     bool adpf_native_session_manager() const;
     bool adpf_use_fmq_channel_fixed() const;
