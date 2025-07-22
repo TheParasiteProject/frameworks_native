@@ -797,8 +797,6 @@ TEST_F(SchedulerTest, onFrameSignalMultipleDisplays) {
 }
 
 TEST_F(SchedulerTest, nextFrameIntervalTest) {
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
-
     static constexpr size_t kHistorySize = 10;
     static constexpr size_t kMinimumSamplesForPrediction = 6;
     static constexpr size_t kOutlierTolerancePercent = 25;

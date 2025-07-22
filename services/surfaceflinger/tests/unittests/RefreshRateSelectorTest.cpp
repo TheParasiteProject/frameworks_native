@@ -1582,7 +1582,6 @@ TEST_P(RefreshRateSelectorTest, getBestFrameRateMode_withFrameRateCategory_120_v
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     // Device with VRR config mode
     auto selector = createSelector(kVrrMode_120, kModeId120);
 
@@ -1810,8 +1809,6 @@ TEST_P(RefreshRateSelectorTest, getBestFrameRateMode_vrrHighHintTouch_primaryRan
     if (!enableFrameRateOverride) {
         return;
     }
-
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
 
     auto selector = createSelector(kVrrMode_120, kModeId120);
     selector.setActiveMode(kModeId120, 60_Hz);
@@ -2077,13 +2074,12 @@ TEST_P(RefreshRateSelectorTest, getBestFrameRateMode_withFrameRateCategory_Touch
     EXPECT_FALSE(actualRankedFrameRates.consideredSignals.touch);
 }
 
-TEST_P(RefreshRateSelectorTest, getBestFrameRateMode_withFrameRateCategory_touchBoost_twoUids_arr) {
+TEST_P(RefreshRateSelectorTest, getBestFrameRateMode_withFrameRateCategory_touchBoost_twoUids) {
     const bool enableFrameRateOverride = GetParam();
     if (!enableFrameRateOverride) {
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     // Device with VRR config mode
     auto selector = createSelector(kVrrMode_120, kModeId120);
 
@@ -2119,197 +2115,12 @@ TEST_P(RefreshRateSelectorTest, getBestFrameRateMode_withFrameRateCategory_touch
 }
 
 TEST_P(RefreshRateSelectorTest,
-       getBestFrameRateMode_withFrameRateCategory_idleTimer_60_120_nonVrr) {
-    SET_FLAG_FOR_TEST(flags::vrr_config, false);
-    using KernelIdleTimerAction = RefreshRateSelector::KernelIdleTimerAction;
-    struct LayerArg {
-        // Params
-        FrameRateCategory frameRateCategory = FrameRateCategory::Default;
-        LayerVoteType voteType = LayerVoteType::ExplicitDefault;
-
-        // Expected result
-        Fps expectedFrameRate = 0_Hz;
-        DisplayModeId expectedModeId = kModeId60;
-    };
-
-    const auto runTest = [&](const TestableRefreshRateSelector& selector,
-                             const std::initializer_list<LayerArg>& layerArgs,
-                             const RefreshRateSelector::GlobalSignals& signals) {
-        std::vector<LayerRequirement> layers;
-        for (auto testCase : layerArgs) {
-            ALOGI("**** %s: Testing frameRateCategory=%s", __func__,
-                  ftl::enum_string(testCase.frameRateCategory).c_str());
-
-            if (testCase.frameRateCategory != FrameRateCategory::Default) {
-                std::stringstream ss;
-                ss << "ExplicitCategory (" << ftl::enum_string(testCase.frameRateCategory) << ")";
-                LayerRequirement layer = {.name = ss.str(),
-                                          .vote = LayerVoteType::ExplicitCategory,
-                                          .frameRateCategory = testCase.frameRateCategory,
-                                          .weight = 1.f};
-                layers.push_back(layer);
-            }
-
-            if (testCase.voteType != LayerVoteType::ExplicitDefault) {
-                std::stringstream ss;
-                ss << ftl::enum_string(testCase.voteType);
-                LayerRequirement layer = {.name = ss.str(),
-                                          .vote = testCase.voteType,
-                                          .weight = 1.f};
-                layers.push_back(layer);
-            }
-
-            EXPECT_EQ(testCase.expectedFrameRate,
-                      selector.getBestFrameRateMode(layers, signals).modePtr->getPeakFps())
-                    << "Did not get expected frame rate for"
-                    << " category=" << ftl::enum_string(testCase.frameRateCategory);
-            EXPECT_EQ(testCase.expectedModeId,
-                      selector.getBestFrameRateMode(layers, signals).modePtr->getId())
-                    << "Did not get expected DisplayModeId for modeId="
-                    << ftl::to_underlying(testCase.expectedModeId)
-                    << " category=" << ftl::enum_string(testCase.frameRateCategory);
-        }
-    };
-
-    {
-        // IdleTimer not configured
-        auto selector = createSelector(makeModes(kMode60, kMode120), kModeId120);
-        ASSERT_EQ(0ms, selector.getIdleTimerTimeout());
-
-        runTest(selector,
-                std::initializer_list<LayerArg>{
-                        // Rate does not change due to NoPreference.
-                        {.frameRateCategory = FrameRateCategory::NoPreference,
-                         .expectedFrameRate = 120_Hz,
-                         .expectedModeId = kModeId120},
-                        {.voteType = LayerVoteType::NoVote,
-                         .expectedFrameRate = 120_Hz,
-                         .expectedModeId = kModeId120},
-                        {.frameRateCategory = FrameRateCategory::NoPreference,
-                         .expectedFrameRate = 120_Hz,
-                         .expectedModeId = kModeId120},
-                },
-                {.idle = false});
-    }
-
-    // IdleTimer configured
-    constexpr std::chrono::milliseconds kIdleTimerTimeoutMs = 10ms;
-    auto selector = createSelector(makeModes(kMode60, kMode120), kModeId120,
-                                   Config{
-                                           .legacyIdleTimerTimeout = kIdleTimerTimeoutMs,
-                                   });
-    ASSERT_EQ(KernelIdleTimerAction::TurnOn, selector.getIdleTimerAction());
-    ASSERT_EQ(kIdleTimerTimeoutMs, selector.getIdleTimerTimeout());
-    runTest(selector,
-            std::initializer_list<LayerArg>{
-                    // Rate won't change immediately and will stay 120 due to NoPreference, as
-                    // idle timer did not timeout yet.
-                    {.frameRateCategory = FrameRateCategory::NoPreference,
-                     .expectedFrameRate = 120_Hz,
-                     .expectedModeId = kModeId120},
-                    {.voteType = LayerVoteType::NoVote,
-                     .expectedFrameRate = 120_Hz,
-                     .expectedModeId = kModeId120},
-                    {.frameRateCategory = FrameRateCategory::NoPreference,
-                     .expectedFrameRate = 120_Hz,
-                     .expectedModeId = kModeId120},
-            },
-            {.idle = false});
-
-    // Idle timer is triggered using GlobalSignals.
-    ASSERT_EQ(KernelIdleTimerAction::TurnOn, selector.getIdleTimerAction());
-    ASSERT_EQ(kIdleTimerTimeoutMs, selector.getIdleTimerTimeout());
-    runTest(selector,
-            std::initializer_list<LayerArg>{
-                    {.frameRateCategory = FrameRateCategory::NoPreference,
-                     .expectedFrameRate = 60_Hz,
-                     .expectedModeId = kModeId60},
-                    {.voteType = LayerVoteType::NoVote,
-                     .expectedFrameRate = 60_Hz,
-                     .expectedModeId = kModeId60},
-                    {.frameRateCategory = FrameRateCategory::NoPreference,
-                     .expectedFrameRate = 60_Hz,
-                     .expectedModeId = kModeId60},
-            },
-            {.idle = true});
-}
-
-TEST_P(RefreshRateSelectorTest,
-       getBestFrameRateMode_withFrameRateCategory_smoothSwitchOnly_60_120_nonVrr) {
-    const bool enableFrameRateOverride = GetParam();
-    if (!enableFrameRateOverride) {
-        return;
-    }
-
-    SET_FLAG_FOR_TEST(flags::vrr_config, false);
-    // VRR compatibility is determined by the presence of a vrr config in the DisplayMode.
-    auto selector = createSelector(makeModes(kMode60, kMode120), kModeId120);
-
-    struct Case {
-        // Params
-        FrameRateCategory frameRateCategory = FrameRateCategory::Default;
-        bool smoothSwitchOnly = false;
-
-        // Expected result
-        Fps expectedFrameRate = 0_Hz;
-        DisplayModeId expectedModeId = kModeId60;
-    };
-
-    const std::initializer_list<Case> testCases = {
-            // These layers may switch modes because smoothSwitchOnly=false.
-            {FrameRateCategory::Default, false, 120_Hz, kModeId120},
-            {FrameRateCategory::NoPreference, false, 120_Hz, kModeId120},
-            {FrameRateCategory::Low, false, 60_Hz, kModeId60},
-            {FrameRateCategory::Normal, false, 60_Hz, kModeId60},
-            {FrameRateCategory::High, false, 120_Hz, kModeId120},
-
-            // These layers cannot change mode due to smoothSwitchOnly, and will definitely use
-            // active mode (120Hz).
-            {FrameRateCategory::NoPreference, true, 120_Hz, kModeId120},
-            {FrameRateCategory::Low, true, 120_Hz, kModeId120},
-            {FrameRateCategory::Normal, true, 120_Hz, kModeId120},
-            {FrameRateCategory::High, true, 120_Hz, kModeId120},
-    };
-
-    for (auto testCase : testCases) {
-        std::vector<LayerRequirement> layers;
-        ALOGI("**** %s: Testing frameRateCategory=%s (smooth=%d)", __func__,
-              ftl::enum_string(testCase.frameRateCategory).c_str(), testCase.smoothSwitchOnly);
-
-        if (testCase.frameRateCategory != FrameRateCategory::Default) {
-            std::stringstream ss;
-            ss << "ExplicitCategory (" << ftl::enum_string(testCase.frameRateCategory)
-               << " smooth:" << testCase.smoothSwitchOnly << ")";
-            LayerRequirement layer = {.name = ss.str(),
-                                      .vote = LayerVoteType::ExplicitCategory,
-                                      .frameRateCategory = testCase.frameRateCategory,
-                                      .frameRateCategorySmoothSwitchOnly =
-                                              testCase.smoothSwitchOnly,
-                                      .weight = 1.f};
-            layers.push_back(layer);
-        }
-
-        auto actualFrameRateMode = selector.getBestFrameRateMode(layers);
-        EXPECT_EQ(testCase.expectedFrameRate, actualFrameRateMode.fps)
-                << "Did not get expected frame rate for category="
-                << ftl::enum_string(testCase.frameRateCategory)
-                << " (smooth=" << testCase.smoothSwitchOnly << ")";
-
-        EXPECT_EQ(testCase.expectedModeId, actualFrameRateMode.modePtr->getId())
-                << "Did not get expected mode for category="
-                << ftl::enum_string(testCase.frameRateCategory)
-                << " (smooth=" << testCase.smoothSwitchOnly << ")";
-    }
-}
-
-TEST_P(RefreshRateSelectorTest,
        getBestFrameRateMode_withFrameRateCategory_smoothSwitchOnly_60_120_vrr) {
     const bool enableFrameRateOverride = GetParam();
     if (!enableFrameRateOverride) {
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     // VRR compatibility is determined by the presence of a vrr config in the DisplayMode.
     auto selector = createSelector(kVrrModes_60_120, kModeId120);
 
@@ -3688,7 +3499,6 @@ TEST_P(RefreshRateSelectorTest, getFrameRateOverrides_twoUids_arr) {
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     // Device with VRR config mode
     auto selector = createSelector(kVrrMode_120, kModeId120);
 
@@ -4422,7 +4232,6 @@ TEST_P(RefreshRateSelectorTest, singleMinMaxRateForVrr) {
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     auto selector = createSelector(kVrrMode_120, kModeId120);
     EXPECT_TRUE(selector.supportsFrameRateOverride());
 
@@ -4443,7 +4252,6 @@ TEST_P(RefreshRateSelectorTest, renderRateChangesWithPolicyChangeForVrr) {
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     auto selector = createSelector(kVrrModes_60_120, kModeId120);
 
     const FpsRange only120 = {120_Hz, 120_Hz};
@@ -4502,7 +4310,6 @@ TEST_P(RefreshRateSelectorTest, modeChangesWithPolicyChangeForVrr) {
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     auto selector = createSelector(kVrrModes_60_120, kModeId120);
 
     const FpsRange range120 = {0_Hz, 120_Hz};
@@ -4527,7 +4334,6 @@ TEST_P(RefreshRateSelectorTest, getFrameRateOverridesForVrr) {
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     auto selector = createSelector(kVrrMode_120, kModeId120);
     // TODO(b/297600226) Run at lower than 30 Fps for dVRR
     const std::vector<Fps> desiredRefreshRates = {30_Hz, 34.285_Hz, 40_Hz, 48_Hz,
@@ -4558,7 +4364,6 @@ TEST_P(RefreshRateSelectorTest, renderFrameRatesForVrr) {
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     auto selector = createSelector(kVrrMode_120, kModeId120);
     const FpsRange only120 = {120_Hz, 120_Hz};
     const FpsRange range120 = {0_Hz, 120_Hz};
@@ -4637,7 +4442,6 @@ TEST_P(RefreshRateSelectorTest, getSupportedFrameRatesArr) {
         return;
     }
 
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     const auto selector = createSelector(kVrrMode_120, kModeId120);
 
     const std::vector<float> expected = {120.0f, 80.0f,   60.0f, 48.0f,   40.0f, 34.285f,

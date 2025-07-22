@@ -111,13 +111,11 @@ std::pair<unsigned, unsigned> divisorRange(Fps vsyncRate, Fps peakFps, FpsRange 
 
     using fps_approx_ops::operator/;
     // use signed type as `fps / range.max` might be 0
-    auto start = std::max(1, static_cast<int>(peakFps / range.max) - 1);
-    if (FlagManager::getInstance().vrr_config()) {
-        start = std::max(1,
-                         static_cast<int>(vsyncRate /
-                                          std::min(range.max, peakFps, fps_approx_ops::operator<)) -
-                                 1);
-    }
+    const auto start =
+            std::max(1,
+                     static_cast<int>(vsyncRate /
+                                      std::min(range.max, peakFps, fps_approx_ops::operator<)) -
+                             1);
     const auto end = vsyncRate /
             std::max(range.min, RefreshRateSelector::kMinSupportedFrameRate,
                      fps_approx_ops::operator<);
@@ -1249,8 +1247,7 @@ void RefreshRateSelector::setActiveMode(DisplayModeId modeId, Fps renderFrameRat
     LOG_ALWAYS_FATAL_IF(!activeModeOpt);
 
     mActiveModeOpt.emplace(FrameRateMode{renderFrameRate, ftl::as_non_null(activeModeOpt->get())});
-    mIsVrrDevice = FlagManager::getInstance().vrr_config() &&
-            activeModeOpt->get()->getVrrConfig().has_value();
+    mIsVrrDevice = activeModeOpt->get()->getVrrConfig().has_value();
 }
 
 RefreshRateSelector::RefreshRateSelector(DisplayModes modes, DisplayModeId activeModeId,
