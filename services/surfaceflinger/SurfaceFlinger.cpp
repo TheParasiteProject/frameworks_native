@@ -3889,9 +3889,7 @@ bool SurfaceFlinger::configureLocked() {
 
                 using Config = scheduler::RefreshRateSelector::Config;
                 const Config config =
-                        {.enableFrameRateOverride = sysprop::enable_frame_rate_override(true)
-                                 ? Config::FrameRateOverride::Enabled
-                                 : Config::FrameRateOverride::Disabled,
+                        {.enableFrameRateOverride = sysprop::enable_frame_rate_override(true),
                          .frameRateMultipleThreshold =
                                  base::GetIntProperty("debug.sf.frame_rate_multiple_threshold"s, 0),
                          .legacyIdleTimerTimeout = idleTimerTimeoutMs,

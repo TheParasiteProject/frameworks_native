@@ -298,10 +298,8 @@ TEST_F(SchedulerTest, emitModeAndFrameRateOverrideChangeEvent) {
     SET_FLAG_FOR_TEST(flags::unify_refresh_rate_callbacks, true);
     const auto selectorPtr = std::make_shared<
             RefreshRateSelector>(kDisplay1Modes, kDisplay1Mode60->getId(),
-                                 RefreshRateSelector::
-                                         Config{.enableFrameRateOverride = RefreshRateSelector::
-                                                        Config::FrameRateOverride::Enabled,
-                                                .kernelIdleTimerController = {}});
+                                 RefreshRateSelector::Config{.enableFrameRateOverride = true,
+                                                             .kernelIdleTimerController = {}});
     mScheduler->registerDisplay(kDisplayId1, selectorPtr);
     std::vector<RefreshRateSelector::LayerRequirement> layers = {kLayer, kLayer};
     auto& lr1 = layers[0];
