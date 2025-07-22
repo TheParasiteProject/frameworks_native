@@ -128,7 +128,13 @@ auto Surface::commitNextBuffer() -> uint64_t {
                     std::optional<uint32_t> currentMaxAcquiredBufferCount) {
                 ftl::ignore(callbackId, releaseFence, currentMaxAcquiredBufferCount);
                 if (auto self = weak.lock()) {
-                    self->onBufferRelease(frameNumber, buffer, bufferId);
+                    self->onBufferRelease(
+                            events::BufferReleased{
+                                    .surfaceId = self->id(),
+                                    .frameNumber = frameNumber,
+                                    .bufferId = bufferId,
+                            },
+                            buffer);
                 } else {
                     LOG(DEBUG) << "Target surface for buffer release callback is dead";
                 }
@@ -139,8 +145,11 @@ auto Surface::commitNextBuffer() -> uint64_t {
                     const std::vector<SurfaceControlStats>& stats) {
                 ftl::ignore(context, presentFence, stats);
                 if (auto self = weak.lock()) {
-                    const auto timestamp = Timestamp(std::chrono::nanoseconds(latchTime));
-                    self->onTransactionCommitted(frameNumber, bufferId, timestamp);
+                    self->onTransactionCommitted(events::TransactionCommitted{
+                            .surfaceId = self->id(),
+                            .frameNumber = frameNumber,
+                            .bufferId = bufferId,
+                            .latchTime = Timestamp(std::chrono::nanoseconds(latchTime))});
                 } else {
                     LOG(DEBUG) << "Target surface for transaction committed callback is dead.";
                 }
@@ -152,14 +161,18 @@ auto Surface::commitNextBuffer() -> uint64_t {
                 ftl::ignore(context, presentFence, stats);
                 if (auto self = weak.lock()) {
                     const auto timestamp = Timestamp(std::chrono::nanoseconds(latchTime));
-                    self->onTransactionCompleted(frameNumber, bufferId, timestamp);
+                    self->onTransactionCompleted(events::TransactionCompleted{
+                            .surfaceId = self->id(),
+                            .frameNumber = frameNumber,
+                            .bufferId = bufferId,
+                            .latchTime = Timestamp(std::chrono::nanoseconds(latchTime))});
                 } else {
                     LOG(DEBUG) << "Target surface for transaction completed callback is dead.";
                 }
             });
 
-    mCallbacks.onTransactionInitiated(events::TransactionInitiated{
-            .surface = this,
+    onTransactionInitiated(events::TransactionInitiated{
+            .surfaceId = id(),
             .frameNumber = frameNumber,
             .bufferId = bufferId,
     });
@@ -191,40 +204,31 @@ void Surface::commitBufferInternal(
     transaction.apply();
 }
 
-void Surface::onBufferRelease(uint64_t frameNumber, sp<GraphicBuffer> buffer,
-                              core::BufferId bufferId) {
-    LOG(VERBOSE) << __func__ << " framenumber " << frameNumber << " buffer "
-                 << (buffer ? buffer->getId() : 0);
-    mBufferPool->enqueue(std::move(buffer));
-    mCallbacks.onBufferReleased(events::BufferReleased{
-            .surface = this,
-            .frameNumber = frameNumber,
-            .bufferId = bufferId,
-    });
+void Surface::onBufferRelease(const events::BufferReleased& event,
+                              const sp<GraphicBuffer>& buffer) {
+    mBufferPool->enqueue(buffer);
+
+    LOG(VERBOSE) << __func__ << " " << toString(event);
+
+    mCallbacks.onBufferReleased(event);
 }
 
-void Surface::onTransactionCommitted(uint64_t frameNumber, core::BufferId bufferId,
-                                     Timestamp latchTime) {
-    LOG(VERBOSE) << __func__ << " framenumber " << frameNumber << " latchTime "
-                 << latchTime.time_since_epoch();
-    mCallbacks.onTransactionCommitted(events::TransactionCommitted{
-            .surface = this,
-            .frameNumber = frameNumber,
-            .bufferId = bufferId,
-            .latchTime = latchTime,
-    });
+void Surface::onTransactionInitiated(const events::TransactionInitiated& event) const {
+    LOG(VERBOSE) << __func__ << " " << toString(event);
+
+    mCallbacks.onTransactionInitiated(event);
 }
 
-void Surface::onTransactionCompleted(uint64_t frameNumber, core::BufferId bufferId,
-                                     Timestamp latchTime) {
-    LOG(VERBOSE) << __func__ << " framenumber " << frameNumber << " latchTime "
-                 << latchTime.time_since_epoch();
-    mCallbacks.onTransactionCompleted(events::TransactionCompleted{
-            .surface = this,
-            .frameNumber = frameNumber,
-            .bufferId = bufferId,
-            .latchTime = latchTime,
-    });
+void Surface::onTransactionCommitted(const events::TransactionCommitted& event) const {
+    LOG(VERBOSE) << __func__ << " " << toString(event);
+
+    mCallbacks.onTransactionCommitted(event);
+}
+
+void Surface::onTransactionCompleted(const events::TransactionCompleted& event) const {
+    LOG(VERBOSE) << __func__ << " " << toString(event);
+
+    mCallbacks.onTransactionCompleted(event);
 }
 
 void Surface::ensureCallbacksCompletedBeforeShutdown() {
