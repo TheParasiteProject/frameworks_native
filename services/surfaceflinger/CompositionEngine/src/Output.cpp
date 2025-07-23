@@ -876,9 +876,13 @@ void Output::updateCompositionState(const compositionengine::CompositionRefreshA
     auto* properties = getOverlaySupport();
 
     for (auto* layer : getOutputLayersOrderedByZ()) {
+        const ui::LayerStack outputLayerStack =
+                layer->getOutput().getState().layerFilter.layerStack;
+        const bool layerForceClientComposition =
+                refreshArgs.forcedClientCompositionLayerStacks.contains(outputLayerStack);
+
         layer->updateCompositionState(refreshArgs.updatingGeometryThisFrame,
-                                      refreshArgs.devOptForceClientComposition ||
-                                              forceClientComposition,
+                                      layerForceClientComposition || forceClientComposition,
                                       refreshArgs.internalDisplayRotationFlags,
                                       properties ? properties->lutProperties : std::nullopt);
 

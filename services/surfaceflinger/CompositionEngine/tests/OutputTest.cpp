@@ -904,6 +904,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, updatesLayerContentForAllLayers
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer1.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer1.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer2.outputLayer,
                 updateCompositionState(false, false, ui::Transform::ROT_180, _));
     EXPECT_CALL(*layer2.outputLayer,
@@ -911,6 +912,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, updatesLayerContentForAllLayers
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer2.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer2.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer3.outputLayer,
                 updateCompositionState(false, false, ui::Transform::ROT_180, _));
     EXPECT_CALL(*layer3.outputLayer,
@@ -918,6 +920,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, updatesLayerContentForAllLayers
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer3.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer3.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
 
     injectOutputLayer(layer1);
     injectOutputLayer(layer2);
@@ -927,7 +930,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, updatesLayerContentForAllLayers
 
     CompositionRefreshArgs args;
     args.updatingGeometryThisFrame = false;
-    args.devOptForceClientComposition = false;
+    args.forcedClientCompositionLayerStacks = {};
     args.internalDisplayRotationFlags = ui::Transform::ROT_180;
     mOutput->updateCompositionState(args);
     mOutput->planComposition();
@@ -946,18 +949,21 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, updatesLayerGeometryAndContentF
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer1.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer1.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer2.outputLayer, updateCompositionState(true, false, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer2.outputLayer,
                 writeStateToHWC(/*includeGeometry*/ true, /*skipLayer*/ false, z++,
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer2.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer2.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer3.outputLayer, updateCompositionState(true, false, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer3.outputLayer,
                 writeStateToHWC(/*includeGeometry*/ true, /*skipLayer*/ false, z++,
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer3.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer3.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
 
     injectOutputLayer(layer1);
     injectOutputLayer(layer2);
@@ -967,7 +973,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, updatesLayerGeometryAndContentF
 
     CompositionRefreshArgs args;
     args.updatingGeometryThisFrame = true;
-    args.devOptForceClientComposition = false;
+    args.forcedClientCompositionLayerStacks = {};
     mOutput->updateCompositionState(args);
     mOutput->planComposition();
     mOutput->writeCompositionState(args);
@@ -984,6 +990,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, forcesClientCompositionForAllLa
                 writeStateToHWC(/*includeGeometry*/ false, /*skipLayer*/ false, z++,
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
+    EXPECT_CALL(*layer1.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer1.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
     EXPECT_CALL(*layer2.outputLayer, updateCompositionState(false, true, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer2.outputLayer,
@@ -991,12 +998,14 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, forcesClientCompositionForAllLa
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer2.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer2.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer3.outputLayer, updateCompositionState(false, true, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer3.outputLayer,
                 writeStateToHWC(/*includeGeometry*/ false, /*skipLayer*/ false, z++,
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer3.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer3.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
 
     injectOutputLayer(layer1);
     injectOutputLayer(layer2);
@@ -1006,7 +1015,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, forcesClientCompositionForAllLa
 
     CompositionRefreshArgs args;
     args.updatingGeometryThisFrame = false;
-    args.devOptForceClientComposition = true;
+    args.forcedClientCompositionLayerStacks = {mOutput->getState().layerFilter.layerStack};
     mOutput->updateCompositionState(args);
     mOutput->planComposition();
     mOutput->writeCompositionState(args);
@@ -1020,10 +1029,14 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, peekThroughLayerChangesOrder) {
     InjectedLayer layer3;
 
     InSequence seq;
+    EXPECT_CALL(*layer0.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer0.outputLayer, updateCompositionState(true, false, ui::Transform::ROT_0, _));
+    EXPECT_CALL(*layer1.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer1.outputLayer, updateCompositionState(true, false, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer1.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer2.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer2.outputLayer, updateCompositionState(true, false, ui::Transform::ROT_0, _));
+    EXPECT_CALL(*layer3.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer3.outputLayer, updateCompositionState(true, false, ui::Transform::ROT_0, _));
 
     uint32_t z = 0;
@@ -1062,7 +1075,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, peekThroughLayerChangesOrder) {
 
     CompositionRefreshArgs args;
     args.updatingGeometryThisFrame = true;
-    args.devOptForceClientComposition = false;
+    args.forcedClientCompositionLayerStacks = {};
     mOutput->updateCompositionState(args);
     mOutput->planComposition();
 
@@ -5094,12 +5107,14 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, noBackgroundBlurWhenOpaque) {
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer1.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer1.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer2.outputLayer, updateCompositionState(false, false, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer2.outputLayer,
                 writeStateToHWC(/*includeGeometry*/ false, /*skipLayer*/ false, z++,
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer2.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer2.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
 
     layer2.layerFEState.backgroundBlurRadius = 10;
     layer2.layerFEState.isOpaque = true;
@@ -5111,7 +5126,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, noBackgroundBlurWhenOpaque) {
 
     CompositionRefreshArgs args;
     args.updatingGeometryThisFrame = false;
-    args.devOptForceClientComposition = false;
+    args.forcedClientCompositionLayerStacks = {};
     mOutput->updateCompositionState(args);
     mOutput->planComposition();
     mOutput->writeCompositionState(args);
@@ -5130,18 +5145,21 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, handlesBackgroundBlurRequests) 
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer1.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer1.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer2.outputLayer, updateCompositionState(false, true, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer2.outputLayer,
                 writeStateToHWC(/*includeGeometry*/ false, /*skipLayer*/ false, z++,
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer2.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer2.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer3.outputLayer, updateCompositionState(false, false, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer3.outputLayer,
                 writeStateToHWC(/*includeGeometry*/ false, /*skipLayer*/ false, z++,
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer3.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer3.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
 
     layer2.layerFEState.backgroundBlurRadius = 10;
     layer2.layerFEState.isOpaque = false;
@@ -5154,7 +5172,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, handlesBackgroundBlurRequests) 
 
     CompositionRefreshArgs args;
     args.updatingGeometryThisFrame = false;
-    args.devOptForceClientComposition = false;
+    args.forcedClientCompositionLayerStacks = {};
     mOutput->updateCompositionState(args);
     mOutput->planComposition();
     mOutput->writeCompositionState(args);
@@ -5173,18 +5191,21 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, handlesBlurRegionRequests) {
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer1.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer1.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer2.outputLayer, updateCompositionState(false, true, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer2.outputLayer,
                 writeStateToHWC(/*includeGeometry*/ false, /*skipLayer*/ false, z++,
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer2.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer2.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer3.outputLayer, updateCompositionState(false, false, ui::Transform::ROT_0, _));
     EXPECT_CALL(*layer3.outputLayer,
                 writeStateToHWC(/*includeGeometry*/ false, /*skipLayer*/ false, z++,
                                 /*zIsOverridden*/ false, /*isPeekingThrough*/ false,
                                 /*hasLutsProperties*/ false));
     EXPECT_CALL(*layer3.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*layer3.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
 
     BlurRegion region;
     layer2.layerFEState.blurRegions.push_back(region);
@@ -5198,7 +5219,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, handlesBlurRegionRequests) {
 
     CompositionRefreshArgs args;
     args.updatingGeometryThisFrame = false;
-    args.devOptForceClientComposition = false;
+    args.forcedClientCompositionLayerStacks = {};
     mOutput->updateCompositionState(args);
     mOutput->planComposition();
     mOutput->writeCompositionState(args);
@@ -5239,12 +5260,15 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, assignsDisplayProfileBasedOnLay
     EXPECT_CALL(*layer1.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
     EXPECT_CALL(*layer1.outputLayer, updateCompositionState(_, _, _, _));
     EXPECT_CALL(*layer1.outputLayer, writeStateToHWC(_, _, _, _, _, _));
+    EXPECT_CALL(*layer1.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer2.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
     EXPECT_CALL(*layer2.outputLayer, updateCompositionState(_, _, _, _));
     EXPECT_CALL(*layer2.outputLayer, writeStateToHWC(_, _, _, _, _, _));
+    EXPECT_CALL(*layer2.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer3.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
     EXPECT_CALL(*layer3.outputLayer, updateCompositionState(_, _, _, _));
     EXPECT_CALL(*layer3.outputLayer, writeStateToHWC(_, _, _, _, _, _));
+    EXPECT_CALL(*layer3.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
 
     // No layer picture profiles should be committed
     EXPECT_CALL(*layer1.outputLayer, commitPictureProfileToCompositionState).Times(0);
@@ -5262,7 +5286,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, assignsDisplayProfileBasedOnLay
     mOutput->editState().isEnabled = true;
     CompositionRefreshArgs args;
     args.updatingGeometryThisFrame = false;
-    args.devOptForceClientComposition = false;
+    args.forcedClientCompositionLayerStacks = {};
     mOutput->updateCompositionState(args);
     mOutput->planComposition();
     mOutput->writeCompositionState(args);
@@ -5302,12 +5326,15 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, assignsLayerProfileBasedOnLayer
     EXPECT_CALL(*layer1.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
     EXPECT_CALL(*layer1.outputLayer, updateCompositionState(_, _, _, _));
     EXPECT_CALL(*layer1.outputLayer, writeStateToHWC(_, _, _, _, _, _));
+    EXPECT_CALL(*layer1.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer2.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
     EXPECT_CALL(*layer2.outputLayer, updateCompositionState(_, _, _, _));
     EXPECT_CALL(*layer2.outputLayer, writeStateToHWC(_, _, _, _, _, _));
+    EXPECT_CALL(*layer2.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
     EXPECT_CALL(*layer3.outputLayer, requiresClientComposition()).WillRepeatedly(Return(false));
     EXPECT_CALL(*layer3.outputLayer, updateCompositionState(_, _, _, _));
     EXPECT_CALL(*layer3.outputLayer, writeStateToHWC(_, _, _, _, _, _));
+    EXPECT_CALL(*layer3.outputLayer, getOutput()).WillRepeatedly(ReturnRef(*mOutput));
 
     // The two highest priority layers should have their picture profiles committed
     EXPECT_CALL(*layer1.outputLayer, commitPictureProfileToCompositionState).Times(0);
@@ -5325,7 +5352,7 @@ TEST_F(OutputUpdateAndWriteCompositionStateTest, assignsLayerProfileBasedOnLayer
     mOutput->editState().isEnabled = true;
     CompositionRefreshArgs args;
     args.updatingGeometryThisFrame = false;
-    args.devOptForceClientComposition = false;
+    args.forcedClientCompositionLayerStacks = {};
     mOutput->updateCompositionState(args);
     mOutput->planComposition();
     mOutput->writeCompositionState(args);
