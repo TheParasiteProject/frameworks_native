@@ -270,7 +270,6 @@ TEST_F(LayerInfoTest, getRefreshRateVote_noData) {
 }
 
 TEST_F(LayerInfoTest, isFrontBuffered) {
-    SET_FLAG_FOR_TEST(flags::vrr_config, true);
     ASSERT_FALSE(layerInfo.isFrontBuffered());
 
     LayerProps prop = {.isFrontBuffered = true};

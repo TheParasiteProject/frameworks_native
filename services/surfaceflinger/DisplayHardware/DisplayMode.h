@@ -150,9 +150,7 @@ public:
     // Peak refresh rate represents the highest refresh rate that can be used
     // for the presentation.
     Fps getPeakFps() const {
-        return FlagManager::getInstance().vrr_config() && mVrrConfig
-                ? Fps::fromPeriodNsecs(mVrrConfig->minFrameIntervalNs)
-                : mVsyncRate;
+        return mVrrConfig ? Fps::fromPeriodNsecs(mVrrConfig->minFrameIntervalNs) : mVsyncRate;
     }
 
     Fps getVsyncRate() const { return mVsyncRate; }
