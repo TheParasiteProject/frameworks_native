@@ -708,8 +708,24 @@ status_t RpcState::transactInternal(const sp<RpcSession::RpcConnection>& connect
     };
     auto altPoll = [&] {
         if (waitUs > kWaitLogUs) {
+            // At this point, the transaction buffer is filling up, and we would like to
+            // poll and wait for us to be able to write. However, if we just wait, then
+            // in the case of too many oneway calls, if the other side is blocked on
+            // sending decRefs, because our in buffer is full, we need to go ahead
+            // and drain these. We should never see a nested call at this point because
+            // this is failing to send the transaction itself. A nested call cannot
+            // occur until the entire transaction is sent, then we will handle them
+            // while waiting for the reply. It's also possible to hit this point when
+            // we just send too big of a command, and it fills up the buffer. Then
+            // we need to wait for it to be read. However, we cannot poll because
+            // there is no way to know why the other side is blocked. If it is blocked
+            // sending decRefs from oneway calls (there may have been just enough sent
+            // before this call), then we have to handle them.
+            //
+            // TODO: if we have incoming threads, we may be able to force all the decrefs
+            // to happen on the incoming calls in order to avoid this sleep.
             ALOGE("Cannot send command, trying to process pending refcounts. Waiting "
-                  "%zuus. Too many oneway calls?",
+                  "%zuus. Common when too much data is sent or too many oneway calls build up",
                   waitUs);
         }
 
