@@ -198,7 +198,7 @@ inline bool equalsExceptDisplayModeId(const DisplayMode& lhs, const DisplayMode&
 
 inline std::string to_string(const DisplayMode& mode) {
     return base::StringPrintf("{id=%d, hwcId=%d, resolution=%dx%d, vsyncRate=%s, "
-                              "dpi=%.2fx%.2f, group=%d, vrrConfig=%s, supportedHdrTypes=%s}",
+                              "dpi=%.2fx%.2f, group=%d, vrrConfig=%s, hdrOutputType=%s}",
                               ftl::to_underlying(mode.getId()), mode.getHwcId(), mode.getWidth(),
                               mode.getHeight(), to_string(mode.getVsyncRate()).c_str(),
                               mode.getDpi().x, mode.getDpi().y, mode.getGroup(),
