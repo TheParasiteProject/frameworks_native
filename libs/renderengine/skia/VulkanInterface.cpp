@@ -320,6 +320,7 @@ void VulkanInterface::init(bool protectedContent) {
 
     vkGetPhysicalDeviceProperties2(physicalDevice, &physDevProps);
     const uint32_t physicalDeviceApiVersion = physDevProps.properties.apiVersion;
+    mDriverVersion = physDevProps.properties.driverVersion;
     if (physicalDeviceApiVersion < VK_MAKE_VERSION(1, 1, 0)) {
         BAIL("Vulkan physical device API version %" PRIu32 ".%" PRIu32 ".%" PRIu32 " < 1.1.0",
              VK_VERSION_MAJOR(physicalDeviceApiVersion), VK_VERSION_MINOR(physicalDeviceApiVersion),

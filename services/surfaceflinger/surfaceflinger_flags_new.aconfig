@@ -301,6 +301,13 @@ flag {
 
 
 flag {
+  name: "shader_disk_cache"
+  namespace: "core_graphics"
+  description: "Enable shader disk cache for RenderEngine"
+  bug: "428980914"
+} # shader_disk_cache
+
+flag {
   name: "skip_invisible_windows_in_input"
   namespace: "window_surfaces"
   description: "Only send visible windows to input list"
