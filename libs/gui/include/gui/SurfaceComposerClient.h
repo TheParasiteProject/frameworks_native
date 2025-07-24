@@ -805,6 +805,14 @@ public:
         Transaction& setContentPriority(const sp<SurfaceControl>& sc, int32_t contentPriority);
 
         /**
+         * Configures the importance of the contents of the layers from the system's perspective. A
+         * higher priority value will give the layer preferred access to limited resource. This
+         * function is supposed to be called by the system server.
+         */
+        Transaction& setSystemContentPriority(const sp<SurfaceControl>& sc,
+                                              int32_t systemContentPriority);
+
+        /**
          * Adds a barrier to the transaction.
          *
          * Transaction barriers are an interprocess synchronization mechanism.

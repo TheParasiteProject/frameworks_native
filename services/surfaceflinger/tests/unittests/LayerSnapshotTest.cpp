@@ -2553,4 +2553,17 @@ TEST_F(LayerSnapshotTest, stopLayer_mirrorHierarchy) {
     UPDATE_AND_VERIFY(mSnapshotBuilder, expected);
 }
 
+TEST_F(LayerSnapshotTest, systemContentPriorityPassedToChildLayers) {
+    setSystemContentPriority(11, 1);
+    setSystemContentPriority(12, 2);
+
+    UPDATE_AND_VERIFY(mSnapshotBuilder, STARTING_ZORDER);
+    EXPECT_EQ(getSnapshot({.id = 1})->systemContentPriority,
+              gui::ISystemContentPriorityConstants::Unset);
+    EXPECT_EQ(getSnapshot({.id = 11})->systemContentPriority, 1);
+    EXPECT_EQ(getSnapshot({.id = 12})->systemContentPriority, 2);
+    EXPECT_EQ(getSnapshot({.id = 122})->systemContentPriority, 2);
+    EXPECT_EQ(getSnapshot({.id = 1221})->systemContentPriority, 2);
+}
+
 } // namespace android::surfaceflinger::frontend
