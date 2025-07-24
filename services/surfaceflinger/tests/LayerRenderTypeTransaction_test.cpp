@@ -271,7 +271,9 @@ TEST_P(LayerRenderTypeTransactionTest, SetRelativeZGroup_BufferState) {
 }
 
 TEST_P(LayerRenderTypeTransactionTest, SetTransparentRegionHintBasic_BufferQueue) {
-    ASSERT_FALSE(FlagManager::getInstance().disable_transparent_region_hint());
+    if (FlagManager::getInstance().disable_transparent_region_hint()) {
+        GTEST_SKIP() << "Skipping test because disable_transparent_region_hint is enabled";
+    }
     const Rect top(0, 0, 32, 16);
     const Rect bottom(0, 16, 32, 32);
     sp<SurfaceControl> layer;
@@ -316,7 +318,9 @@ TEST_P(LayerRenderTypeTransactionTest, SetTransparentRegionHintBasic_BufferQueue
 }
 
 TEST_P(LayerRenderTypeTransactionTest, SetTransparentRegionHintBasic_BufferState) {
-    ASSERT_FALSE(FlagManager::getInstance().disable_transparent_region_hint());
+    if (FlagManager::getInstance().disable_transparent_region_hint()) {
+        GTEST_SKIP() << "Skipping test because disable_transparent_region_hint is enabled";
+    }
     const Rect top(0, 0, 32, 16);
     const Rect bottom(0, 16, 32, 32);
     sp<SurfaceControl> layer;
