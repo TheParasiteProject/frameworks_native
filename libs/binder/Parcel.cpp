@@ -3016,16 +3016,6 @@ status_t Parcel::rpcSetDataReference(
 
     LOG_ALWAYS_FATAL_IF(session == nullptr);
 
-    bool sameSize = objectTableSize == ancillaryFds.size();
-    bool fitsIn = objectTableSize >= ancillaryFds.size(); // other positions are binders
-    bool bindersInObjectPositions = session->getProtocolVersion() >=
-            RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS;
-
-    if (!(bindersInObjectPositions ? fitsIn : sameSize)) {
-        ALOGE("objectTableSize=%zu ancillaryFds.size=%zu", objectTableSize, ancillaryFds.size());
-        relFunc(data, dataSize, nullptr, 0);
-        return BAD_VALUE;
-    }
     for (size_t i = 0; i < objectTableSize; i++) {
         uint32_t minObjectEnd;
         // Only check type field, as different types have different lengths. If they are read off
@@ -3066,15 +3056,29 @@ status_t Parcel::rpcSetDataReference(
         rpcFields->mImpl->mFds = std::move(ancillaryFds);
     }
 
-    if (bindersInObjectPositions) {
-        // acquire all binder objects, so if there is an error, we still know
-        // to decref
-        for (uint32_t pos : rpcFields->mObjectPositions) {
-            mDataPos = pos;
-            int32_t objectType;
-            if (status_t status = readInt32(&objectType); status != OK) return status;
-            if (objectType != RpcFields::TYPE_BINDER) continue;
+    // acquire and validate all objects
+    bool bindersInObjectPositions = session->getProtocolVersion() >=
+            RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS;
 
+    size_t numFds = 0;
+    for (uint32_t pos : rpcFields->mObjectPositions) {
+        mDataPos = pos;
+        int32_t objectType;
+        if (status_t status = readInt32(&objectType); status != OK) {
+            ALOGE("Failed to read object type: %s, pos: %" PRIu32 ". Terminating.",
+                  statusToString(status).c_str(), pos);
+            (void)session->shutdownAndWait(false);
+            return status;
+        }
+
+        if (objectType == RpcFields::TYPE_NATIVE_FILE_DESCRIPTOR) {
+            numFds++;
+        } else if (objectType == RpcFields::TYPE_BINDER) {
+            if (!bindersInObjectPositions) {
+                ALOGE("Binder objects should only be in object positions starting at protocol V2");
+                (void)session->shutdownAndWait(false);
+                return BAD_VALUE;
+            }
             mDataPos = pos;
             sp<IBinder> binder; // also held by mAcquiredEnteringBinders
             if (status_t status = readStrongBinder(&binder); status != OK) {
@@ -3082,7 +3086,18 @@ status_t Parcel::rpcSetDataReference(
                 (void)session->shutdownAndWait(false);
                 return status;
             }
+        } else {
+            ALOGE("Unrecognized object type: %" PRId32 ". Terminating.", objectType);
+            (void)session->shutdownAndWait(false);
+            return BAD_VALUE;
         }
+    }
+
+    const size_t numAncillaryFds = rpcFields->mImpl ? rpcFields->mImpl->mFds.size() : 0;
+    if (numFds != numAncillaryFds) {
+        ALOGE("FD size mismatch: numFds=%zu mFds.size=%zu, mObjectPositions.size=%zu", numFds,
+              numAncillaryFds, rpcFields->mObjectPositions.size());
+        return BAD_VALUE;
     }
 
     mDataPos = 0;
