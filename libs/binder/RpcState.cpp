@@ -1409,6 +1409,7 @@ status_t RpcState::doDecStrong(const sp<RpcSession>& session, uint64_t addr, uin
     auto it = mNodeForAddress.find(addr);
     if (it == mNodeForAddress.end()) {
         ALOGE("Unknown binder address %" PRIu64 " for dec strong. Terminating!", addr);
+        _l.unlock();
         (void)session->shutdownAndWait(false);
         return BAD_VALUE;
     }
@@ -1424,9 +1425,12 @@ status_t RpcState::doDecStrong(const sp<RpcSession>& session, uint64_t addr, uin
     }
 
     if (it->second.timesSent < amount) {
-        ALOGE("Record of sending binder %zu times, but requested decStrong for %" PRIu64 " of %u",
+        ALOGE("Record of sending binder %zu times, but requested decStrong for %" PRIu64
+              " of %u. Terminating!",
               it->second.timesSent, addr, amount);
-        return OK;
+        _l.unlock();
+        (void)session->shutdownAndWait(false);
+        return BAD_VALUE;
     }
 
     LOG_ALWAYS_FATAL_IF(it->second.sentRef == nullptr, "Inconsistent state, lost ref for %" PRIu64,
