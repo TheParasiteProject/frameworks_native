@@ -182,6 +182,13 @@ flag {
 } # frame_rate_category_mrr
 
 flag {
+  name: "frontend_caching_v0"
+  namespace: "core_graphics"
+  description: "Enables caching of frontend layer states"
+  bug: "433229921"
+} # frontend_caching_v0
+
+flag {
   name: "graphite_renderengine_preview_rollout"
   namespace: "core_graphics"
   description: "R/W flag to enable Skia's Graphite Vulkan backend in RenderEngine, IF it is already compiled with force_compile_graphite_renderengine, AND the debug.renderengine.graphite_preview_optin sysprop is set to true."
