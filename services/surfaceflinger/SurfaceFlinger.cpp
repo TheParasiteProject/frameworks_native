@@ -3127,6 +3127,18 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
                                         layerFE->mSnapshot->outputFilter.layerStack);
     }
 
+    std::optional<std::future<void>> offloadedCompositionFuture;
+    std::vector<std::pair<Layer*, LayerFE*>> offloadedLayers;
+    if (optionalOffloadedRefreshArgs) {
+        setVisibleRegionDirtyIfNeeded(*optionalOffloadedRefreshArgs);
+
+        offloadedLayers =
+                addLayerSnapshotsToCompositionArgs(*optionalOffloadedRefreshArgs, kCursorOnly);
+        offloadedCompositionFuture =
+                offloadGpuCompositedDisplays(std::move(*optionalOffloadedRefreshArgs),
+                                             offloadedLayers);
+    }
+
     mainThreadRefreshArgs.layersWithQueuedFrames.reserve(mLayersWithQueuedFrames.size());
     for (auto& [layer, _] : mLayersWithQueuedFrames) {
         if (const auto& layerFE =
@@ -3142,18 +3154,6 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
                                                 ui::UNASSIGNED_LAYER_STACK);
             }
         }
-    }
-
-    std::optional<std::future<void>> offloadedCompositionFuture;
-    std::vector<std::pair<Layer*, LayerFE*>> offloadedLayers;
-    if (optionalOffloadedRefreshArgs) {
-        setVisibleRegionDirtyIfNeeded(*optionalOffloadedRefreshArgs);
-
-        offloadedLayers =
-                addLayerSnapshotsToCompositionArgs(*optionalOffloadedRefreshArgs, kCursorOnly);
-        offloadedCompositionFuture =
-                offloadGpuCompositedDisplays(std::move(*optionalOffloadedRefreshArgs),
-                                             offloadedLayers);
     }
 
     mCompositionEngine->present(mainThreadRefreshArgs);
