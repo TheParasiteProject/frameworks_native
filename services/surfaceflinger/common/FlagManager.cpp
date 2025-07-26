@@ -124,6 +124,7 @@ void FlagManager::dump(std::string& result) const {
     DUMP_ACONFIG_FLAG(buffer_stuffing_fix);
     DUMP_ACONFIG_FLAG(correct_virtual_display_power_state);
     DUMP_ACONFIG_FLAG(disable_transparent_region_hint);
+    DUMP_ACONFIG_FLAG(frontend_caching_v0);
     DUMP_ACONFIG_FLAG(graphite_renderengine_preview_rollout);
     DUMP_ACONFIG_FLAG(increase_missed_frame_jank_threshold);
     DUMP_ACONFIG_FLAG(monitor_buffer_fences);
@@ -296,6 +297,7 @@ FLAG_MANAGER_ACONFIG_FLAG(adpf_native_session_manager, "");
 FLAG_MANAGER_ACONFIG_FLAG(buffer_stuffing_fix, "");
 FLAG_MANAGER_ACONFIG_FLAG(disable_transparent_region_hint,
                           "debug.sf.disable_transparent_region_hint");
+FLAG_MANAGER_ACONFIG_FLAG(frontend_caching_v0, "");
 FLAG_MANAGER_ACONFIG_FLAG(graphite_renderengine_preview_rollout, "");
 FLAG_MANAGER_ACONFIG_FLAG(increase_missed_frame_jank_threshold, "");
 FLAG_MANAGER_ACONFIG_FLAG(monitor_buffer_fences, "");
