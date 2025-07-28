@@ -2511,7 +2511,8 @@ void SurfaceFlinger::configure() {
 void SurfaceFlinger::updateLayerHistory(nsecs_t now) {
     for (const auto& snapshot : mLayerSnapshotBuilder.getSnapshots()) {
         using Changes = frontend::RequestedLayerState::Changes;
-        if (snapshot->path.isClone()) {
+        if (snapshot->path.isClone() &&
+            !FlagManager::getInstance().follower_arbitrary_refresh_rate_selection()) {
             continue;
         }
 
@@ -2551,6 +2552,8 @@ void SurfaceFlinger::updateLayerHistory(nsecs_t now) {
                 .frameRateSelectionPriority = snapshot->frameRateSelectionPriority,
                 .isSmallDirty = snapshot->isSmallDirty,
                 .isFrontBuffered = snapshot->isFrontBuffered(),
+                .refreshRateSelector =
+                        mScheduler->selectorPtrForLayerStack(snapshot->outputFilter.layerStack),
         };
 
         if (snapshot->changes.any(Changes::Geometry | Changes::Visibility)) {

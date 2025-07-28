@@ -163,6 +163,13 @@ flag {
 } # flush_buffer_slots_to_uncache
 
 flag {
+  name: "follower_arbitrary_refresh_rate_selection"
+  namespace: "desktop_display"
+  description: "Enables selection of any refresh rate for the follower display instead of one matching the pacesetter."
+  bug: "371584290"
+} # follower_arbitrary_refresh_rate_selection
+
+flag {
   name: "force_compile_graphite_renderengine"
   namespace: "core_graphics"
   description: "Compile Skia's Graphite Vulkan backend in RenderEngine, but do NOT enable it, unless graphite_renderengine is also set. It can also be enabled with the debug.renderengine.graphite system property for testing. In contrast, the graphite_renderengine flag both compiles AND enables Graphite in RenderEngine."
