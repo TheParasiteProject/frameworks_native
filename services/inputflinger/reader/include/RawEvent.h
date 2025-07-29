@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 
+#include <input/Input.h>
 #include <utils/Timers.h>
 
 namespace android {
@@ -31,7 +32,7 @@ struct RawEvent {
     // Time when the event was read by EventHub. Only populated for input events.
     // For other events (device added/removed/etc), this value is undefined and should not be read.
     nsecs_t readTime;
-    int32_t deviceId;
+    RawDeviceId deviceId;
     int32_t type;
     int32_t code;
     int32_t value;
