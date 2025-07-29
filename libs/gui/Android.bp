@@ -385,6 +385,7 @@ cc_library_shared {
     },
 
     cflags: [
+        "-DANDROID_UTILS_REF_BASE_DISABLE_IMPLICIT_CONSTRUCTION",
         "-Wthread-safety",
     ],
 }
