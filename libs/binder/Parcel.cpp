@@ -2024,6 +2024,7 @@ status_t Parcel::validateReadData(size_t upperBound) const
 {
     const auto* kernelFields = maybeKernelFields();
     if (kernelFields == nullptr) {
+        if (upperBound == 0) return OK;
         auto* rpcFields = maybeRpcFields();
         LOG_ALWAYS_FATAL_IF(rpcFields == nullptr);
         if (rpcFields->mObjectPositions.empty()) return OK;
