@@ -241,7 +241,7 @@ TEST_F(SchedulerTest, emitModeChangeEvent) {
 
     using TimerState = TestableScheduler::TimerState;
 
-    mScheduler->idleTimerCallback(TimerState::Expired);
+    mScheduler->idleTimerCallback(kDisplayId1, TimerState::Expired);
     selectorPtr->setActiveMode(kDisplay1Mode60->getId(), 60_Hz);
 
     auto layer = kLayer;
@@ -253,7 +253,7 @@ TEST_F(SchedulerTest, emitModeChangeEvent) {
     // An event is emitted implicitly despite choosing the same mode as when idle.
     EXPECT_CALL(*mEventThread, onModeChanged(kDisplay1Mode60_60, _)).Times(1);
 
-    mScheduler->idleTimerCallback(TimerState::Reset);
+    mScheduler->idleTimerCallback(kDisplayId1, TimerState::Reset);
 
     mScheduler->setContentRequirements({kLayer});
 
@@ -278,7 +278,7 @@ TEST_F(SchedulerTest, emitModeChangeEvent_unifyRefreshRateCallbacksEnabled) {
 
     using TimerState = TestableScheduler::TimerState;
 
-    mScheduler->idleTimerCallback(TimerState::Expired);
+    mScheduler->idleTimerCallback(kDisplayId1, TimerState::Expired);
     selectorPtr->setActiveMode(kDisplay1Mode60->getId(), 60_Hz);
 
     auto layer = kLayer;
@@ -290,7 +290,7 @@ TEST_F(SchedulerTest, emitModeChangeEvent_unifyRefreshRateCallbacksEnabled) {
     EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, kDisplay1Mode60_60, _, _, _))
             .Times(1);
 
-    mScheduler->idleTimerCallback(TimerState::Reset);
+    mScheduler->idleTimerCallback(kDisplayId1, TimerState::Reset);
 
     mScheduler->setContentRequirements({kLayer});
 
@@ -546,7 +546,7 @@ TEST_F(SchedulerTest, chooseDisplayModes) {
 
     mScheduler->setContentRequirements({kLayer, kLayer});
     GlobalSignals globalSignals = {.idle = true};
-    mScheduler->setTouchStateAndIdleTimerPolicy(globalSignals);
+    mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, globalSignals);
 
     using DisplayModeChoice = TestableScheduler::DisplayModeChoice;
 
@@ -558,7 +558,7 @@ TEST_F(SchedulerTest, chooseDisplayModes) {
     EXPECT_EQ(choice->get(), DisplayModeChoice({60_Hz, kDisplay1Mode60}, globalSignals));
 
     globalSignals = {.idle = false};
-    mScheduler->setTouchStateAndIdleTimerPolicy(globalSignals);
+    mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, globalSignals);
 
     modeChoices = mScheduler->chooseDisplayModes();
     ASSERT_EQ(1u, modeChoices.size());
@@ -569,7 +569,7 @@ TEST_F(SchedulerTest, chooseDisplayModes) {
 
     globalSignals = {.touch = true};
     mScheduler->replaceTouchTimer(10);
-    mScheduler->setTouchStateAndIdleTimerPolicy(globalSignals);
+    mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, globalSignals);
 
     modeChoices = mScheduler->chooseDisplayModes();
     ASSERT_EQ(1u, modeChoices.size());
@@ -662,7 +662,8 @@ TEST_F(SchedulerTest, chooseDisplayModesMultipleDisplays) {
                                                                  GlobalSignals{});
 
         mScheduler->setContentRequirements({kLayer, kLayer});
-        mScheduler->setTouchStateAndIdleTimerPolicy(globalSignals);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, globalSignals);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId2, globalSignals);
 
         const auto actualChoices = mScheduler->chooseDisplayModes();
         EXPECT_EQ(expectedChoices, actualChoices);
@@ -678,7 +679,8 @@ TEST_F(SchedulerTest, chooseDisplayModesMultipleDisplays) {
                                                                                kDisplay2Mode120},
                                                                  GlobalSignals{});
 
-        mScheduler->setTouchStateAndIdleTimerPolicy(globalSignals);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, globalSignals);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId2, globalSignals);
 
         const auto actualChoices = mScheduler->chooseDisplayModes();
         EXPECT_EQ(expectedChoices, actualChoices);
@@ -686,7 +688,7 @@ TEST_F(SchedulerTest, chooseDisplayModesMultipleDisplays) {
     {
         const GlobalSignals globalSignals = {.touch = true};
         mScheduler->replaceTouchTimer(10);
-        mScheduler->setTouchStateAndIdleTimerPolicy(globalSignals);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, globalSignals);
 
         expectedChoices =
                 ftl::init::map<const PhysicalDisplayId&,
@@ -711,7 +713,7 @@ TEST_F(SchedulerTest, chooseDisplayModesMultipleDisplays) {
 
         const GlobalSignals globalSignals = {.touch = true};
         mScheduler->replaceTouchTimer(10);
-        mScheduler->setTouchStateAndIdleTimerPolicy(globalSignals);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId3, globalSignals);
 
         expectedChoices = ftl::init::map<
                 const PhysicalDisplayId&,
@@ -731,7 +733,7 @@ TEST_F(SchedulerTest, chooseDisplayModesMultipleDisplays) {
         mScheduler->designatePacesetterDisplay(kDisplayId3);
         const GlobalSignals globalSignals = {.touch = true};
         mScheduler->replaceTouchTimer(10);
-        mScheduler->setTouchStateAndIdleTimerPolicy(globalSignals);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId3, globalSignals);
 
         expectedChoices = ftl::init::map<
                 const PhysicalDisplayId&,
@@ -742,6 +744,148 @@ TEST_F(SchedulerTest, chooseDisplayModesMultipleDisplays) {
                                                                      FrameRateMode{60_Hz,
                                                                                    kDisplay3Mode60},
                                                                      globalSignals);
+
+        const auto actualChoices = mScheduler->chooseDisplayModes();
+        EXPECT_EQ(expectedChoices, actualChoices);
+    }
+}
+
+TEST_F(SchedulerTest, chooseDisplayModesMultipleDisplaysArbitraryFollowersIdle) {
+    SET_FLAG_FOR_TEST(flags::follower_arbitrary_refresh_rate_selection, true);
+    constexpr PhysicalDisplayId kActiveDisplayId = kDisplayId1;
+    mScheduler->registerDisplay(kDisplayId1, ui::DisplayConnectionType::Internal,
+                                std::make_shared<RefreshRateSelector>(kDisplay1Modes,
+                                                                      kDisplay1Mode60->getId()),
+                                kActiveDisplayId);
+    mScheduler->registerDisplay(kDisplayId2, ui::DisplayConnectionType::Internal,
+                                std::make_shared<RefreshRateSelector>(kDisplay2Modes,
+                                                                      kDisplay2Mode60->getId()),
+                                kActiveDisplayId);
+
+    mScheduler->setDisplayPowerMode(kDisplayId1, hal::PowerMode::ON);
+    mScheduler->setDisplayPowerMode(kDisplayId2, hal::PowerMode::ON);
+
+    using DisplayModeChoice = TestableScheduler::DisplayModeChoice;
+    TestableScheduler::DisplayModeChoiceMap expectedChoices;
+
+    {
+        const GlobalSignals globalSignals = {.idle = true};
+        expectedChoices =
+                ftl::init::map<const PhysicalDisplayId&,
+                               DisplayModeChoice>(kDisplayId1,
+                                                  FrameRateMode{60_Hz, kDisplay1Mode60},
+                                                  globalSignals)(kDisplayId2,
+                                                                 FrameRateMode{60_Hz,
+                                                                               kDisplay2Mode60},
+                                                                 globalSignals);
+
+        mScheduler->setContentRequirements({kLayer, kLayer});
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, globalSignals);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId2, globalSignals);
+
+        const auto actualChoices = mScheduler->chooseDisplayModes();
+        EXPECT_EQ(expectedChoices, actualChoices);
+    }
+    {
+        expectedChoices = ftl::init::map<
+                const PhysicalDisplayId&,
+                DisplayModeChoice>(kDisplayId1, FrameRateMode{60_Hz, kDisplay1Mode60},
+                                   GlobalSignals{.idle = true})(kDisplayId2,
+                                                                FrameRateMode{120_Hz,
+                                                                              kDisplay2Mode120},
+                                                                GlobalSignals{.idle = false});
+
+        mScheduler->setContentRequirements({kLayer, kLayer});
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, {.idle = true});
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId2, {.idle = false});
+
+        const auto actualChoices = mScheduler->chooseDisplayModes();
+        EXPECT_EQ(expectedChoices, actualChoices);
+    }
+    {
+        expectedChoices = ftl::init::map<
+                const PhysicalDisplayId&,
+                DisplayModeChoice>(kDisplayId1, FrameRateMode{120_Hz, kDisplay1Mode120},
+                                   GlobalSignals{.idle = false})(kDisplayId2,
+                                                                 FrameRateMode{60_Hz,
+                                                                               kDisplay2Mode60},
+                                                                 GlobalSignals{.idle = true});
+
+        mScheduler->setContentRequirements({kLayer, kLayer});
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, {.idle = false});
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId2, {.idle = true});
+
+        const auto actualChoices = mScheduler->chooseDisplayModes();
+        EXPECT_EQ(expectedChoices, actualChoices);
+    }
+    {
+        expectedChoices = ftl::init::map<
+                const PhysicalDisplayId&,
+                DisplayModeChoice>(kDisplayId1, FrameRateMode{120_Hz, kDisplay1Mode120},
+                                   GlobalSignals{.idle = false})(kDisplayId2,
+                                                                 FrameRateMode{120_Hz,
+                                                                               kDisplay2Mode120},
+                                                                 GlobalSignals{.idle = false});
+
+        mScheduler->setContentRequirements({kLayer, kLayer});
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, {.idle = false});
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId2, {.idle = false});
+
+        const auto actualChoices = mScheduler->chooseDisplayModes();
+        EXPECT_EQ(expectedChoices, actualChoices);
+    }
+}
+
+TEST_F(SchedulerTest, chooseDisplayModesMultipleDisplaysArbitraryFollowersPowerMode) {
+    SET_FLAG_FOR_TEST(flags::follower_arbitrary_refresh_rate_selection, true);
+    constexpr PhysicalDisplayId kActiveDisplayId = kDisplayId1;
+    mScheduler->registerDisplay(kDisplayId1, ui::DisplayConnectionType::Internal,
+                                std::make_shared<RefreshRateSelector>(kDisplay1Modes,
+                                                                      kDisplay1Mode60->getId()),
+                                kActiveDisplayId);
+    mScheduler->registerDisplay(kDisplayId2, ui::DisplayConnectionType::Internal,
+                                std::make_shared<RefreshRateSelector>(kDisplay2Modes,
+                                                                      kDisplay2Mode60->getId()),
+                                kActiveDisplayId);
+
+    mScheduler->setDisplayPowerMode(kDisplayId1, hal::PowerMode::ON);
+    mScheduler->setDisplayPowerMode(kDisplayId2, hal::PowerMode::ON);
+
+    using DisplayModeChoice = TestableScheduler::DisplayModeChoice;
+    TestableScheduler::DisplayModeChoiceMap expectedChoices;
+
+    {
+        expectedChoices = ftl::init::map<
+                const PhysicalDisplayId&,
+                DisplayModeChoice>(kDisplayId1, FrameRateMode{120_Hz, kDisplay1Mode120},
+                                   GlobalSignals{.powerOnImminent =
+                                                         true})(kDisplayId2,
+                                                                FrameRateMode{60_Hz,
+                                                                              kDisplay2Mode60},
+                                                                GlobalSignals{.idle = true});
+
+        mScheduler->setContentRequirements({kLayer, kLayer});
+        mScheduler->setPowerTimerPolicy(kDisplayId1, TestableScheduler::TimerState::Reset);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId2, {.idle = true});
+
+        const auto actualChoices = mScheduler->chooseDisplayModes();
+        EXPECT_EQ(expectedChoices, actualChoices);
+    }
+    {
+        expectedChoices = ftl::init::map<
+                const PhysicalDisplayId&,
+                DisplayModeChoice>(kDisplayId1, FrameRateMode{60_Hz, kDisplay1Mode60},
+                                   GlobalSignals{
+                                           .idle = true})(kDisplayId2,
+                                                          FrameRateMode{120_Hz, kDisplay2Mode120},
+                                                          GlobalSignals{.powerOnImminent = true});
+
+        mScheduler->setContentRequirements({kLayer, kLayer});
+        mScheduler->setPowerTimerPolicy(kDisplayId1, TestableScheduler::TimerState::Expired);
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId1, {.idle = true});
+
+        mScheduler->setTouchStateAndIdleTimerPolicy(kDisplayId2, {.idle = false});
+        mScheduler->setPowerTimerPolicy(kDisplayId2, TestableScheduler::TimerState::Reset);
 
         const auto actualChoices = mScheduler->chooseDisplayModes();
         EXPECT_EQ(expectedChoices, actualChoices);

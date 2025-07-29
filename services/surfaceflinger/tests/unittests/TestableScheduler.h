@@ -178,10 +178,21 @@ public:
         return mPolicy.touch == Scheduler::TouchState::Active;
     }
 
-    void setTouchStateAndIdleTimerPolicy(GlobalSignals globalSignals) {
+    void setTouchStateAndIdleTimerPolicy(PhysicalDisplayId displayId, GlobalSignals globalSignals) {
         std::lock_guard<std::mutex> lock(mPolicyLock);
         mPolicy.touch = globalSignals.touch ? TouchState::Active : TouchState::Inactive;
-        mPolicy.idleTimer = globalSignals.idle ? TimerState::Expired : TimerState::Reset;
+        mPolicy.idleTimers.emplace_or_replace(displayId,
+                                              globalSignals.idle ? TimerState::Expired
+                                                                 : TimerState::Reset);
+    }
+
+    void setPowerTimerPolicy(PhysicalDisplayId displayId, TimerState state) {
+        std::lock_guard<std::mutex> lock(mPolicyLock);
+        mPolicy.displayPowerTimers.emplace_or_replace(displayId, state);
+        mDisplayPowerTimers.try_emplace(displayId,
+                                        std::make_unique<OneShotTimer>(
+                                                "FakeDisplayPowerTimer",
+                                                std::chrono::milliseconds(0), [] {}, [] {}));
     }
 
     using Scheduler::TimerState;

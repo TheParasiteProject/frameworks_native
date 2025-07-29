@@ -690,7 +690,7 @@ private:
     // ISchedulerCallback overrides:
     void requestHardwareVsync(PhysicalDisplayId, bool) override;
     void requestDisplayModes(std::vector<display::DisplayModeRequest>) override;
-    void kernelTimerChanged(bool expired) override;
+    void kernelTimerChanged(PhysicalDisplayId, bool expired) override;
     void onChoreographerAttached() override;
     void onExpectedPresentTimePosted(TimePoint expectedPresentTime, ftl::NonNull<DisplayModePtr>,
                                      Fps renderRate) override;
