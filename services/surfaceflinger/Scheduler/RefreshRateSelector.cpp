@@ -505,7 +505,8 @@ auto RefreshRateSelector::getRankedFrameRatesLocked(const std::vector<LayerRequi
 
     const auto& activeMode = *getActiveModeLocked().modePtr;
 
-    if (pacesetterFps.isValid()) {
+    if (pacesetterFps.isValid() &&
+        !FlagManager::getInstance().follower_arbitrary_refresh_rate_selection()) {
         ALOGV("Follower display");
 
         const auto ranking = rankFrameRates(activeMode.getGroup(), RefreshRateOrder::Descending,

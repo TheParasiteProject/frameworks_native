@@ -1463,11 +1463,16 @@ TEST_P(RefreshRateSelectorTest, powerOnImminentConsidered) {
 }
 
 TEST_P(RefreshRateSelectorTest, pacesetterConsidered) {
+    SET_FLAG_FOR_TEST(flags::follower_arbitrary_refresh_rate_selection, false);
+
     auto selector = createSelector(kModes_60_90, kModeId60);
     constexpr RefreshRateSelector::GlobalSignals kNoSignals;
+    LayerFilter followerLayerFilter = {.layerStack = ui::LayerStack::fromValue(2)};
+    selector.setLayerFilter(followerLayerFilter);
 
     std::vector<LayerRequirement> layers = {{.weight = 1.f}};
     layers[0].vote = LayerVoteType::Min;
+    layers[0].layerFilter = followerLayerFilter;
 
     // The pacesetterFps takes precedence over the LayerRequirement.
     {
@@ -1481,6 +1486,45 @@ TEST_P(RefreshRateSelectorTest, pacesetterConsidered) {
         const auto result = selector.getRankedFrameRates(layers, {.touch = true}, 60_Hz);
         EXPECT_EQ(kMode60, result.ranking.front().frameRateMode.modePtr);
         EXPECT_EQ(kNoSignals, result.consideredSignals);
+    }
+}
+
+TEST_P(RefreshRateSelectorTest, followerRefreshRateSelections) {
+    if (!GetParam().enableFollowerArbitraryRate) {
+        return;
+    }
+    SET_FLAG_FOR_TEST(flags::follower_arbitrary_refresh_rate_selection, true);
+
+    auto selector = createSelector(kModes_60_90, kModeId60);
+    constexpr RefreshRateSelector::GlobalSignals kNoSignals;
+
+    LayerFilter pacesetterLayerFilter = {.layerStack = ui::LayerStack::fromValue(1)};
+    LayerFilter followerLayerFilter = {.layerStack = ui::LayerStack::fromValue(2)};
+
+    selector.setLayerFilter(followerLayerFilter);
+
+    std::vector<LayerRequirement> layers = {{.weight = 1.f}, {.weight = 1.f}};
+    layers[0].vote = LayerVoteType::Min;
+    layers[0].layerFilter = pacesetterLayerFilter;
+
+    layers[1].vote = LayerVoteType::Max;
+    layers[1].layerFilter = followerLayerFilter;
+
+    // The pacesetterFps is ignored when follower_arbitrary_refresh_rate_selection flag is on and
+    // LayerRequirement kicks in.
+    {
+        const auto result = selector.getRankedFrameRates(layers, {}, 60_Hz);
+        EXPECT_EQ(kMode90, result.ranking.front().frameRateMode.modePtr);
+        EXPECT_EQ(kNoSignals, result.consideredSignals);
+    }
+
+    // The pacesetterFps is ignored when follower_arbitrary_refresh_rate_selection flag is on and
+    // GlobalSignals kicks in.
+    layers.erase(layers.begin() + 1);
+    {
+        const auto result = selector.getRankedFrameRates(layers, {.touch = true}, 60_Hz);
+        EXPECT_EQ(kMode90, result.ranking.front().frameRateMode.modePtr);
+        EXPECT_TRUE(result.consideredSignals.touch);
     }
 }
 
