@@ -33,9 +33,6 @@
 #include <ftl/enum.h>
 #include <system/window.h>
 
-#undef LOG_TAG
-#define LOG_TAG "LayerInfo"
-
 namespace android::scheduler {
 
 bool LayerInfo::sTraceEnabled = false;

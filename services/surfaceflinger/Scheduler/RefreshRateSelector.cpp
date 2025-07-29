@@ -39,9 +39,6 @@
 
 #include <com_android_graphics_surfaceflinger_flags.h>
 
-#undef LOG_TAG
-#define LOG_TAG "RefreshRateSelector"
-
 namespace android::scheduler {
 namespace {
 
