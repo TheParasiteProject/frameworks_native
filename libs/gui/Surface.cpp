@@ -804,7 +804,7 @@ status_t Surface::queueBuffer(const sp<GraphicBuffer>& buffer, const sp<Fence>& 
     if (buffer == nullptr) {
         return BAD_VALUE;
     }
-    return queueBuffer(sp<GraphicBuffer>::fromExisting(buffer.get()), fd ? fd->get() : -1, output);
+    return queueBuffer(buffer.get(), fd ? fd->get() : -1, output);
 }
 
 status_t Surface::detachBuffer(const sp<GraphicBuffer>& buffer) {
@@ -2100,7 +2100,7 @@ int Surface::connect(int api, const sp<SurfaceListener>& listener, bool reportBu
     mReportRemovedBuffers = reportBufferRemoval;
 
     if (listener != nullptr) {
-        mListenerProxy = sp<ProducerListenerProxy>::make(wp<Surface>::fromExisting(this), listener);
+        mListenerProxy = sp<ProducerListenerProxy>::make(this, listener);
     }
 
     int err =
@@ -2275,8 +2275,7 @@ int Surface::isBufferOwned(const sp<GraphicBuffer>& buffer, bool* outIsOwned) co
 int Surface::attachBuffer(ANativeWindowBuffer* buffer)
 {
     ATRACE_CALL();
-    sp<GraphicBuffer> graphicBuffer(
-            sp<GraphicBuffer>::fromExisting(static_cast<GraphicBuffer*>(buffer)));
+    sp<GraphicBuffer> graphicBuffer(static_cast<GraphicBuffer*>(buffer));
 
     SURF_LOGV("Surface::attachBuffer bufferId=%" PRIu64, graphicBuffer->getId());
 
@@ -2857,7 +2856,7 @@ status_t Surface::unlockAndPost()
     status_t err = mLockedBuffer->unlockAsync(&fd);
     SURF_LOGE_IF(err, "failed unlocking buffer (%p)", mLockedBuffer->handle);
 
-    err = queueBuffer(sp<GraphicBuffer>::fromExisting(mLockedBuffer.get()), fd);
+    err = queueBuffer(mLockedBuffer.get(), fd);
     SURF_LOGE_IF(err, "queueBuffer (handle=%p) failed (%s)", mLockedBuffer->handle, strerror(-err));
 
     mPostedBuffer = mLockedBuffer;

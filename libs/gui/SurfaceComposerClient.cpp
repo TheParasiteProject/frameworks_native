@@ -682,7 +682,7 @@ void TransactionCompletedListener::removeReleaseBufferCallback(
 
 SurfaceComposerClient::PresentationCallbackRAII::PresentationCallbackRAII(
         TransactionCompletedListener* tcl, int id) {
-    mTcl = sp<TransactionCompletedListener>::fromExisting(tcl);
+    mTcl = tcl;
     mId = id;
 }
 
@@ -2593,8 +2593,7 @@ status_t SurfaceComposerClient::createSurfaceChecked(const String8& name, uint32
         }
         ALOGE_IF(err, "SurfaceComposerClient::createSurface error %s", strerror(-err));
         if (err == NO_ERROR) {
-            *outSurface = sp<SurfaceControl>::make(sp<SurfaceComposerClient>::fromExisting(this),
-                                                   result.handle, result.layerId,
+            *outSurface = sp<SurfaceControl>::make(this, result.handle, result.layerId,
                                                    toString(result.layerName), w, h, format,
                                                    result.transformHint, flags);
         }
@@ -2616,8 +2615,8 @@ sp<SurfaceControl> SurfaceComposerClient::mirrorSurface(SurfaceControl* mirrorFr
     const binder::Status status = mClient->mirrorSurface(mirrorFromHandle, stopAtHandle, &result);
     const status_t err = statusTFromBinderStatus(status);
     if (err == NO_ERROR) {
-        return sp<SurfaceControl>::make(sp<SurfaceComposerClient>::fromExisting(this),
-                                        result.handle, result.layerId, toString(result.layerName));
+        return sp<SurfaceControl>::make(this, result.handle, result.layerId,
+                                        toString(result.layerName));
     }
     return nullptr;
 }
@@ -2629,8 +2628,8 @@ sp<SurfaceControl> SurfaceComposerClient::mirrorDisplay(DisplayId displayId) {
     const binder::Status status = mClient->mirrorDisplay(displayId.value, &result);
     const status_t err = statusTFromBinderStatus(status);
     if (err == NO_ERROR) {
-        return sp<SurfaceControl>::make(sp<SurfaceComposerClient>::fromExisting(this),
-                                        result.handle, result.layerId, toString(result.layerName));
+        return sp<SurfaceControl>::make(this, result.handle, result.layerId,
+                                        toString(result.layerName));
     }
     return nullptr;
 }
