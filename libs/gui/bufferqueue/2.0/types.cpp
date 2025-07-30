@@ -288,7 +288,7 @@ bool h2b(HardwareBuffer const& from, sp<GraphicBuffer>* to) {
             &hwBuffer) != OK) {
         return false;
     }
-    *to = sp<GraphicBuffer>::fromExisting(GraphicBuffer::fromAHardwareBuffer(hwBuffer));
+    *to = GraphicBuffer::fromAHardwareBuffer(hwBuffer);
     AHardwareBuffer_release(hwBuffer);
     return true;
 }

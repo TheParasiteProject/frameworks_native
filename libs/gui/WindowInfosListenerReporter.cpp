@@ -39,11 +39,7 @@ android::base::Result<gui::WindowInfosUpdate> WindowInfosListenerReporter::addWi
     std::scoped_lock lock(mListenersMutex);
     if (mWindowInfosListeners.empty()) {
         gui::WindowInfosListenerInfo listenerInfo;
-        binder::Status status =
-                surfaceComposer
-                        ->addWindowInfosListener(sp<WindowInfosListenerReporter>::fromExisting(
-                                                         this),
-                                                 &listenerInfo);
+        binder::Status status = surfaceComposer->addWindowInfosListener(this, &listenerInfo);
         LOG_IF(FATAL, !status.isOk()) << "Can't register window infos listener for pid " << getpid()
                                       << ". Device won't be usable";
 
@@ -64,9 +60,7 @@ status_t WindowInfosListenerReporter::removeWindowInfosListener(
         return OK;
     }
 
-    if (binder::Status status = surfaceComposer->removeWindowInfosListener(
-                sp<WindowInfosListenerReporter>::fromExisting(this));
-        !status.isOk()) {
+    if (binder::Status status = surfaceComposer->removeWindowInfosListener(this); !status.isOk()) {
         ALOGW("Failed to remove window infos listener from SurfaceFlinger");
         return statusTFromBinderStatus(status);
     }
