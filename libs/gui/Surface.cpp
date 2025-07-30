@@ -814,6 +814,14 @@ status_t Surface::detachBuffer(const sp<GraphicBuffer>& buffer) {
 
     Mutex::Autolock lock(mMutex);
 
+    if (mLeakedBuffers.contains(buffer)) {
+        SURF_LOGE("Surface::detachBuffer given a leaked buffer! Deleting extra held reference.");
+        mLeakedBuffers.erase(buffer);
+        if (!mIsConnected) {
+            return OK;
+        }
+    }
+
     uint64_t bufferId = buffer->getId();
 #if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(WB_UNLIMITED_SLOTS)
     for (int slot = 0; slot < (int)mSlots.size(); ++slot) {
@@ -1014,6 +1022,15 @@ int Surface::cancelBuffer(sp<GraphicBuffer>&& buffer, int fenceFd) {
     ATRACE_CALL();
     SURF_LOGV("Surface::cancelBuffer");
     Mutex::Autolock lock(mMutex);
+
+    if (mLeakedBuffers.contains(buffer)) {
+        SURF_LOGE("Surface::cancelBuffer given a leaked buffer! Deleting extra held reference.");
+        mLeakedBuffers.erase(buffer);
+        if (!mIsConnected) {
+            return OK;
+        }
+    }
+
     int i = getSlotFromBufferLocked(buffer);
     if (i < 0) {
         if (fenceFd >= 0) {
@@ -1053,8 +1070,24 @@ int Surface::cancelBuffers(const std::vector<BatchBuffer>& buffers) {
     std::vector<status_t> cancelBufferOutputs;
     size_t numBuffersCancelled = 0;
     int badSlotResult = 0;
+    std::vector<sp<GraphicBuffer>> deletedLeakedBuffers;
     {
         Mutex::Autolock _l(mMutex);
+
+        for (auto& batchBuffer : buffers) {
+            auto buffer = GraphicBuffer::from(batchBuffer.buffer);
+            if (mLeakedBuffers.contains(buffer)) {
+                SURF_LOGE("Surface::cancelBuffers given a leaked buffer! Deleting extra held "
+                          "reference.");
+                mLeakedBuffers.erase(buffer);
+                // Hold onto one last reference to the buffer until the end of the scope of this
+                // function in the rare case that it still needs to be sent to the client.
+                deletedLeakedBuffers.push_back(std::move(buffer));
+            }
+        }
+        if (!mIsConnected && !deletedLeakedBuffers.empty()) {
+            return OK;
+        }
 
         if (mSharedBufferMode) {
             SURF_LOGE("%s: batch operation is not supported in shared buffer mode!", __FUNCTION__);
@@ -1308,6 +1341,14 @@ int Surface::queueBuffer(sp<GraphicBuffer>&& buffer, int fenceFd,
     {
         Mutex::Autolock lock(mMutex);
 
+        if (mLeakedBuffers.contains(buffer)) {
+            SURF_LOGE("Surface::queueBuffer given a leaked buffer! Deleting extra held reference.");
+            mLeakedBuffers.erase(buffer);
+            if (!mIsConnected) {
+                return OK;
+            }
+        }
+
         slot = getSlotFromBufferLocked(buffer);
         if (slot < 0) {
             if (fenceFd >= 0) {
@@ -1364,10 +1405,26 @@ int Surface::queueBuffers(const std::vector<BatchQueuedBuffer>& buffers,
     std::vector<IGraphicBufferProducer::QueueBufferOutput> igbpQueueBufferOutputs;
     std::vector<int> bufferSlots(numBuffers, -1);
     std::vector<sp<Fence>> bufferFences(numBuffers);
+    std::vector<sp<GraphicBuffer>> deletedLeakedBuffers;
 
     int err;
     {
         Mutex::Autolock lock(mMutex);
+
+        for (auto& batchBuffer : buffers) {
+            auto buffer = GraphicBuffer::from(batchBuffer.buffer);
+            if (mLeakedBuffers.contains(buffer)) {
+                SURF_LOGE("Surface::queueBuffers given a leaked buffer! Deleting extra held "
+                          "reference.");
+                mLeakedBuffers.erase(buffer);
+                // Hold onto one last reference to the buffer until the end of the scope of this
+                // function in the rare case that it still needs to be sent to the client.
+                deletedLeakedBuffers.push_back(std::move(buffer));
+            }
+        }
+        if (!mIsConnected && !deletedLeakedBuffers.empty()) {
+            return OK;
+        }
 
         if (mSharedBufferMode) {
             SURF_LOGE("%s: batched operation is not supported in shared buffer mode", __FUNCTION__);
@@ -2137,6 +2194,7 @@ int Surface::connect(int api, const sp<SurfaceListener>& listener, bool reportBu
             mGraphicBufferProducer->getUniqueId(&mId);
         }
         SURF_LOGE_IF(idErr != NO_ERROR, "Unable to get ID from IGBP: %d", idErr);
+        mIsConnected = true;
     }
     if (!err && api == NATIVE_WINDOW_API_CPU) {
         mConnectedToCpu = true;
@@ -2157,7 +2215,7 @@ int Surface::disconnect(int api, IGraphicBufferProducer::DisconnectMode mode) {
     mRemovedBuffers.clear();
     mSharedBufferSlot = BufferItem::INVALID_BUFFER_SLOT;
     mSharedBufferHasBeenQueued = false;
-    freeUndequeuedBuffersLocked();
+    clearBuffersForDisconnectLocked();
     int err = mGraphicBufferProducer->disconnect(api, mode);
     if (!err) {
         mReqFormat = 0;
@@ -2181,6 +2239,7 @@ int Surface::disconnect(int api, IGraphicBufferProducer::DisconnectMode mode) {
         // Keep the old name in case we get subsequent calls, for logging.
         mDebugName = mDebugName + "-DISCONNECTED";
         mId = 0;
+        mIsConnected = false;
     }
 
 #if !defined(NO_BINDER)
@@ -2615,7 +2674,9 @@ void Surface::freeUndequeuedBuffersLocked() {
     }
 }
 
-void Surface::freeAllBuffersLocked() {
+void Surface::clearBuffersForDisconnectLocked() {
+    ATRACE_CALL();
+    SURF_LOGV("Surface::clearBuffersForDisconnectLocked");
     if (!mDequeuedSlots.empty()) {
         SURF_LOGE("%s: %zu buffers were freed while being dequeued!", __FUNCTION__,
                   mDequeuedSlots.size());
@@ -2625,6 +2686,13 @@ void Surface::freeAllBuffersLocked() {
 #else
     for (int i = 0; i < NUM_BUFFER_SLOTS; i++) {
 #endif
+        // Since we're ANW contractually oblicates us to be responsible for a reference to a
+        // dequeued buffer, hold onto a reference to the buffer even though we're disconnecting.
+        // This is especially important in the case of when some client is using ANW and someone
+        // else, having a reference to the Surface, disconnects it.
+        if (mDequeuedSlots.contains(i)) {
+            mLeakedBuffers.insert(mSlots[i].buffer);
+        }
         mSlots[i].buffer = nullptr;
         mSlots[i].dirtyRegion.clear();
         mSlots[i].requiresFreeOnReturn = false;
