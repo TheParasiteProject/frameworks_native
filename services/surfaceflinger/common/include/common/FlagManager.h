@@ -74,7 +74,6 @@ public:
     bool resync_on_tx() const;
     bool unify_refresh_rate_callbacks() const;
     bool vsync_predictor_predicts_within_threshold() const;
-    bool vsync_predictor_rate_change_with_aligned_sequence() const;
 
     /// Trunk stable readonly flags ///
     /// IMPORTANT - please keep alphabetize to reduce merge conflicts
