@@ -7599,8 +7599,8 @@ std::string InputDispatcher::DispatcherTouchState::dump() const {
     } else {
         dump += "TouchStatesByDisplay:\n";
         for (const auto& [displayId, state] : mTouchStatesByDisplay) {
-            std::string touchStateDump = addLinePrefix(state.dump(), INDENT);
-            dump += INDENT + displayId.toString() + " : " + touchStateDump;
+            dump += addLinePrefix("LogicalDisplayId " + displayId.toString() + ":\n", INDENT);
+            dump += addLinePrefix(state.dump(), INDENT2);
         }
     }
     if (mCursorStateByDisplay.empty()) {
@@ -7608,8 +7608,8 @@ std::string InputDispatcher::DispatcherTouchState::dump() const {
     } else {
         dump += "CursorStatesByDisplay:\n";
         for (const auto& [displayId, state] : mCursorStateByDisplay) {
-            std::string touchStateDump = addLinePrefix(state.dump(), INDENT);
-            dump += INDENT + displayId.toString() + " : " + touchStateDump;
+            dump += addLinePrefix("LogicalDisplayId " + displayId.toString() + ":\n", INDENT);
+            dump += addLinePrefix(state.dump(), INDENT2);
         }
     }
     return dump;
