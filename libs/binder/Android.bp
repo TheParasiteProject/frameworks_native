@@ -1086,7 +1086,6 @@ cc_library {
     name: "libprocessinfoservice_aidl",
     host_supported: true,
     srcs: [
-        "IProcessInfoService.cpp",
         "ProcessInfoService.cpp",
     ],
     export_include_dirs: ["include_processinfo"],
@@ -1094,6 +1093,7 @@ cc_library {
         "libbinder",
         "libutils",
         "liblog",
+        "process_info_service_aidl-cpp",
     ],
 }
 
