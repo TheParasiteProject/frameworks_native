@@ -3468,6 +3468,7 @@ TEST_F(OutputPostFramebufferTest, releaseFencesAreSetInLayerFE) {
 }
 
 TEST_F(OutputPostFramebufferTest, setReleaseFencesIncludeClientTargetAcquireFence) {
+    SET_FLAG_FOR_TEST(flags::force_slower_follower_gpu_composition, false);
     mOutput.mState.isEnabled = true;
     mOutput.mState.usesClientComposition = true;
 
@@ -3490,6 +3491,67 @@ TEST_F(OutputPostFramebufferTest, setReleaseFencesIncludeClientTargetAcquireFenc
 
     EXPECT_CALL(mOutput, presentFrame()).WillOnce(Return(frameFences));
     EXPECT_CALL(*mRenderSurface, onPresentDisplayCompleted());
+
+    // Fence::merge is called, and since none of the fences are actually valid,
+    // Fence::NO_FENCE is returned and passed to each setReleaseFence() call.
+    // This is the best we can do without creating a real kernel fence object.
+    EXPECT_CALL(*mLayer1.layerFE, setReleaseFence).WillOnce(Return());
+    EXPECT_CALL(*mLayer2.layerFE, setReleaseFence).WillOnce(Return());
+    EXPECT_CALL(*mLayer3.layerFE, setReleaseFence).WillOnce(Return());
+    EXPECT_CALL(*mLayer1.layerFE, setReleasedBuffer(_)).WillOnce([&](sp<GraphicBuffer> buffer) {
+        EXPECT_EQ(layer1State.buffer, buffer);
+    });
+    EXPECT_CALL(*mLayer2.layerFE, setReleasedBuffer(_)).WillOnce([&](sp<GraphicBuffer> buffer) {
+        EXPECT_EQ(layer2State.buffer, buffer);
+    });
+    EXPECT_CALL(*mLayer3.layerFE, setReleasedBuffer(_)).WillOnce([&](sp<GraphicBuffer> buffer) {
+        EXPECT_EQ(layer3State.buffer, buffer);
+    });
+    constexpr bool kFlushEvenWhenDisabled = false;
+    mOutput.presentFrameAndReleaseLayers(kFlushEvenWhenDisabled);
+}
+
+TEST_F(OutputPostFramebufferTest, setReleaseFencesIncludeLastClientTargetAcquireFence) {
+    SET_FLAG_FOR_TEST(flags::force_slower_follower_gpu_composition, true);
+    mOutput.mState.isEnabled = true;
+    mOutput.mState.usesClientComposition = true;
+
+    Output::FrameFences frameFences;
+    frameFences.layerFences.emplace(&mLayer1.hwc2Layer, sp<Fence>::make());
+    frameFences.layerFences.emplace(&mLayer2.hwc2Layer, sp<Fence>::make());
+    frameFences.layerFences.emplace(&mLayer3.hwc2Layer, sp<Fence>::make());
+    sp<Fence> targetAcquireFence = sp<Fence>::make();
+    frameFences.clientTargetAcquireFence = targetAcquireFence;
+
+    // Set up layerfe buffers
+    LayerFECompositionState layer1State;
+    layer1State.buffer = sp<GraphicBuffer>::make();
+    LayerFECompositionState layer2State;
+    layer2State.buffer = sp<GraphicBuffer>::make();
+    LayerFECompositionState layer3State;
+    layer3State.buffer = nullptr;
+
+    // No point in sending a real fence since Fence::merge() will clobber it to a NO_FENCE anyways.
+    EXPECT_CALL(*mLayer1.layerFE, getAndClearLastClientTargetAcquireFence())
+            .WillOnce(Return(Fence::NO_FENCE));
+    EXPECT_CALL(*mLayer2.layerFE, getAndClearLastClientTargetAcquireFence())
+            .WillOnce(Return(Fence::NO_FENCE));
+    EXPECT_CALL(*mLayer3.layerFE, getAndClearLastClientTargetAcquireFence())
+            .WillOnce(Return(Fence::NO_FENCE));
+
+    EXPECT_CALL(*mLayer1.layerFE, setLastClientTargetAcquireFence(FenceResult(targetAcquireFence)))
+            .Times(1);
+    EXPECT_CALL(*mLayer2.layerFE, setLastClientTargetAcquireFence(FenceResult(targetAcquireFence)))
+            .Times(1);
+    EXPECT_CALL(*mLayer3.layerFE, setLastClientTargetAcquireFence(FenceResult(targetAcquireFence)))
+            .Times(1);
+
+    EXPECT_CALL(mOutput, presentFrame()).WillOnce(Return(frameFences));
+    EXPECT_CALL(*mRenderSurface, onPresentDisplayCompleted());
+
+    EXPECT_CALL(*mLayer1.layerFE, getCompositionState()).WillOnce(Return(&layer1State));
+    EXPECT_CALL(*mLayer2.layerFE, getCompositionState()).WillOnce(Return(&layer2State));
+    EXPECT_CALL(*mLayer3.layerFE, getCompositionState()).WillOnce(Return(&layer3State));
 
     // Fence::merge is called, and since none of the fences are actually valid,
     // Fence::NO_FENCE is returned and passed to each setReleaseFence() call.
