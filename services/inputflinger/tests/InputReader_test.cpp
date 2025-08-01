@@ -23,7 +23,6 @@
 #include <InputMapper.h>
 #include <InputReader.h>
 #include <InputReaderBase.h>
-#include <InputReaderFactory.h>
 #include <KeyboardInputMapper.h>
 #include <MultiTouchInputMapper.h>
 #include <NotifyArgsBuilders.h>
