@@ -141,7 +141,6 @@ void FlagManager::dump(std::string& result) const {
 
     /// Trunk stable readonly flags ///
     /// IMPORTANT - please keep alphabetize to reduce merge conflicts
-    DUMP_ACONFIG_FLAG(adpf_fmq_sf);
     DUMP_ACONFIG_FLAG(arr_setframerate_gte_enum);
     DUMP_ACONFIG_FLAG(begone_bright_hlg);
     DUMP_ACONFIG_FLAG(cache_when_source_crop_layer_only_moved);
@@ -250,7 +249,6 @@ FLAG_MANAGER_LEGACY_SERVER_FLAG(use_skia_tracing, PROPERTY_SKIA_ATRACE_ENABLED,
                                 "SkiaTracingFeature__use_skia_tracing")
 
 /// Trunk stable readonly flags ///
-FLAG_MANAGER_ACONFIG_FLAG(adpf_fmq_sf, "")
 FLAG_MANAGER_ACONFIG_FLAG(arr_setframerate_gte_enum, "debug.sf.arr_setframerate_gte_enum")
 FLAG_MANAGER_ACONFIG_FLAG(enable_small_area_detection, "")
 FLAG_MANAGER_ACONFIG_FLAG(stable_edid_ids, "debug.sf.stable_edid_ids")
