@@ -152,7 +152,7 @@ flag {
   name: "disable_transparent_region_hint"
   namespace: "window_surfaces"
   description: "Disable using transparent region hints when cropping layers"
-  bug: "428386342"
+  bug: "432537641"
   metadata {
     purpose: PURPOSE_BUGFIX
   }
