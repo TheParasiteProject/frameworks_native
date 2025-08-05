@@ -78,7 +78,6 @@ public:
 
     /// Trunk stable readonly flags ///
     /// IMPORTANT - please keep alphabetize to reduce merge conflicts
-    bool adpf_fmq_sf() const;
     bool arr_setframerate_gte_enum() const;
     bool begone_bright_hlg() const;
     bool cache_when_source_crop_layer_only_moved() const;
