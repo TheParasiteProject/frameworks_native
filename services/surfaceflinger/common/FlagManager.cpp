@@ -115,6 +115,7 @@ void FlagManager::dump(std::string& result) const {
     DUMP_SYSPROP_FLAG(productionize_readback_screenshot);
 
     /// Legacy server flags ///
+    DUMP_LEGACY_SERVER_FLAG(test_flag);
     DUMP_LEGACY_SERVER_FLAG(use_adpf_cpu_hint);
     DUMP_LEGACY_SERVER_FLAG(use_skia_tracing);
 
@@ -124,14 +125,17 @@ void FlagManager::dump(std::string& result) const {
     DUMP_ACONFIG_FLAG(adpf_gpu_sf);
     DUMP_ACONFIG_FLAG(adpf_native_session_manager);
     DUMP_ACONFIG_FLAG(adpf_use_fmq_channel);
+    DUMP_ACONFIG_FLAG(adpf_use_fmq_channel_fixed);
     DUMP_ACONFIG_FLAG(anchor_list);
     DUMP_ACONFIG_FLAG(buffer_stuffing_fix);
+    DUMP_ACONFIG_FLAG(connected_displays_cursor);
     DUMP_ACONFIG_FLAG(correct_virtual_display_power_state);
     DUMP_ACONFIG_FLAG(disable_transparent_region_hint);
     DUMP_ACONFIG_FLAG(filter_refresh_rates_within_config_group);
     DUMP_ACONFIG_FLAG(frontend_caching_v0);
     DUMP_ACONFIG_FLAG(graphite_renderengine_preview_rollout);
     DUMP_ACONFIG_FLAG(increase_missed_frame_jank_threshold);
+    DUMP_ACONFIG_FLAG(luts_api);
     DUMP_ACONFIG_FLAG(monitor_buffer_fences);
     DUMP_ACONFIG_FLAG(offload_gpu_composition);
     DUMP_ACONFIG_FLAG(readback_screenshot);
@@ -181,6 +185,7 @@ void FlagManager::dump(std::string& result) const {
     DUMP_ACONFIG_FLAG(vulkan_renderengine);
     DUMP_ACONFIG_FLAG(wb_virtualdisplay2);
     DUMP_ACONFIG_FLAG(window_blur_kawase2);
+    DUMP_ACONFIG_FLAG(window_blur_kawase2_fix_aliasing);
     /// IMPORTANT - please keep alphabetize to reduce merge conflicts
 
 #undef DUMP_ACONFIG_FLAG
