@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// NOTE: the content of this file is validated via check_flags.py script.
+// Be mindful when changing structure of MACROs.
+
 #include <common/FlagManager.h>
 
 #include <SurfaceFlingerProperties.sysprop.h>
