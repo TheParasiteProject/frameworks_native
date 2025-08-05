@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright 2019 The Android Open Source Project
+# Copyright 2025 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,21 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Generates vulkan framework directly from the vulkan registry (vk.xml).
+"""Generates/Updates vkjson* files directly from the vulkan registry (vk.xml).
 """
+import vkjson_generator
+import vk_parser
 
-import api_generator
-import driver_generator
-import generator_common
-import null_generator
-import vkjson_codegen
+def main():
+  vk_parser.gen_vk()
+  vkjson_generator.re_import_vk()
+  vkjson_generator.gen_h()
+  vkjson_generator.gen_cc()
+  vkjson_generator.gen_instance_cc()
 
 if __name__ == '__main__':
-  generator_common.parse_vulkan_registry()
-  api_generator.gen_h()
-  api_generator.gen_cpp()
-  driver_generator.gen_h()
-  driver_generator.gen_cpp()
-  null_generator.gen_h()
-  null_generator.gen_cpp()
-  vkjson_codegen.main()
+  main()
