@@ -52,7 +52,6 @@ static const SkString kGainmapShaderString = SkString(R"(
 )");
 } // namespace
 
-const float INTERPOLATION_STRENGTH_VALUE = 0.7f;
 
 GainmapFactory::GainmapFactory(RuntimeEffectManager& effectManager) {
     mEffect =
