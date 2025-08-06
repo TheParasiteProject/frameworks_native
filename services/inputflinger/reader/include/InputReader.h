@@ -38,6 +38,7 @@
 #include "InputReaderContext.h"
 #include "InputReaderTracer.h"
 #include "InputThread.h"
+#include "InputTracingBackendInterface.h"
 
 namespace android {
 
