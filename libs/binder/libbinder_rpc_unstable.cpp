@@ -88,7 +88,7 @@ ARpcServer* ARpcServer_newVsock(AIBinder* service, unsigned int cid, unsigned in
         if (0 ==
             strcmp(AIBinder_Class_getDescriptor(serviceClass),
                    "com.android.isolated_storage_service.IIcingSearchEngine")) {
-            server->setMaxThreads(2);
+            server->setMaxThreads(3);
         }
     }
 
