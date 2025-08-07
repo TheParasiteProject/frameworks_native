@@ -6679,7 +6679,6 @@ void InputDispatcher::doInterceptKeyBeforeDispatchingCommand(const sp<IBinder>& 
     KeyEvent event = createKeyEvent(entry);
     event.setDisplayId(displayId);
     std::variant<nsecs_t, KeyEntry::InterceptKeyResult> interceptResult;
-    nsecs_t delay = 0;
     { // release lock
         scoped_unlock unlock(mLock);
         android::base::Timer t;
