@@ -89,6 +89,13 @@ void VirtualDisplaySurface2::onFirstRef() {
     ATRACE_CALL();
     std::scoped_lock _l(mMutex);
 
+    std::tie(mRendererConsumer, mRendererSurface) =
+            BufferItemConsumer::create(GRALLOC_USAGE_HW_RENDER);
+    mRendererListener =
+            sp<RenderConsumerListener>::make(sp<VirtualDisplaySurface2>::fromExisting(this));
+    mRendererConsumer->setFrameAvailableListener(mRendererListener);
+    mRendererConsumer->setName(String8(mName + "-RenderBQ"));
+
     mSinkSurfaceDataFuture = mSinkHelper->connectSinkSurface();
 
     if (mSinkHelper->isFrozen()) {
@@ -100,8 +107,6 @@ void VirtualDisplaySurface2::onFirstRef() {
     // conditions, but we're on the main thread.
     constexpr auto timeToWait = std::chrono::milliseconds(1);
     if (mSinkSurfaceDataFuture.wait_for(timeToWait) == std::future_status::ready) {
-        // This has to be done in onFirstRef instead of the ctor because this function uses
-        // sp<>::fromExisting.
         prepareSurfacesLocked();
     } else {
         ALOGW("%s: waited for the sink surface to connect for %lldms and it's not ready.",
@@ -131,12 +136,7 @@ void VirtualDisplaySurface2::prepareSurfacesLocked() {
     // Since the renderer can be used for GPU compositing at any point, make sure we are generating
     // buffers we can send over to the app.
     rendererUsage |= mSinkUsage;
-
-    std::tie(mRendererConsumer, mRendererSurface) = BufferItemConsumer::create(rendererUsage);
-    mRendererListener =
-            sp<RenderConsumerListener>::make(sp<VirtualDisplaySurface2>::fromExisting(this));
-    mRendererConsumer->setFrameAvailableListener(mRendererListener);
-    mRendererConsumer->setName(String8(mName + "-RenderBQ"));
+    mRendererConsumer->setConsumerUsageBits(rendererUsage);
 
     if (isHalDisplay()) {
         std::tie(mOutputConsumer, mOutputSurface) =

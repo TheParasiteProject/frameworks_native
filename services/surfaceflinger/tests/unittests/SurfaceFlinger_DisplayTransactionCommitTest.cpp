@@ -489,6 +489,9 @@ TEST_F(DisplayTransactionCommitTest, processesVirtualDisplayAdded) {
     // Cleanup
     mFlinger.mutableCurrentState().displays.removeItem(displayToken);
     mFlinger.mutableDrawingState().displays.removeItem(displayToken);
+
+    // Deletion will happen on its own thread. Give it time to remove itself.
+    std::this_thread::sleep_for(1s);
 }
 
 TEST_F(DisplayTransactionCommitTest, processesVirtualDisplayAddedWithNoSurface) {
