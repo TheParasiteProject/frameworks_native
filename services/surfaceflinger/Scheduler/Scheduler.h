@@ -122,7 +122,7 @@ public:
                          std::optional<PhysicalDisplayId> defaultPacesetterId)
             REQUIRES(kMainThreadContext) EXCLUDES(mDisplayLock);
     void unregisterDisplay(PhysicalDisplayId, std::optional<PhysicalDisplayId> defaultPacesetterId)
-            REQUIRES(kMainThreadContext) EXCLUDES(mDisplayLock);
+            REQUIRES(kMainThreadContext) EXCLUDES(mDisplayLock, mPolicyLock);
 
     void run();
 
@@ -508,7 +508,7 @@ private:
     void updateAttachedChoreographersFrameRate(const surfaceflinger::frontend::RequestedLayerState&,
                                                Fps fps) EXCLUDES(mChoreographerLock);
 
-    void emitModeChangeIfNeeded() REQUIRES(mPolicyLock) EXCLUDES(mDisplayLock);
+    void emitPacesetterModeChangeIfNeeded() REQUIRES(mPolicyLock) EXCLUDES(mDisplayLock);
 
     // IEventThreadCallback overrides
     bool throttleVsync(TimePoint, uid_t) override;
@@ -528,6 +528,9 @@ private:
     PhysicalDisplayId selectPacesetterDisplayLocked(
             std::optional<PhysicalDisplayId> desiredPacesetterId) const
             REQUIRES(kMainThreadContext, mDisplayLock);
+
+    // Returns true if any powered on display is capable of switching modes.
+    bool canAnySelectorSwitch() const EXCLUDES(mDisplayLock);
 
     std::unique_ptr<EventThread> mRenderEventThread;
     std::unique_ptr<EventThread> mLastCompositeEventThread;
@@ -646,10 +649,10 @@ private:
         hal::PowerMode displayPowerMode = hal::PowerMode::ON;
 
         // Chosen display mode.
-        ftl::Optional<FrameRateMode> modeOpt;
+        std::unordered_map<PhysicalDisplayId, ftl::Optional<FrameRateMode>> modeOpt;
 
         // Display mode of latest emitted event.
-        std::optional<FrameRateMode> emittedModeOpt;
+        std::unordered_map<PhysicalDisplayId, std::optional<FrameRateMode>> emittedModeOpt;
     } mPolicy GUARDED_BY(mPolicyLock);
 
     std::mutex mChoreographerLock;
