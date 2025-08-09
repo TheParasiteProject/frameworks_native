@@ -529,6 +529,9 @@ private:
             std::optional<PhysicalDisplayId> desiredPacesetterId) const
             REQUIRES(kMainThreadContext, mDisplayLock);
 
+    // Returns true if any powered on display is capable of switching modes.
+    bool canAnySelectorSwitch() const EXCLUDES(mDisplayLock);
+
     std::unique_ptr<EventThread> mRenderEventThread;
     std::unique_ptr<EventThread> mLastCompositeEventThread;
 
