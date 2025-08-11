@@ -28,32 +28,35 @@
 
 namespace android::surfaceflinger::tests::end2end::test_framework::surfaceflinger::events {
 
-struct BufferReleased final {
-    using AsyncConnector = core::AsyncFunctionStd<void(BufferReleased)>;
+struct TransactionCommitted final {
+    using AsyncConnector = core::AsyncFunctionStd<void(TransactionCommitted)>;
 
-    using TimePoint = std::chrono::steady_clock::time_point;
+    using Timestamp = std::chrono::steady_clock::time_point;
 
     uintptr_t surfaceId{};
     uint64_t frameNumber{};
     core::BufferId bufferId{};
-    TimePoint receivedAt{std::chrono::steady_clock::now()};
+    Timestamp latchTime;
+    Timestamp receivedAt{std::chrono::steady_clock::now()};
 
-    friend auto operator==(const BufferReleased&, const BufferReleased&) -> bool = default;
+    friend auto operator==(const TransactionCommitted&, const TransactionCommitted&)
+            -> bool = default;
 };
 
-inline auto toString(const BufferReleased& event) -> std::string {
+inline auto toString(const TransactionCommitted& event) -> std::string {
     return fmt::format(
-            "sfBufferReleased{{"
-            " surfaceId: {},"
+            "sfTransactionCommitted{{"
+            " surfaceId: 0x{:x},"
             " frameNumber: {},"
             " bufferId: {}"
+            " latchTime: {}"
             " receivedAt: {}"
             " }}",
             event.surfaceId, event.frameNumber, toString(event.bufferId),
-            event.receivedAt.time_since_epoch());
+            event.latchTime.time_since_epoch(), event.receivedAt.time_since_epoch());
 }
 
-inline auto format_as(const BufferReleased& event) -> std::string {
+inline auto format_as(const TransactionCommitted& event) -> std::string {
     return toString(event);
 }
 
