@@ -14,18 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-import test_vkjson_gen_util
-import test_vkjson_generator
-import test_vkparser_output
+"""Generates/Updates vkjson* files directly from the vulkan registry (vk.xml).
+"""
+import vkjson_generator
+import vk_parser
 
-if __name__ == "__main__":
-    loader = unittest.TestLoader()
-    testsuite = unittest.suite.TestSuite()
-    testsuite.addTest(loader.loadTestsFromModule(test_vkjson_gen_util))
-    testsuite.addTest(loader.loadTestsFromModule(test_vkjson_generator))
-    testsuite.addTest(loader.loadTestsFromModule(test_vkparser_output))
-    assert testsuite.countTestCases()
+def main():
+  vk_parser.gen_vk()
+  vkjson_generator.re_import_vk()
+  vkjson_generator.gen_h()
+  vkjson_generator.gen_cc()
+  vkjson_generator.gen_instance_cc()
 
-    # To avoid python logs parser failing due to high verbosity
-    unittest.TextTestRunner(verbosity=2).run(testsuite)
+if __name__ == '__main__':
+  main()
