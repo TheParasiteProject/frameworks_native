@@ -338,6 +338,7 @@ cc_defaults {
             cflags: [
                 "-DBINDER_RPC_DEV_SERVERS",
                 "-DBINDER_ENABLE_RECORDING",
+                "-DBINDER_OBSERVER_DROIDFOOD_CONFIG",
             ],
         },
     },
