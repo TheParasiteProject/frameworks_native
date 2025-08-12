@@ -4156,9 +4156,11 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
 
     if (state.isVirtual()) {
         if (FlagManager::getInstance().wb_virtualdisplay2()) {
+            const uid_t creatorUid = 0; // Set to 0 so there's only a single thread for now, while
+                                        // we weave this through the codebase.
             auto surface =
                     sp<VirtualDisplaySurface2>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
-                                                     state.displayName,
+                                                     state.displayName, creatorUid,
                                                      sp<Surface>::make(state.surface));
             displaySurface = surface;
             producer = surface->getCompositionSurface()->getIGraphicBufferProducer();

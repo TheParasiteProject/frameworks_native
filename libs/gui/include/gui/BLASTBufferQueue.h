@@ -252,9 +252,10 @@ private:
         // This is used to check if we should update the blast layer size immediately or wait until
         // we get the next buffer. This will support scenarios where the layer can change sizes
         // and the buffer will scale to fit the new size.
-        uint32_t scalingMode = NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW;
+        uint32_t scalingMode = com::android::graphics::libgui::flags::default_scaling_mode_freeze()
+                ? NATIVE_WINDOW_SCALING_MODE_FREEZE
+                : NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW;
         Rect crop;
-
         void update(bool hasBuffer, uint32_t width, uint32_t height, uint32_t transform,
                     uint32_t scalingMode, const Rect& crop) {
             this->hasBuffer = hasBuffer;
