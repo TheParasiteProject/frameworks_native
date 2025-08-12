@@ -274,7 +274,7 @@ TEST_F(SchedulerTest, emitModeChangeEvent_unifyRefreshRateCallbacksEnabled) {
     mScheduler->setContentRequirements({kLayer});
 
     // No event is emitted in response to idle.
-    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, _, _, _)).Times(0);
+    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, _, _, _, _)).Times(0);
 
     using TimerState = TestableScheduler::TimerState;
 
@@ -287,7 +287,7 @@ TEST_F(SchedulerTest, emitModeChangeEvent_unifyRefreshRateCallbacksEnabled) {
     mScheduler->setContentRequirements({layer});
 
     // An event is emitted implicitly despite choosing the same mode as when idle.
-    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, kDisplay1Mode60_60, _, _))
+    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, kDisplay1Mode60_60, _, _, _))
             .Times(1);
 
     mScheduler->idleTimerCallback(TimerState::Reset);
@@ -295,7 +295,7 @@ TEST_F(SchedulerTest, emitModeChangeEvent_unifyRefreshRateCallbacksEnabled) {
     mScheduler->setContentRequirements({kLayer});
 
     // An event is emitted explicitly for the mode change.
-    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, kDisplay1Mode120_120, _, _))
+    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, kDisplay1Mode120_120, _, _, _))
             .Times(1);
 
     mScheduler->touchTimerCallback(TimerState::Reset);
@@ -319,7 +319,7 @@ TEST_F(SchedulerTest, emitModeAndFrameRateOverrideChangeEvent) {
     lr2.name = "60Hz ExplicitExactOrMultiple";
 
     // Emit Mode and Frame Rate override changed call
-    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, kDisplay1Mode120_120, _, _))
+    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, kDisplay1Mode120_120, _, _, _))
             .Times(1);
     mScheduler->setContentRequirements(layers);
     mScheduler->touchTimerCallback(TestableScheduler::TimerState::Reset);
@@ -348,7 +348,7 @@ TEST_F(SchedulerTest, emitModeChangeEventOnReloadPhaseConfiguration_unifyRefresh
     constexpr auto kMaxSfDuration = Duration::fromNs(2000000);
     constexpr auto kAppDuration = Duration::fromNs(1500000);
 
-    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, kDisplay1Mode120_120, _, _))
+    EXPECT_CALL(*mEventThread, onModeAndFrameRateOverridesChanged(_, kDisplay1Mode120_120, _, _, _))
             .Times(1);
     mScheduler->reloadPhaseConfiguration(kDisplay1Mode120_120, kMinSfDuration, kMaxSfDuration,
                                          kAppDuration);

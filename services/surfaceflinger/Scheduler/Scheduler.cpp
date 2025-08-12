@@ -545,7 +545,10 @@ void Scheduler::onFrameRateOverridesChanged() {
         const auto vsyncConfigSet = getVsyncConfigsForRefreshRate(pacesetterMode.fps);
         eventThreadFor(Cycle::Render)
                 .onModeAndFrameRateOverridesChanged(pacesetterId, pacesetterMode,
-                                                    std::move(overrides), vsyncConfigSet);
+                                                    std::move(overrides),
+                                                    pacesetterSelectorPtr()
+                                                            ->getSupportedFrameRates(),
+                                                    vsyncConfigSet);
         return;
     }
     eventThreadFor(Cycle::Render).onFrameRateOverridesChanged(pacesetterId, std::move(overrides));
@@ -608,7 +611,10 @@ bool Scheduler::onDisplayModeAndFrameRateOverridesChanged(PhysicalDisplayId disp
         const auto vsyncConfigSet = getVsyncConfigsForRefreshRate(mode.fps);
         const auto [pacesetterMode, overrides] = getFrameRateOverrides();
         eventThreadFor(Cycle::Render)
-                .onModeAndFrameRateOverridesChanged(pacesetterId, mode, overrides, vsyncConfigSet);
+                .onModeAndFrameRateOverridesChanged(pacesetterId, mode, overrides,
+                                                    pacesetterSelectorPtr()
+                                                            ->getSupportedFrameRates(),
+                                                    vsyncConfigSet);
     }
 
     return isPacesetter;
@@ -647,7 +653,10 @@ void Scheduler::emitPacesetterModeChangeIfNeeded() {
             const auto [pacesetterMode, overrides] = getFrameRateOverrides();
             eventThreadFor(Cycle::Render)
                     .onModeAndFrameRateOverridesChanged(mode.modePtr->getPhysicalDisplayId(), mode,
-                                                        overrides, vsyncConfigSet);
+                                                        overrides,
+                                                        pacesetterSelectorPtr()
+                                                                ->getSupportedFrameRates(),
+                                                        vsyncConfigSet);
         } else {
             eventThreadFor(Cycle::Render).onModeChanged(mode, vsyncConfigSet);
         }

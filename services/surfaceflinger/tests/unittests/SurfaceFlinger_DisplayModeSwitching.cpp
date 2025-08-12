@@ -295,7 +295,7 @@ TEST_F(DisplayModeSwitchingTest, changeRefreshRateWithRefreshRequired_unifyRefre
                                                    scheduler::FrameRateMode{90_Hz,
                                                                             ftl::as_non_null(
                                                                                     kMode90)},
-                                                   _, _));
+                                                   _, _, _));
 
     mFlinger.commit();
     Mock::VerifyAndClearExpectations(mAppEventThread);
@@ -313,7 +313,7 @@ TEST_F(DisplayModeSwitchingTest,
                                                    scheduler::FrameRateMode{90_Hz,
                                                                             ftl::as_non_null(
                                                                                     kMode90)},
-                                                   _, _));
+                                                   _, _, _));
 
     mFlinger.commit();
 
@@ -339,7 +339,7 @@ TEST_F(DisplayModeSwitchingTest,
     const auto [innerDisplay, outerDisplay] = injectOuterDisplay();
     EXPECT_NO_FATAL_FAILURE(setupChangeRefreshRateOnTwoDisplays(innerDisplay, outerDisplay));
 
-    EXPECT_CALL(*mAppEventThread, onModeAndFrameRateOverridesChanged(_, _, _, _)).Times(2);
+    EXPECT_CALL(*mAppEventThread, onModeAndFrameRateOverridesChanged(_, _, _, _, _)).Times(2);
 
     mFlinger.commit();
 
