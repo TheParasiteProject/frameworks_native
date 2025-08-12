@@ -40,14 +40,14 @@
 #include <utility>
 
 #include "SinkSurfaceHelper.h"
-#include "VirtualDisplayThread.h"
+#include "VirtualDisplayThreadManager.h"
 
 namespace android {
 
-SinkSurfaceHelper::SinkSurfaceHelper(const sp<Surface>& sink)
-      : mVDThread(VirtualDisplayThread::create()), mSink(sink) {}
-
-SinkSurfaceHelper::~SinkSurfaceHelper() = default;
+SinkSurfaceHelper::SinkSurfaceHelper(const sp<Surface>& sink, uid_t creatorUid)
+      : mVDThread(VirtualDisplayThreadManager::getInstance().getOrCreateThread(creatorUid)),
+        mCreatorUid(creatorUid),
+        mSink(sink) {}
 
 SinkSurfaceHelper::SinkSurfaceData SinkSurfaceHelper::connectSinkSurface() {
     ATRACE_CALL();
@@ -113,13 +113,13 @@ SinkSurfaceHelper::SinkSurfaceData SinkSurfaceHelper::connectSinkSurface() {
 void SinkSurfaceHelper::abandon() {
     ATRACE_CALL();
 
-    mVDThread->kill(
+    mVDThread.submitWork(
             std::bind(&SinkSurfaceHelper::abandonTask, sp<SinkSurfaceHelper>::fromExisting(this)));
 }
 
 bool SinkSurfaceHelper::isFrozen() {
     ATRACE_CALL();
-    return mVDThread->isFrozen();
+    return mVDThread.isFrozen();
 }
 
 std::optional<std::tuple<sp<GraphicBuffer>, sp<Fence>>> SinkSurfaceHelper::getDequeuedBuffer(
@@ -168,15 +168,15 @@ bool SinkSurfaceHelper::returnDequeuedBuffer(const sp<GraphicBuffer>& buffer,
 void SinkSurfaceHelper::sendBuffer(const sp<GraphicBuffer>& buffer, const sp<Fence>& fence) {
     ATRACE_CALL();
 
-    mVDThread->submitWork(std::bind(&SinkSurfaceHelper::sendBufferTask,
-                                    sp<SinkSurfaceHelper>::fromExisting(this), buffer, fence));
+    mVDThread.submitWork(std::bind(&SinkSurfaceHelper::sendBufferTask,
+                                   sp<SinkSurfaceHelper>::fromExisting(this), buffer, fence));
 }
 
 void SinkSurfaceHelper::setBufferSize(uint32_t width, uint32_t height) {
     ATRACE_CALL();
 
-    mVDThread->submitWork(std::bind(&SinkSurfaceHelper::setBufferSizeTask,
-                                    sp<SinkSurfaceHelper>::fromExisting(this), width, height));
+    mVDThread.submitWork(std::bind(&SinkSurfaceHelper::setBufferSizeTask,
+                                   sp<SinkSurfaceHelper>::fromExisting(this), width, height));
 }
 
 void SinkSurfaceHelper::onBufferReleased() {
@@ -184,8 +184,8 @@ void SinkSurfaceHelper::onBufferReleased() {
 
     // The current function _is_ called off the main thread. But, if we run this on the VD
     // thread, we'll be able to catch freezes during the dequeue.
-    mVDThread->submitWork(std::bind(&SinkSurfaceHelper::dequeueBufferTask,
-                                    sp<SinkSurfaceHelper>::fromExisting(this)));
+    mVDThread.submitWork(std::bind(&SinkSurfaceHelper::dequeueBufferTask,
+                                   sp<SinkSurfaceHelper>::fromExisting(this)));
 }
 
 void SinkSurfaceHelper::onRemoteDied() {
@@ -241,8 +241,8 @@ void SinkSurfaceHelper::sendBufferTask(sp<GraphicBuffer> buffer, sp<Fence> fence
     }
 
     if (output.bufferReplaced) {
-        mVDThread->submitWork(std::bind(&SinkSurfaceHelper::dequeueBufferTask,
-                                        sp<SinkSurfaceHelper>::fromExisting(this)));
+        mVDThread.submitWork(std::bind(&SinkSurfaceHelper::dequeueBufferTask,
+                                       sp<SinkSurfaceHelper>::fromExisting(this)));
     }
     ALOGD("%s: Queued buffer %" PRIu64 "to surface %s.", __func__, buffer->getId(),
           mSink->getConsumerName().c_str());

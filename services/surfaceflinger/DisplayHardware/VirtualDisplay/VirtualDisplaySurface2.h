@@ -87,7 +87,8 @@ class Surface;
 class VirtualDisplaySurface2 : public compositionengine::DisplaySurface {
 public:
     VirtualDisplaySurface2(HWComposer& hwComposer, VirtualDisplayIdVariant displayId,
-                           const std::string& name, const sp<Surface>& sinkSurface);
+                           const std::string& name, uid_t creatorUid,
+                           const sp<Surface>& sinkSurface);
     virtual ~VirtualDisplaySurface2() override;
 
     void onFirstRef() override;

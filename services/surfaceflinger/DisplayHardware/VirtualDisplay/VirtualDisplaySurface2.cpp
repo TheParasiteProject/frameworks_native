@@ -67,12 +67,12 @@ private:
 
 VirtualDisplaySurface2::VirtualDisplaySurface2(HWComposer& hwComposer,
                                                VirtualDisplayIdVariant displayId,
-                                               const std::string& name,
+                                               const std::string& name, uid_t creatorUid,
                                                const sp<Surface>& sinkSurface)
       : mHWC(hwComposer),
         mDisplayId(displayId),
         mName(name),
-        mSinkHelper(sp<SinkSurfaceHelper>::make(sinkSurface)) {}
+        mSinkHelper(sp<SinkSurfaceHelper>::make(sinkSurface, creatorUid)) {}
 
 VirtualDisplaySurface2::~VirtualDisplaySurface2() {
     mSinkHelper->abandon();

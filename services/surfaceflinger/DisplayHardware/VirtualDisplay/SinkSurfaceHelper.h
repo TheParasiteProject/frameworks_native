@@ -57,8 +57,7 @@ class SinkSurfaceHelper : public SurfaceListener {
 public:
     static constexpr size_t kMaxDequeuedBuffers = 4;
 
-    SinkSurfaceHelper(const sp<Surface>& sink);
-    virtual ~SinkSurfaceHelper() override;
+    SinkSurfaceHelper(const sp<Surface>& sink, uid_t creatorUid);
 
     struct SinkSurfaceData {
         uint32_t width = 0;
@@ -120,7 +119,8 @@ private:
 
     void cancelBuffers(std::vector<std::tuple<sp<GraphicBuffer>, sp<Fence>>> buffers);
 
-    std::shared_ptr<VirtualDisplayThread> mVDThread;
+    VirtualDisplayThread::Client mVDThread;
+    const uid_t mCreatorUid;
 
     // This should only be accessed on mVDThread.
     //
