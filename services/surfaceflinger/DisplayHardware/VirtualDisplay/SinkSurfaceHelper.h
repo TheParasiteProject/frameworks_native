@@ -30,6 +30,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <future>
 #include <mutex>
 #include <optional>
 
@@ -66,7 +67,7 @@ public:
         uint64_t usage = 0;
         ADataSpace dataSpace = ADATASPACE_UNKNOWN;
     };
-    SinkSurfaceData connectSinkSurface();
+    std::future<SinkSurfaceData> connectSinkSurface();
     void abandon();
 
     bool isFrozen();
@@ -111,6 +112,7 @@ public:
     virtual void onBufferDetached(int) override {}
 
 private:
+    void connectSinkSurfaceTask(std::shared_ptr<std::promise<SinkSurfaceData>> promise);
     void sendBufferTask(sp<GraphicBuffer> buffer, sp<Fence> fence);
     void freeBufferTask(sp<GraphicBuffer> buffer, sp<Fence> fence);
     void dequeueBufferTask();
