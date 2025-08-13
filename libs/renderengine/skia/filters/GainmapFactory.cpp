@@ -50,7 +50,6 @@ const SkString kEffectSource_GainmapEffect(R"(
     }
 )");
 
-const float INTERPOLATION_STRENGTH_VALUE = 0.7f;
 
 GainmapFactory::GainmapFactory(RuntimeEffectManager& effectManager) {
     mEffect = effectManager.mKnownEffects[kGainmapEffect];

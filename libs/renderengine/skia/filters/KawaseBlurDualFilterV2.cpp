@@ -229,7 +229,6 @@ sk_sp<SkImage> KawaseBlurDualFilterV2::generate(SkiaGpuContext* context, const u
     }
     // Finally blur+upscale back to our original size.
     for (int i = filterPasses - 1; i >= 0; i--) {
-        int index = kMaxSurfaces * 2 - 2 - i;
         blurInto(surfaces[i], surfaces[i + 1]->makeTemporaryImage(), step,
                  std::min(1.0f, filterDepth - i), mUpSampleBlurEffect);
     }
