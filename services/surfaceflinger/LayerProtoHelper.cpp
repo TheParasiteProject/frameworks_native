@@ -511,6 +511,7 @@ void LayerProtoHelper::writeSnapshotToProto(perfetto::protos::LayerProto* layerI
 
     LayerProtoHelper::writeToProto(requestedState.destinationFrame,
                                    [&]() { return layerInfo->mutable_destination_frame(); });
+    layerInfo->set_system_content_priority(requestedState.systemContentPriority);
 }
 
 google::protobuf::RepeatedPtrField<perfetto::protos::DisplayProto>
