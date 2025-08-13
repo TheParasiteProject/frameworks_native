@@ -34,6 +34,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -49,65 +50,18 @@ SinkSurfaceHelper::SinkSurfaceHelper(const sp<Surface>& sink, uid_t creatorUid)
         mCreatorUid(creatorUid),
         mSink(sink) {}
 
-SinkSurfaceHelper::SinkSurfaceData SinkSurfaceHelper::connectSinkSurface() {
+std::future<SinkSurfaceHelper::SinkSurfaceData> SinkSurfaceHelper::connectSinkSurface() {
     ATRACE_CALL();
 
-    // TODO(b/340933138): We should run all of this on the VD thread, return a future, and wait with
-    // a time out, so we don't lock up the rest of SF.
-    SinkSurfaceData data;
-    mSink->connect(NATIVE_WINDOW_API_CPU, sp<SinkSurfaceHelper>::fromExisting(this));
-    mName = mSink->getConsumerName();
+    // Note, this annoying extra shared_ptr is needed since the std::function-based task needs to be
+    // copyable.
+    auto promise = std::make_shared<std::promise<SinkSurfaceData>>();
+    auto future = promise->get_future();
 
-    status_t ret = mSink->getConsumerUsage(&data.usage);
-    if (ret != NO_ERROR) {
-        ALOGE("%s: Unable to get consumer usage from the sink surface. Status: %d", __func__, ret);
-        data.usage = 0;
-    }
+    mVDThread.submitWork(std::bind(&SinkSurfaceHelper::connectSinkSurfaceTask,
+                                   sp<SinkSurfaceHelper>::fromExisting(this), promise));
 
-    data.format = ANativeWindow_getFormat(mSink.get());
-    if (data.format < 0) {
-        ALOGE("%s: Bad format returned from %s. Status: %d", __func__,
-              mSink->getConsumerName().c_str(), data.format);
-        data.format = 0;
-    }
-
-    int32_t dataSpace = ANativeWindow_getBuffersDefaultDataSpace(mSink.get());
-    if (dataSpace < 0) {
-        ALOGE("%s: Bad dataSpace returned from %s. Status: %d", __func__,
-              mSink->getConsumerName().c_str(), dataSpace);
-        dataSpace = 0;
-    }
-    data.dataSpace = static_cast<ADataSpace>(dataSpace);
-
-    int32_t width = ANativeWindow_getWidth(mSink.get());
-    if (width < 0) {
-        ALOGE("%s: Bad width returned from %s. Status: %d", __func__,
-              mSink->getConsumerName().c_str(), width);
-        width = 0;
-    }
-    data.width = static_cast<uint32_t>(width);
-
-    int32_t height = ANativeWindow_getHeight(mSink.get());
-    if (height < 0) {
-        ALOGE("%s: Bad height returned from %s. Status: %d", __func__,
-              mSink->getConsumerName().c_str(), height);
-        height = 0;
-    }
-    data.height = static_cast<uint32_t>(height);
-
-    ret = mSink->setAsyncMode(true);
-    if (ret != NO_ERROR) {
-        ALOGE("%s: Unable to set async mode for %s. Status: %d", __func__,
-              mSink->getConsumerName().c_str(), ret);
-    }
-
-    ret = mSink->setMaxDequeuedBufferCount(SinkSurfaceHelper::kMaxDequeuedBuffers);
-    if (ret != NO_ERROR) {
-        ALOGE("%s: Unable to set max dequeued buffer count for %s. Status: %d", __func__,
-              mSink->getConsumerName().c_str(), ret);
-    }
-
-    return data;
+    return future;
 }
 
 void SinkSurfaceHelper::abandon() {
@@ -191,6 +145,67 @@ void SinkSurfaceHelper::onBufferReleased() {
 void SinkSurfaceHelper::onRemoteDied() {
     ATRACE_CALL();
     mIsDead = true;
+}
+
+void SinkSurfaceHelper::connectSinkSurfaceTask(
+        std::shared_ptr<std::promise<SinkSurfaceData>> promise) {
+    ATRACE_CALL();
+
+    SinkSurfaceData data;
+    // TODO(b/340933138): Should this be EGL?
+    mSink->connect(NATIVE_WINDOW_API_CPU, sp<SinkSurfaceHelper>::fromExisting(this));
+    mName = mSink->getConsumerName();
+
+    status_t ret = mSink->getConsumerUsage(&data.usage);
+    if (ret != NO_ERROR) {
+        ALOGE("%s: Unable to get consumer usage from the sink surface. Status: %d", __func__, ret);
+        data.usage = 0;
+    }
+
+    data.format = ANativeWindow_getFormat(mSink.get());
+    if (data.format < 0) {
+        ALOGE("%s: Bad format returned from %s. Status: %d", __func__,
+              mSink->getConsumerName().c_str(), data.format);
+        data.format = 0;
+    }
+
+    int32_t dataSpace = ANativeWindow_getBuffersDefaultDataSpace(mSink.get());
+    if (dataSpace < 0) {
+        ALOGE("%s: Bad dataSpace returned from %s. Status: %d", __func__,
+              mSink->getConsumerName().c_str(), dataSpace);
+        dataSpace = 0;
+    }
+    data.dataSpace = static_cast<ADataSpace>(dataSpace);
+
+    int32_t width = ANativeWindow_getWidth(mSink.get());
+    if (width < 0) {
+        ALOGE("%s: Bad width returned from %s. Status: %d", __func__,
+              mSink->getConsumerName().c_str(), width);
+        width = 0;
+    }
+    data.width = static_cast<uint32_t>(width);
+
+    int32_t height = ANativeWindow_getHeight(mSink.get());
+    if (height < 0) {
+        ALOGE("%s: Bad height returned from %s. Status: %d", __func__,
+              mSink->getConsumerName().c_str(), height);
+        height = 0;
+    }
+    data.height = static_cast<uint32_t>(height);
+
+    ret = mSink->setAsyncMode(true);
+    if (ret != NO_ERROR) {
+        ALOGE("%s: Unable to set async mode for %s. Status: %d", __func__,
+              mSink->getConsumerName().c_str(), ret);
+    }
+
+    ret = mSink->setMaxDequeuedBufferCount(SinkSurfaceHelper::kMaxDequeuedBuffers);
+    if (ret != NO_ERROR) {
+        ALOGE("%s: Unable to set max dequeued buffer count for %s. Status: %d", __func__,
+              mSink->getConsumerName().c_str(), ret);
+    }
+
+    promise->set_value(std::move(data));
 }
 
 void SinkSurfaceHelper::sendBufferTask(sp<GraphicBuffer> buffer, sp<Fence> fence) {

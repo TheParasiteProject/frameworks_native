@@ -131,6 +131,8 @@ private:
 
     void applyResizeLocked(const ui::Size& size) REQUIRES(mMutex);
 
+    void prepareSurfacesLocked() REQUIRES(mMutex);
+
     void onRenderFrameAvailable();
 
     mutable std::mutex mMutex;
@@ -139,6 +141,8 @@ private:
     const std::string mName;
 
     sp<SinkSurfaceHelper> mSinkHelper;
+    std::future<SinkSurfaceHelper::SinkSurfaceData> mSinkSurfaceDataFuture;
+    bool mIsReady = false;
     uint64_t mSinkUsage;
     PixelFormat mSinkFormat;
     ADataSpace mSinkDataSpace;
