@@ -165,25 +165,31 @@ status_t VirtualDisplaySurface2::beginFrame(bool mustRecompose) {
 
     std::scoped_lock _l(mMutex);
 
+    ALOGE_IF(mCurrentFrame != std::nullopt,
+             "%s: called while another frame is being processed. Overwriting.", __func__);
+    mCurrentFrame.reset();
+
     if (!mIsReady) {
         ALOGI("%s: attempting to connect to still-unconnected sink surface.", __func__);
 
         if (mSinkSurfaceDataFuture.valid()) {
             prepareSurfacesLocked();
         } else {
-            ALOGE("%s: unable to begin frame because the underlying surface is not connected.",
+            ALOGW("%s: unable to begin frame because the underlying surface is not connected.",
                   __func__);
             return NO_INIT;
         }
+    }
+
+    if (mSinkHelper->isFrozen()) {
+        ALOGW("%s: mWorkerThread is frozen! Skipping frame.", __func__);
+        return WOULD_BLOCK;
     }
 
     if (mPendingResize) {
         applyResizeLocked(*mPendingResize);
         mPendingResize.reset();
     }
-
-    ALOGE_IF(mCurrentFrame != std::nullopt,
-             "%s: called while another frame is being processed. Overwriting.", __func__);
 
     mCurrentFrame.emplace(FrameInfo());
     mCurrentFrame->mustRecompose = mustRecompose;
@@ -340,24 +346,6 @@ void VirtualDisplaySurface2::onFrameCommitted() {
     sp<Fence> outputFence =
             Fence::merge("VD Output Acquire/Present", frameInfo.outputFence, presentFence);
 
-    if (mSinkHelper->isFrozen()) {
-        ALOGE("%s: mWorkerThread is frozen! Skipping frame.", __func__);
-        if (!mSinkHelper->returnDequeuedBuffer(frameInfo.outputBuffer, outputFence)) {
-            status_t ret = mOutputConsumer->attachBuffer(frameInfo.outputBuffer);
-            if (ret != NO_ERROR) {
-                ALOGE("%s: Failed to reattach buffer to output consumer. Status: %d", __func__,
-                      ret);
-                return;
-            }
-            ret = mOutputConsumer->releaseBuffer(frameInfo.outputBuffer, outputFence);
-            if (ret != NO_ERROR) {
-                ALOGE("%s: Failed to release buffer to output consumer. Status: %d", __func__, ret);
-            }
-        }
-
-        return;
-    }
-
     mSinkHelper->sendBuffer(frameInfo.outputBuffer, frameInfo.outputFence);
 }
 
@@ -440,12 +428,8 @@ void VirtualDisplaySurface2::onRenderFrameAvailable() {
 
     std::scoped_lock _l(mMutex);
 
-    if (!mCurrentFrame) {
-        ALOGE("Notified that render frame is available without a pending frame.");
-        return;
-    }
-    FrameInfo& frameInfo = *mCurrentFrame;
-
+    // No matter what, we always want to acquire the buffer, even if we're not officially doing a
+    // frame. The compositor will continue even if the earlier steps fail.
     BufferItem item;
     status_t ret = mRendererConsumer->acquireBuffer(&item,
                                                     /*presentWhen*/ -1,
@@ -455,6 +439,17 @@ void VirtualDisplaySurface2::onRenderFrameAvailable() {
               ret);
         return;
     }
+
+    if (!mCurrentFrame) {
+        ALOGE("Notified that render frame is available without a pending frame.");
+        ret = mRendererConsumer->releaseBuffer(item.mGraphicBuffer, item.mFence);
+        if (ret != NO_ERROR) {
+            ALOGE("%s: Failed to release the buffer queued to the render surface. Status: %d",
+                  __func__, ret);
+        }
+        return;
+    }
+    FrameInfo& frameInfo = *mCurrentFrame;
 
     ret = mRendererConsumer->detachBuffer(item.mGraphicBuffer);
     if (ret != NO_ERROR) {
@@ -472,23 +467,6 @@ void VirtualDisplaySurface2::onRenderFrameAvailable() {
 
     sp<GraphicBuffer> buffer = item.mGraphicBuffer;
     sp<Fence> fence = item.mFence;
-
-    if (mSinkHelper->isFrozen()) {
-        ALOGE("%s: mWorkerThread is frozen! Skipping frame.", __func__);
-        if (!mSinkHelper->returnDequeuedBuffer(buffer, fence)) {
-            ret = mRendererConsumer->attachBuffer(buffer);
-            if (ret != NO_ERROR) {
-                ALOGE("%s: Failed to reattach buffer to render consumer. Status: %d", __func__,
-                      ret);
-                return;
-            }
-            ret = mRendererConsumer->releaseBuffer(buffer, fence);
-            if (ret != NO_ERROR) {
-                ALOGE("%s: Failed to release buffer to render consumer. Status: %d", __func__, ret);
-            }
-        }
-        return;
-    }
 
     ALOGI("%s: Preparing to submit frame to %s. BufferId=%" PRIu64, __func__,
           mSinkHelper->getName().c_str(), buffer->getId());
