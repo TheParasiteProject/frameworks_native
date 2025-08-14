@@ -140,6 +140,11 @@ public:
     void setTransactionHangCallback(std::function<void(const std::string&)> callback);
     void setApplyToken(sp<IBinder>);
 
+    void setCornerRadiiCallback(std::function<void(const gui::CornerRadii)>)
+            EXCLUDES(mCornerRadiiCallbackMutex);
+    std::function<void(const gui::CornerRadii)> getCornerRadiiCallback() const
+            EXCLUDES(mCornerRadiiCallbackMutex);
+
     void setWaitForBufferReleaseCallback(std::function<void(const nsecs_t)> callback)
             EXCLUDES(mWaitForBufferReleaseMutex);
     std::function<void(const nsecs_t)> getWaitForBufferReleaseCallback() const
@@ -193,6 +198,7 @@ private:
     sp<SurfaceControl> mSurfaceControl GUARDED_BY(mMutex);
 
     mutable std::mutex mMutex;
+    mutable std::mutex mCornerRadiiCallbackMutex;
     mutable std::mutex mWaitForBufferReleaseMutex;
     std::condition_variable mCallbackCV;
 
@@ -341,6 +347,9 @@ private:
     std::function<void(const std::string&)> mTransactionHangCallback;
 
     std::unordered_set<uint64_t> mSyncedFrameNumbers GUARDED_BY(mMutex);
+
+    std::function<void(const gui::CornerRadii)> mCornerRadiiCallback
+            GUARDED_BY(mCornerRadiiCallbackMutex);
 
     std::function<void(const nsecs_t)> mWaitForBufferReleaseCallback
             GUARDED_BY(mWaitForBufferReleaseMutex);

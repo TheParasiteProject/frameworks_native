@@ -3057,9 +3057,6 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
     }
     mPowerAdvisor->setDisplays(displayIds);
 
-    const bool updateTaskMetadata = mCompositionEngine->getFeatureFlags().test(
-            compositionengine::Feature::kSnapshotLayerMetadata);
-
     refreshArgs.bufferIdsToUncache = std::move(mBufferIdsToUncache);
     refreshArgs.outputColorSetting = mDisplayColorSetting;
     refreshArgs.forceOutputColorMode = mForceColorMode;
@@ -3158,7 +3155,6 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
         SFTRACE_INSTANT_FOR_TRACK(WorkloadTracer::TRACK_NAME, "Display Changes");
     }
 
-    int index = 0;
     ftl::StaticVector<char, WorkloadTracer::COMPOSITION_SUMMARY_SIZE> compositionSummary;
     auto lastLayerStack = ui::UNASSIGNED_LAYER_STACK;
 
@@ -5610,6 +5606,12 @@ uint32_t SurfaceFlinger::updateLayerCallbacksAndStats(const FrameTimelineInfo& f
             transformHint = snapshot->transformHint;
         }
         layer->setTransformHint(transformHint);
+        std::optional<gui::CornerRadii> cornerRadii = std::nullopt;
+        if (snapshot) {
+            cornerRadii = std::make_optional<gui::CornerRadii>(
+                    snapshot->roundedCorner.croppedRequestedRadii);
+        }
+        layer->setCornerRadii(cornerRadii);
         if (layer->setBuffer(composerState.externalTexture, *s.bufferData, postTime,
                              desiredPresentTime, isAutoTimestamp, frameTimelineInfo, gameMode)) {
             flags |= eTraversalNeeded;
@@ -8075,7 +8077,6 @@ status_t SurfaceFlinger::setScreenshotDisplayState(ScreenshotArgs& args) {
             return BAD_VALUE;
         }
 
-        std::optional<FloatRect> parentCrop = std::nullopt;
         if (args.snapshotRequest.childrenOnly) {
             args.snapshotRequest.parentCrop = args.sourceCrop.isEmpty()
                     ? FloatRect(0, 0, args.size.width, args.size.height)
