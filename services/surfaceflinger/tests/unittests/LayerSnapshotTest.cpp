@@ -1992,7 +1992,6 @@ TEST_F(LayerSnapshotTest, canOccludePresentation) {
 }
 
 TEST_F(LayerSnapshotTest, mirroredHierarchyIgnoresLocalTransform) {
-    SET_FLAG_FOR_TEST(flags::detached_mirror, true);
     reparentLayer(12, UNASSIGNED_LAYER_ID);
     setPosition(11, 2, 20);
     setPosition(111, 20, 200);

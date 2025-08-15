@@ -301,11 +301,9 @@ void LayerHierarchyBuilder::onLayerAdded(RequestedLayerState* layer) {
         LayerHierarchy* mirror = getHierarchyFromId(mirrorId);
         hierarchy->addChild(mirror, LayerHierarchy::Variant::Mirror);
     }
-    if (FlagManager::getInstance().detached_mirror()) {
-        if (layer->layerIdToMirror != UNASSIGNED_LAYER_ID) {
-            LayerHierarchy* mirror = getHierarchyFromId(layer->layerIdToMirror);
-            hierarchy->addChild(mirror, LayerHierarchy::Variant::Detached_Mirror);
-        }
+    if (layer->layerIdToMirror != UNASSIGNED_LAYER_ID) {
+        LayerHierarchy* mirror = getHierarchyFromId(layer->layerIdToMirror);
+        hierarchy->addChild(mirror, LayerHierarchy::Variant::Detached_Mirror);
     }
 }
 
@@ -353,11 +351,9 @@ void LayerHierarchyBuilder::updateMirrorLayer(RequestedLayerState* layer) {
     for (uint32_t mirrorId : layer->mirrorIds) {
         hierarchy->addChild(getHierarchyFromId(mirrorId), LayerHierarchy::Variant::Mirror);
     }
-    if (FlagManager::getInstance().detached_mirror()) {
-        if (layer->layerIdToMirror != UNASSIGNED_LAYER_ID) {
-            hierarchy->addChild(getHierarchyFromId(layer->layerIdToMirror),
-                                LayerHierarchy::Variant::Detached_Mirror);
-        }
+    if (layer->layerIdToMirror != UNASSIGNED_LAYER_ID) {
+        hierarchy->addChild(getHierarchyFromId(layer->layerIdToMirror),
+                            LayerHierarchy::Variant::Detached_Mirror);
     }
 }
 
