@@ -412,9 +412,11 @@ void DisplayDevice::enableRefreshRateOverlay(bool enable, bool setByHwc, Fps ref
                                              Fps renderFps, bool showSpinner, bool showRenderRate,
                                              bool showInMiddle) {
     if (!enable) {
+        ALOGD("Disabling RefreshRateOverlay");
         mRefreshRateOverlay.reset();
         return;
     }
+    ALOGD("Enabling RefreshRateOverlay");
 
     ftl::Flags<RefreshRateOverlay::Features> features;
     if (showSpinner) {
