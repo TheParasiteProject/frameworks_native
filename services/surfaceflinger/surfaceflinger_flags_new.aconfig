@@ -140,12 +140,11 @@ flag {
 } # disable_transparent_region_hint
 
 flag {
-  name: "display_config_error_hal"
-  namespace: "core_graphics"
-  description: "Report HAL display configuration errors like modeset failure or link training failure"
-  bug: "374184110"
-  is_fixed_read_only: true
-} # display_config_error_hal
+  name: "display_command_modeset"
+  namespace: "desktop_display"
+  description: "Guards use of the new display command modeset"
+  bug: "373900661"
+} # display_command_modeset
 
 flag {
   name: "filter_refresh_rates_within_config_group"
