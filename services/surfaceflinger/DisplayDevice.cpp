@@ -388,10 +388,12 @@ HdrCapabilities DisplayDevice::getHdrCapabilities() const {
 
 void DisplayDevice::enableHdrSdrRatioOverlay(bool enable) {
     if (!enable) {
+        ALOGD("Disabling HdrSdrRatioOverlay");
         mHdrSdrRatioOverlay.reset();
         return;
     }
 
+    ALOGD("Enabling HdrSdrRatioOverlay");
     mHdrSdrRatioOverlay = HdrSdrRatioOverlay::create();
     if (mHdrSdrRatioOverlay) {
         mHdrSdrRatioOverlay->setLayerStack(getLayerStack());
