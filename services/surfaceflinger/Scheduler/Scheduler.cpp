@@ -31,6 +31,7 @@
 #include <gui/WindowInfo.h>
 #include <system/window.h>
 #include <ui/DisplayMap.h>
+#include <ui/StaticDisplayInfo.h>
 #include <utils/Timers.h>
 
 #include <scheduler/interface/ICompositor.h>
@@ -222,7 +223,9 @@ PhysicalDisplayId Scheduler::getPacesetterDisplayId() const {
     return *mPacesetterDisplayId;
 }
 
-void Scheduler::registerDisplay(PhysicalDisplayId displayId, RefreshRateSelectorPtr selectorPtr,
+void Scheduler::registerDisplay(PhysicalDisplayId displayId,
+                                ui::DisplayConnectionType connectionType,
+                                RefreshRateSelectorPtr selectorPtr,
                                 std::optional<PhysicalDisplayId> defaultPacesetterId) {
     auto schedulePtr =
             std::make_shared<VsyncSchedule>(selectorPtr->getActiveMode().modePtr, mFeatures,
@@ -230,11 +233,12 @@ void Scheduler::registerDisplay(PhysicalDisplayId displayId, RefreshRateSelector
                                                 onHardwareVsyncRequest(id, enable);
                                             });
 
-    registerDisplayInternal(displayId, std::move(selectorPtr), std::move(schedulePtr),
-                            defaultPacesetterId);
+    registerDisplayInternal(displayId, connectionType, std::move(selectorPtr),
+                            std::move(schedulePtr), defaultPacesetterId);
 }
 
 void Scheduler::registerDisplayInternal(PhysicalDisplayId displayId,
+                                        ui::DisplayConnectionType connectionType,
                                         RefreshRateSelectorPtr selectorPtr,
                                         VsyncSchedulePtr schedulePtr,
                                         std::optional<PhysicalDisplayId> defaultPacesetterId) {
@@ -248,7 +252,8 @@ void Scheduler::registerDisplayInternal(PhysicalDisplayId displayId,
     auto [pacesetterVsyncSchedule, isNew] = [&]() REQUIRES(kMainThreadContext) {
         std::scoped_lock lock(mDisplayLock);
         const bool isNew = mDisplays
-                                   .emplace_or_replace(displayId, displayId, std::move(selectorPtr),
+                                   .emplace_or_replace(displayId, displayId, connectionType,
+                                                       std::move(selectorPtr),
                                                        std::move(schedulePtr), mFeatures)
                                    .second;
 

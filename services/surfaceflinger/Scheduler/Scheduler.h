@@ -42,6 +42,7 @@
 #include <scheduler/VsyncConfig.h>
 #include <ui/DisplayId.h>
 #include <ui/DisplayMap.h>
+#include <ui/StaticDisplayInfo.h>
 
 #include "DisplayHardware/DisplayMode.h"
 #include "EventThread.h"
@@ -118,7 +119,7 @@ public:
 
     // TODO: b/255635821 - Remove `defaultPacesetterId` parameter once the pacesetter_selection flag
     // is live.
-    void registerDisplay(PhysicalDisplayId, RefreshRateSelectorPtr,
+    void registerDisplay(PhysicalDisplayId, ui::DisplayConnectionType, RefreshRateSelectorPtr,
                          std::optional<PhysicalDisplayId> defaultPacesetterId)
             REQUIRES(kMainThreadContext) EXCLUDES(mDisplayLock);
     void unregisterDisplay(PhysicalDisplayId, std::optional<PhysicalDisplayId> defaultPacesetterId)
@@ -454,7 +455,8 @@ private:
     void demotePacesetterDisplay(PromotionParams) REQUIRES(kMainThreadContext)
             EXCLUDES(mDisplayLock, mPolicyLock);
 
-    void registerDisplayInternal(PhysicalDisplayId, RefreshRateSelectorPtr, VsyncSchedulePtr,
+    void registerDisplayInternal(PhysicalDisplayId, ui::DisplayConnectionType,
+                                 RefreshRateSelectorPtr, VsyncSchedulePtr,
                                  std::optional<PhysicalDisplayId> defaultPacesetterId)
             REQUIRES(kMainThreadContext) EXCLUDES(mDisplayLock);
 
@@ -571,14 +573,17 @@ private:
     using FrameTargeterPtr = std::unique_ptr<FrameTargeter>;
 
     struct Display {
-        Display(PhysicalDisplayId displayId, RefreshRateSelectorPtr selectorPtr,
-                VsyncSchedulePtr schedulePtr, FeatureFlags features)
+        Display(PhysicalDisplayId displayId, ui::DisplayConnectionType connectionType,
+                RefreshRateSelectorPtr selectorPtr, VsyncSchedulePtr schedulePtr,
+                FeatureFlags features)
               : displayId(displayId),
+                connectionType(connectionType),
                 selectorPtr(std::move(selectorPtr)),
                 schedulePtr(std::move(schedulePtr)),
                 targeterPtr(std::make_unique<FrameTargeter>(displayId, features)) {}
 
         const PhysicalDisplayId displayId;
+        const ui::DisplayConnectionType connectionType;
 
         // Effectively const except in move constructor.
         RefreshRateSelectorPtr selectorPtr;
