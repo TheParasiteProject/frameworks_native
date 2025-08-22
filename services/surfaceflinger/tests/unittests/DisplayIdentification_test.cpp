@@ -487,25 +487,50 @@ TEST(DisplayIdentificationTest, getPnpId) {
     EXPECT_STREQ("SAM", getPnpId(0x4c2du).value_or(PnpId{}).data());
 }
 
-TEST(DisplayIdentificationTest, parseDisplayIdentificationData) {
+TEST(DisplayIdentificationTest, parseDisplayIdentificationDataWithPortBasedIds) {
     const auto primaryInfo = parseDisplayIdentificationData(0, getInternalEdid(),
-                                                            android::ScreenPartStatus::UNSUPPORTED);
+                                                            android::ScreenPartStatus::UNSUPPORTED,
+                                                            /*useStableEdidIds=*/false);
     ASSERT_TRUE(primaryInfo);
 
     const auto secondaryInfo =
             parseDisplayIdentificationData(1, getExternalEdid(),
-                                           android::ScreenPartStatus::UNSUPPORTED);
+                                           android::ScreenPartStatus::UNSUPPORTED,
+                                           /*useStableEdidIds=*/false);
     ASSERT_TRUE(secondaryInfo);
 
-    const auto tertiaryInfo =
-            parseDisplayIdentificationData(2, getExternalEedid(),
-                                           android::ScreenPartStatus::UNSUPPORTED);
+    const auto tertiaryInfo = parseDisplayIdentificationData(2, getExternalEedid(),
+                                                             android::ScreenPartStatus::UNSUPPORTED,
+                                                             /*useStableEdidIds=*/false);
     ASSERT_TRUE(tertiaryInfo);
 
     // Display IDs should be unique.
     EXPECT_EQ(4633257497453176576, primaryInfo->id.value);
     EXPECT_EQ(4621520285560261121, secondaryInfo->id.value);
     EXPECT_EQ(4633127902230889474, tertiaryInfo->id.value);
+}
+
+TEST(DisplayIdentificationTest, parseDisplayIdentificationDataWithStableEdidIds) {
+    const auto primaryInfo = parseDisplayIdentificationData(0, getInternalEdid(),
+                                                            android::ScreenPartStatus::UNSUPPORTED,
+                                                            /*useStableEdidIds=*/true);
+    ASSERT_TRUE(primaryInfo);
+
+    const auto secondaryInfo =
+            parseDisplayIdentificationData(1, getExternalEdid(),
+                                           android::ScreenPartStatus::UNSUPPORTED,
+                                           /*useStableEdidIds=*/true);
+    ASSERT_TRUE(secondaryInfo);
+
+    const auto tertiaryInfo = parseDisplayIdentificationData(2, getExternalEedid(),
+                                                             android::ScreenPartStatus::UNSUPPORTED,
+                                                             /*useStableEdidIds=*/true);
+    ASSERT_TRUE(tertiaryInfo);
+
+    // Display IDs should be unique.
+    EXPECT_EQ(12535292641168014882u, primaryInfo->id.value);
+    EXPECT_EQ(4067182673952280501u, secondaryInfo->id.value);
+    EXPECT_EQ(14712168404707886855u, tertiaryInfo->id.value);
 }
 
 TEST(DisplayIdentificationTest, resolveDisplayIdCollision) {
