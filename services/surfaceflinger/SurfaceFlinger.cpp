@@ -7898,7 +7898,8 @@ bool SurfaceFlinger::layersHasHdrLayer(
 // this lock is reduced when grabbed from the main thread, thus also reducing
 // risk of deadlocks. Returns an error status if no display is found.
 base::expected<SurfaceFlinger::ScreenshotStrategy, status_t>
-SurfaceFlinger::setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args) {
+SurfaceFlinger::setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args,
+                                                      ui::PixelFormat reqPixelFormat) {
     return mScheduler
             ->schedule([=, this, &args]() REQUIRES(kMainThreadContext)
                                -> base::expected<SurfaceFlinger::ScreenshotStrategy, status_t> {
@@ -7959,6 +7960,13 @@ SurfaceFlinger::setScreenshotSnapshotsAndDisplayState(ScreenshotArgs& args) {
                                                                                     displayId),
                                                                             &attributes);
                         if (status == OK) {
+                            if (static_cast<android_pixel_format>(reqPixelFormat) !=
+                                        PIXEL_FORMAT_UNKNOWN &&
+                                static_cast<android_pixel_format>(reqPixelFormat) !=
+                                        static_cast<android_pixel_format>(attributes.format) &&
+                                args.requireDpuReadback) {
+                                return base::unexpected<status_t>(INVALID_OPERATION);
+                            }
                             const uint32_t usage = GRALLOC_USAGE_HW_COMPOSER |
                                     GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_SW_READ_OFTEN |
                                     GRALLOC_USAGE_SW_WRITE_OFTEN;
@@ -8008,7 +8016,7 @@ void SurfaceFlinger::captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat r
 
     args.captureListener = captureListener;
 
-    auto result = setScreenshotSnapshotsAndDisplayState(args);
+    auto result = setScreenshotSnapshotsAndDisplayState(args, reqPixelFormat);
     if (!result.ok()) {
         invokeScreenCaptureError(result.error(), captureListener);
         return;
