@@ -547,8 +547,7 @@ struct SecondaryDisplay {
     static constexpr HWDisplayId HWC_DISPLAY_ID = hwDisplayId;
     static constexpr HasIdentificationData HAS_IDENTIFICATION_DATA = hasIdentificationData;
     static constexpr auto GET_IDENTIFICATION_DATA =
-            connectionType == ui::DisplayConnectionType::Internal ? getInternalEdid
-                                                                  : getExternalEdid;
+            connectionType == ui::DisplayConnectionType::Internal ? getOuterEdid : getExternalEdid;
 };
 
 template <Secure secure>
