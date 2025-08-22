@@ -1202,6 +1202,7 @@ bool HWComposer::shouldIgnoreHotplugConnect(hal::HWDisplayId hwcDisplayId, uint8
 
 std::optional<display::DisplayIdentificationInfo> HWComposer::onHotplugConnect(
         hal::HWDisplayId hwcDisplayId) {
+    const bool useStableEdidIds = FlagManager::getInstance().stable_edid_ids();
     std::optional<display::DisplayIdentificationInfo> info;
     if (const auto displayId = toPhysicalDisplayId(hwcDisplayId)) {
         info = display::DisplayIdentificationInfo{.id = *displayId,
@@ -1214,8 +1215,8 @@ std::optional<display::DisplayIdentificationInfo> HWComposer::onHotplugConnect(
             display::DisplayIdentificationData data;
             android::ScreenPartStatus screenPartStatus;
             getDisplayIdentificationData(hwcDisplayId, &port, &data, &screenPartStatus);
-            if (auto newInfo =
-                        display::parseDisplayIdentificationData(port, data, screenPartStatus)) {
+            if (auto newInfo = display::parseDisplayIdentificationData(port, data, screenPartStatus,
+                                                                       useStableEdidIds)) {
                 info->deviceProductInfo = std::move(newInfo->deviceProductInfo);
                 info->preferredDetailedTimingDescriptor =
                         std::move(newInfo->preferredDetailedTimingDescriptor);
@@ -1239,11 +1240,13 @@ std::optional<display::DisplayIdentificationInfo> HWComposer::onHotplugConnect(
             return {};
         }
 
-        info = [this, hwcDisplayId, &port, &data, &screenPartStatus, hasDisplayIdentificationData] {
+        info = [this, hwcDisplayId, useStableEdidIds, &port, &data, &screenPartStatus,
+                hasDisplayIdentificationData] {
             const bool isPrimary = !mPrimaryHwcDisplayId;
             if (mHasMultiDisplaySupport) {
                 if (auto info =
-                            display::parseDisplayIdentificationData(port, data, screenPartStatus)) {
+                            display::parseDisplayIdentificationData(port, data, screenPartStatus,
+                                                                    useStableEdidIds)) {
                     if (FlagManager::getInstance().stable_edid_ids() &&
                         hasDisplayWithId(info->id)) {
                         info->id = display::resolveDisplayIdCollision(info->id, info->port);
