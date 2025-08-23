@@ -2963,6 +2963,7 @@ SurfaceFlinger::RefreshArgsPartition SurfaceFlinger::addOutputsToRefreshArgs(
     };
 
     // Partition displays: physical for main thread, virtual for offloaded.
+    bool anyMainThreadClientComposition = false;
     for (const auto& [id, targeter] : frameTargeters) {
         ftl::FakeGuard guard(mStateLock);
 
@@ -2970,6 +2971,9 @@ SurfaceFlinger::RefreshArgsPartition SurfaceFlinger::addOutputsToRefreshArgs(
             const auto layerStack = physicalDisplayLayerStacks.get(id)->get();
             if (isUniqueOutputLayerStack(display->getId(), layerStack)) {
                 mainThreadRefreshArgs.outputs.push_back(display);
+                if (display->getState().usesClientComposition) {
+                    anyMainThreadClientComposition = true;
+                }
             }
         }
 
@@ -2993,8 +2997,10 @@ SurfaceFlinger::RefreshArgsPartition SurfaceFlinger::addOutputsToRefreshArgs(
             continue;
         }
 
-        // Offload GPU backed display to background thread
-        if (canOffloadGpuComposition && display->isGpuVirtualDisplay()) {
+        // Offload GPU backed display to background thread if none of physical displays use
+        // client composition to avoid performance issue.
+        if (canOffloadGpuComposition && !anyMainThreadClientComposition &&
+            display->isGpuVirtualDisplay()) {
             offloadedRefreshArgs.outputs.push_back(display->getCompositionDisplay());
         } else {
             mainThreadRefreshArgs.outputs.push_back(display->getCompositionDisplay());
@@ -3071,12 +3077,7 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
         mDrawingState.colorMatrixChanged = false;
     }
 
-    refreshArgs.devOptForceClientComposition = mDebugDisableHWC;
-
-    if (mDebugFlashDelay != 0) {
-        refreshArgs.devOptForceClientComposition = true;
-        refreshArgs.devOptFlashDirtyRegionsDelay = std::chrono::milliseconds(mDebugFlashDelay);
-    }
+    setForcedClientCompositionLayerStacks(refreshArgs);
 
     // TODO(b/255601557) Update frameInterval per display
     refreshArgs.frameInterval =
@@ -3340,6 +3341,57 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
     }
 
     return resultsPerDisplay;
+}
+
+void SurfaceFlinger::setForcedClientCompositionLayerStacks(
+        compositionengine::CompositionRefreshArgs& refreshArgs) {
+    bool forceAllDisplaysToClientComposition = false;
+    if (mDebugDisableHWC) {
+        forceAllDisplaysToClientComposition = true;
+    }
+
+    if (mDebugFlashDelay != 0) {
+        forceAllDisplaysToClientComposition = true;
+        refreshArgs.devOptFlashDirtyRegionsDelay = std::chrono::milliseconds(mDebugFlashDelay);
+    }
+
+    if (forceAllDisplaysToClientComposition) {
+        Mutex::Autolock lock(mStateLock);
+        for (const auto& [_, displayDevice] : mDisplays) {
+            refreshArgs.forcedClientCompositionLayerStacks.insert(displayDevice->getLayerStack());
+        }
+        return;
+    }
+
+    if (!FlagManager::getInstance().force_slower_follower_gpu_composition()) {
+        return;
+    }
+
+    Mutex::Autolock lock(mStateLock);
+    const Fps pacesetterRefreshRate = mScheduler->getPacesetterRefreshRate();
+    for (const auto& [_, displayDevice] : mDisplays) {
+        const ui::LayerStack stack = displayDevice->getLayerStack();
+        if (displayDevice->isVirtual()) {
+            // Assume that virtual displays composite at the same rate as the pacesetter.
+            continue;
+        }
+
+        const scheduler::RefreshRateSelector& selector = displayDevice->refreshRateSelector();
+        // RefreshRateSelector may not have an active mode set in the beginning.
+        if (!selector.hasActiveMode()) {
+            refreshArgs.forcedClientCompositionLayerStacks.insert(stack);
+            continue;
+        }
+
+        const Fps displayVsyncRate = selector.getActiveMode().modePtr->getVsyncRate();
+        const float rateDiff = pacesetterRefreshRate.getValue() - displayVsyncRate.getValue();
+        constexpr float kRefreshRateEpsilon = 0.1f;
+        if (rateDiff > kRefreshRateEpsilon) {
+            refreshArgs.forcedClientCompositionLayerStacks.insert(stack);
+        }
+        // Physical displays with refresh rate roughly equal to pacesetter's are not forced to
+        // client composite.
+    }
 }
 
 bool SurfaceFlinger::isHdrLayer(const frontend::LayerSnapshot& snapshot) const {
