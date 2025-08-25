@@ -312,6 +312,21 @@ DisplayConfiguration::Dpi HWComposer::getEstimatedDotsPerInchFromSize(
     return {-1, -1};
 }
 
+ui::DisplayConnectionType HWComposer::getHwcDisplayConnectionType(uint64_t hwcDisplayId) const {
+    using ConnectionType = Hwc2::IComposerClient::DisplayConnectionType;
+    ConnectionType connectionType;
+
+    if (const auto error = static_cast<hal::Error>(
+                mComposer->getDisplayConnectionType(hwcDisplayId, &connectionType));
+        error != hal::Error::NONE) {
+        LOG_HWC_DISPLAY_ERROR(hwcDisplayId, "Cannot get display connection type.");
+        return ui::DisplayConnectionType::Internal;
+    }
+
+    return connectionType == ConnectionType::INTERNAL ? ui::DisplayConnectionType::Internal
+                                                      : ui::DisplayConnectionType::External;
+}
+
 DisplayConfiguration::Dpi HWComposer::correctedDpiIfneeded(
         DisplayConfiguration::Dpi dpi, DisplayConfiguration::Dpi estimatedDpi) const {
     // hwc can be unreliable when it comes to dpi. A rough estimated dpi may yield better
@@ -1202,7 +1217,9 @@ bool HWComposer::shouldIgnoreHotplugConnect(hal::HWDisplayId hwcDisplayId, uint8
 
 std::optional<display::DisplayIdentificationInfo> HWComposer::onHotplugConnect(
         hal::HWDisplayId hwcDisplayId) {
-    const bool useStableEdidIds = FlagManager::getInstance().stable_edid_ids();
+    const bool useStableEdidIds =
+            getHwcDisplayConnectionType(hwcDisplayId) == ui::DisplayConnectionType::External &&
+            FlagManager::getInstance().stable_edid_ids();
     std::optional<display::DisplayIdentificationInfo> info;
     if (const auto displayId = toPhysicalDisplayId(hwcDisplayId)) {
         info = display::DisplayIdentificationInfo{.id = *displayId,

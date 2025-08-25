@@ -190,10 +190,15 @@ struct DisplayIdGetter<PhysicalDisplayIdType<PhysicalDisplay>> {
                                                        ? LEGACY_DISPLAY_TYPE_PRIMARY
                                                        : LEGACY_DISPLAY_TYPE_EXTERNAL);
         }
+
+        const bool useStableEdidIds =
+                PhysicalDisplay::CONNECTION_TYPE == ui::DisplayConnectionType::External &&
+                FlagManager::getInstance().stable_edid_ids();
         const auto info =
                 display::parseDisplayIdentificationData(PhysicalDisplay::PORT,
                                                         PhysicalDisplay::GET_IDENTIFICATION_DATA(),
-                                                        android::ScreenPartStatus::UNSUPPORTED);
+                                                        android::ScreenPartStatus::UNSUPPORTED,
+                                                        useStableEdidIds);
         return info ? info->id : PhysicalDisplayId::fromPort(PhysicalDisplay::PORT);
     }
 };
