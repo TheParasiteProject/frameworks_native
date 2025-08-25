@@ -2633,7 +2633,7 @@ protected:
     static const int32_t DEVICE_GENERATION;
     static const int32_t DEVICE_CONTROLLER_NUMBER;
     static const ftl::Flags<InputDeviceClass> DEVICE_CLASSES;
-    static const int32_t EVENTHUB_ID;
+    static const RawDeviceId EVENTHUB_ID;
     static const std::string DEVICE_BLUETOOTH_ADDRESS;
 
     std::shared_ptr<FakeEventHub> mFakeEventHub;
@@ -2672,7 +2672,7 @@ const int32_t InputDeviceTest::DEVICE_GENERATION = 2;
 const int32_t InputDeviceTest::DEVICE_CONTROLLER_NUMBER = 0;
 const ftl::Flags<InputDeviceClass> InputDeviceTest::DEVICE_CLASSES =
         InputDeviceClass::KEYBOARD | InputDeviceClass::TOUCH | InputDeviceClass::JOYSTICK;
-const int32_t InputDeviceTest::EVENTHUB_ID = 1;
+const RawDeviceId InputDeviceTest::EVENTHUB_ID = 1;
 const std::string InputDeviceTest::DEVICE_BLUETOOTH_ADDRESS = "11:AA:22:BB:33:CC";
 
 TEST_F(InputDeviceTest, ImmutableProperties) {
@@ -8565,7 +8565,7 @@ protected:
     static const int32_t DEVICE_GENERATION;
     static const int32_t DEVICE_CONTROLLER_NUMBER;
     static const ftl::Flags<InputDeviceClass> DEVICE_CLASSES;
-    static const int32_t EVENTHUB_ID;
+    static const RawDeviceId EVENTHUB_ID;
 
     std::shared_ptr<FakeEventHub> mFakeEventHub;
     sp<FakeInputReaderPolicy> mFakePolicy;
@@ -8619,7 +8619,7 @@ const int32_t PeripheralControllerTest::DEVICE_GENERATION = 2;
 const int32_t PeripheralControllerTest::DEVICE_CONTROLLER_NUMBER = 0;
 const ftl::Flags<InputDeviceClass> PeripheralControllerTest::DEVICE_CLASSES =
         ftl::Flags<InputDeviceClass>(0); // not needed for current tests
-const int32_t PeripheralControllerTest::EVENTHUB_ID = 1;
+const RawDeviceId PeripheralControllerTest::EVENTHUB_ID = 1;
 
 // --- BatteryControllerTest ---
 class BatteryControllerTest : public PeripheralControllerTest {
