@@ -278,6 +278,8 @@ public:
 
     virtual void setEnableTracing(bool /*tracingEnabled*/) {}
 
+    virtual void rdocCaptureNextFrame() {};
+
 protected:
     RenderEngine() : RenderEngine(Threaded::No) {}
 
