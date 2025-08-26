@@ -1481,6 +1481,9 @@ protected:
     constexpr static auto EVENT_HAPPENED_TIMEOUT = 2000ms;
     constexpr static auto EVENT_DID_NOT_HAPPEN_TIMEOUT = 30ms;
 
+    const std::string UNIQUE_ID = "local:0";
+    const std::string INPUT_PORT = "uinput/input0";
+
     void SetUp() override {
 #if !defined(__ANDROID__)
         GTEST_SKIP();
@@ -1698,8 +1701,6 @@ TEST_F(InputReaderIntegrationTest, SendsGearDownAndUpToInputListener) {
 
 class BaseTouchIntegrationTest : public InputReaderIntegrationTest {
 protected:
-    const std::string UNIQUE_ID = "local:0";
-
     void SetUp() override {
 #if !defined(__ANDROID__)
         GTEST_SKIP();
@@ -1748,7 +1749,6 @@ class TouchIntegrationTest : public BaseTouchIntegrationTest,
                              public testing::WithParamInterface<TouchIntegrationTestDisplays> {
 protected:
     static constexpr std::optional<uint8_t> DISPLAY_PORT = 0;
-    const std::string INPUT_PORT = "uinput_touch/input0";
 
     void SetUp() override {
 #if !defined(__ANDROID__)
@@ -2622,6 +2622,61 @@ TEST_F(ExternalStylusIntegrationTest, UnfusedExternalStylus) {
     // The external stylus did not generate any events.
     ASSERT_NO_FATAL_FAILURE(mTestListener->assertNotifyMotionWasNotCalled());
     ASSERT_NO_FATAL_FAILURE(mTestListener->assertNotifyKeyWasNotCalled());
+}
+
+// --- TouchNavigationIntegrationTest ---
+
+// Verify the behavior of a touch navigation touchpad.
+using TouchNavigationIntegrationTest = InputReaderIntegrationTest;
+
+TEST_F(TouchNavigationIntegrationTest, DoesNotRequireAssociatedDisplay) {
+    // There are no configured displays.
+    mFakePolicy->addDeviceTypeAssociation(INPUT_PORT, "touchNavigation");
+    mReader->requestRefreshConfiguration(InputReaderConfiguration::Change::DEVICE_TYPE);
+
+    auto device = createUinputDevice<UinputTouchScreen>(Rect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT),
+                                                        INPUT_PORT);
+    ASSERT_NO_FATAL_FAILURE(mFakePolicy->assertInputDevicesChanged());
+    const auto info = waitForDevice(device->getName());
+    ASSERT_TRUE(info.has_value());
+    ASSERT_TRUE(isFromSource(info->getSources(),
+                             AINPUT_SOURCE_TOUCH_NAVIGATION | AINPUT_SOURCE_TOUCHPAD));
+
+    device->sendTrackingId(FIRST_TRACKING_ID);
+    device->sendDown(Point(1, 1));
+    device->sendSync();
+    ASSERT_NO_FATAL_FAILURE(mTestListener->assertNotifyMotionWasCalled(
+            AllOf(WithMotionAction(AMOTION_EVENT_ACTION_DOWN),
+                  WithDisplayId(ui::LogicalDisplayId::INVALID),
+                  WithSource(AINPUT_SOURCE_TOUCH_NAVIGATION | AINPUT_SOURCE_TOUCHPAD))));
+}
+
+TEST_F(TouchNavigationIntegrationTest, DisplayAssociationChange) {
+    // There are initially no configured displays.
+    mFakePolicy->addDeviceTypeAssociation(INPUT_PORT, "touchNavigation");
+    mReader->requestRefreshConfiguration(InputReaderConfiguration::Change::DEVICE_TYPE);
+
+    auto device = createUinputDevice<UinputTouchScreen>(Rect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT),
+                                                        INPUT_PORT);
+    ASSERT_NO_FATAL_FAILURE(mFakePolicy->assertInputDevicesChanged());
+    const auto info = waitForDevice(device->getName());
+    ASSERT_TRUE(info.has_value());
+
+    // Add a display association.
+    DisplayViewport viewport =
+            createViewport(DISPLAY_ID, DISPLAY_WIDTH, DISPLAY_HEIGHT, ui::ROTATION_0,
+                           /*isActive=*/true, UNIQUE_ID, NO_PORT, ViewportType::INTERNAL);
+    mFakePolicy->addDisplayViewport(viewport);
+    mFakePolicy->addInputUniqueIdAssociation(INPUT_PORT, UNIQUE_ID);
+    mReader->requestRefreshConfiguration(InputReaderConfiguration::Change::DISPLAY_INFO);
+    ASSERT_NO_FATAL_FAILURE(mFakePolicy->assertInputDevicesChanged());
+
+    device->sendTrackingId(FIRST_TRACKING_ID);
+    device->sendDown(Point(1, 1));
+    device->sendSync();
+    ASSERT_NO_FATAL_FAILURE(mTestListener->assertNotifyMotionWasCalled(
+            AllOf(WithMotionAction(AMOTION_EVENT_ACTION_DOWN), WithDisplayId(DISPLAY_ID),
+                  WithSource(AINPUT_SOURCE_TOUCH_NAVIGATION | AINPUT_SOURCE_TOUCHPAD))));
 }
 
 // --- InputDeviceTest ---
@@ -5136,6 +5191,42 @@ TEST_F(SingleTouchInputMapperTest, WhenDeviceTypeIsChangedToTouchNavigation_upda
 
     // Check whether device type update was successful.
     ASSERT_EQ(AINPUT_SOURCE_TOUCH_NAVIGATION | AINPUT_SOURCE_TOUCHPAD, mDevice->getSources());
+}
+
+TEST_F(SingleTouchInputMapperTest,
+       WhenDeviceTypeIsChangedToTouchNavigation_displayViewportIsNotRequired) {
+    // Initialize the device without setting device source to touch navigation and without a
+    // display.
+    addConfigurationProperty("touch.deviceType", "touchScreen");
+    prepareButtons();
+    prepareAxes(POSITION);
+    SingleTouchInputMapper& mapper = constructAndAddMapper<SingleTouchInputMapper>();
+
+    // Ensure that the device is created as a touchscreen, not touch navigation.
+    ASSERT_EQ(AINPUT_SOURCE_TOUCHSCREEN, mapper.getSources());
+
+    // Add device type association after the device was created.
+    mFakePolicy->addDeviceTypeAssociation(DEVICE_LOCATION, "touchNavigation");
+
+    // Send update to the mapper.
+    std::list<NotifyArgs> unused2 =
+            mDevice->configure(ARBITRARY_TIME, mFakePolicy->getReaderConfiguration(),
+                               InputReaderConfiguration::Change::DEVICE_TYPE);
+
+    // Check whether device type update was successful.
+    ASSERT_EQ(AINPUT_SOURCE_TOUCH_NAVIGATION | AINPUT_SOURCE_TOUCHPAD, mDevice->getSources());
+
+    const int32_t x = 900;
+    const int32_t y = 75;
+    std::list<NotifyArgs> args;
+    args += processDown(mapper, x, y);
+    args += processSync(mapper);
+
+    ASSERT_THAT(args,
+                ElementsAre(VariantWith<NotifyMotionArgs>(
+                        AllOf(WithMotionAction(AMOTION_EVENT_ACTION_DOWN),
+                              WithCoords(x - RAW_X_MIN, y - RAW_Y_MIN),
+                              WithDisplayId(ui::LogicalDisplayId::INVALID)))));
 }
 
 TEST_F(SingleTouchInputMapperTest, HoverEventsOutsidePhysicalFrameAreIgnored) {
