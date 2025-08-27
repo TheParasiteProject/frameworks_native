@@ -42,6 +42,8 @@ public:
     };
 
     Status status;
+    // True if this connection is for a focus monitor, which behaves differently in various ways and
+    // is usually associated with a display and not with a window.
     bool monitor;
     InputPublisher inputPublisher;
     InputState inputState;
