@@ -9177,9 +9177,18 @@ SurfaceFlinger::getLayerSnapshotsForScreenshots(const SnapshotRequestArgs& args)
             // The layer may not exist if it was just created and a screenshot was requested
             // immediately after. In this case, the hierarchy will be empty so we will not render
             // any layers.
-            builderArgs.rootSnapshot.isSecure =
-                    mLayerLifecycleManager.getLayerFromId(args.rootLayerId.value()) &&
-                    mLayerLifecycleManager.isLayerSecure(args.rootLayerId.value());
+            if (mLayerLifecycleManager.getLayerFromId(args.rootLayerId.value())) {
+                std::unordered_set<uint32_t> visited;
+                auto isLayerSecureResult =
+                        mLayerLifecycleManager.isLayerSecure(args.rootLayerId.value(), visited);
+                if (!isLayerSecureResult.ok()) {
+                    // Cycle found in parent layers
+                    return base::unexpected<status_t>(isLayerSecureResult.error());
+                }
+                builderArgs.rootSnapshot.isSecure = isLayerSecureResult.value();
+            } else {
+                builderArgs.rootSnapshot.isSecure = false;
+            }
         }
         mLayerSnapshotBuilder.update(builderArgs);
         layers = snapshotLambda(args);
