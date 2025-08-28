@@ -1092,8 +1092,9 @@ void SkiaRenderEngine::drawLayersInternal(
 
                 float cornerRadius =
                         roundf(preferredOriginalBounds.radii(SkRRect::kUpperLeft_Corner).fX);
+
                 mBoxShadowUtils.drawBoxShadows(canvas, preferredOriginalBounds.rect(), cornerRadius,
-                                               layer.boxShadowSettings);
+                                               layer.boxShadowSettings, supportsForwardPixelKill());
             }
         }
 
