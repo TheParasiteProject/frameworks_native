@@ -1308,8 +1308,7 @@ void SurfaceFlinger::getDynamicDisplayInfoInternal(ui::DynamicDisplayInfo*& info
     const auto [normal, high] = display->refreshRateSelector().getFrameRateCategoryRates();
     ui::FrameRateCategoryRate frameRateCategoryRate(normal.getValue(), high.getValue());
     info->frameRateCategoryRate = frameRateCategoryRate;
-
-    if (info->hasArrSupport) {
+    if (info->hasArrSupport || FlagManager::getInstance().supported_refresh_rate_update()) {
         info->supportedRefreshRates = display->refreshRateSelector().getSupportedFrameRates();
     } else {
         // On non-ARR devices, list the refresh rates same as the supported display modes.

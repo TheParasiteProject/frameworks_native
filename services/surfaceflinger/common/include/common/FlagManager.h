@@ -71,6 +71,7 @@ public:
     bool refresh_rate_overlay_on_external_display() const;
     bool reset_model_flushes_fence() const;
     bool resync_on_tx() const;
+    bool supported_refresh_rate_update() const;
     bool unify_refresh_rate_callbacks() const;
     bool vsync_predictor_predicts_within_threshold() const;
 
