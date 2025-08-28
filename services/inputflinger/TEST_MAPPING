@@ -77,6 +77,9 @@
     },
     {
       "name": "CtsSurfaceControlTests_input_related"
+    },
+    {
+      "name": "WmTests_SurfaceControlViewHostTests"
     }
   ],
   "postsubmit": [
