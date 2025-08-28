@@ -208,6 +208,13 @@ flag {
 } # graphite_renderengine_preview_rollout
 
 flag {
+  name: "graphite_renderengine_desktop_rollout"
+  namespace: "core_graphics"
+  description: "R/W flag to enable Skia's Graphite Vulkan backend in RenderEngine for Desktop devices, IF the debug.renderengine.graphite_desktop_optin sysprop is set to true."
+  bug: "436872839"
+} # graphite_renderengine_desktop_rollout
+
+flag {
   name: "hdcp_negotiation"
   namespace: "core_graphics"
   description: "detect secure layers to start HDCP negotiation"
