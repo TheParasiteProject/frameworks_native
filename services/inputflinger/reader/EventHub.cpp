@@ -1191,8 +1191,14 @@ base::Result<std::vector<int32_t>> EventHub::getMtSlotValues(RawDeviceId deviceI
                                                              size_t slotCount) const {
     std::scoped_lock _l(mLock);
     const Device* device = getDeviceLocked(deviceId);
-    if (device == nullptr || !device->hasValidFd() || !device->absBitmask.test(axis)) {
-        return base::ResultError("device problem or axis not supported", NAME_NOT_FOUND);
+    if (device == nullptr) {
+        return base::Error() << "device ID " << deviceId << " not found";
+    }
+    if (!device->hasValidFd()) {
+        return base::Error() << "invalid FD";
+    }
+    if (!device->absBitmask.test(axis)) {
+        return base::Error() << "axis not supported";
     }
     std::vector<int32_t> outValues(slotCount + 1);
     outValues[0] = axis;
