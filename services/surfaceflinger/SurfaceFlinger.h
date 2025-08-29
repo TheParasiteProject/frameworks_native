@@ -732,8 +732,12 @@ private:
     bool finalizeDisplayModeChange(PhysicalDisplayId) REQUIRES(kMainThreadContext)
             REQUIRES(mStateLock);
 
+    // TODO: Remove once `modeset_state_machine` flag is cleaned up.
     void dropModeRequest(PhysicalDisplayId) REQUIRES(kMainThreadContext);
     void applyActiveMode(PhysicalDisplayId) REQUIRES(kMainThreadContext);
+
+    void dropModeRequest(display::DisplayModeRequest&&) REQUIRES(kMainThreadContext);
+    void applyActiveMode(display::DisplayModeRequest&&) REQUIRES(kMainThreadContext);
 
     // Called on the main thread in response to setPowerMode()
     void setPhysicalDisplayPowerMode(const sp<DisplayDevice>& display, hal::PowerMode mode)
