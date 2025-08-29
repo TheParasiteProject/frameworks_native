@@ -1539,6 +1539,26 @@ TEST_F(SelectPacesetterDisplayTest, TwoDisplaysWithinEpsilon) FTL_FAKE_GUARD(kMa
     EXPECT_EQ(mScheduler->pacesetterDisplayId(), kDisplayId1);
 }
 
+TEST_F(SelectPacesetterDisplayTest, SameRefreshRateOneInternalOneExternal)
+FTL_FAKE_GUARD(kMainThreadContext) {
+    SET_FLAG_FOR_TEST(flags::pacesetter_selection, true);
+
+    constexpr PhysicalDisplayId kActiveDisplayId = kDisplayId1;
+    mScheduler->registerDisplay(kDisplayId1, ui::DisplayConnectionType::Internal,
+                                std::make_shared<RefreshRateSelector>(kDisplay1Modes,
+                                                                      kDisplay1Mode60->getId()),
+                                kActiveDisplayId);
+    mScheduler->setDisplayPowerMode(kDisplayId1, hal::PowerMode::ON);
+
+    auto selector2 =
+            std::make_shared<RefreshRateSelector>(kDisplay2Modes, kDisplay2Mode60->getId());
+    mScheduler->registerDisplay(kDisplayId2, ui::DisplayConnectionType::External, selector2,
+                                kActiveDisplayId);
+    mScheduler->setDisplayPowerMode(kDisplayId2, hal::PowerMode::ON);
+
+    EXPECT_EQ(mScheduler->pacesetterDisplayId(), kDisplayId2);
+}
+
 TEST_F(SchedulerTest, selectorPtrForLayerStack) FTL_FAKE_GUARD(kMainThreadContext) {
     SET_FLAG_FOR_TEST(flags::follower_arbitrary_refresh_rate_selection, true);
 

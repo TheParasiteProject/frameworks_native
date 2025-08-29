@@ -162,6 +162,7 @@ PhysicalDisplayId Scheduler::selectPacesetterDisplayLocked(
     // The first display should be the new pacesetter if none of the displays are powered on.
     const auto& [firstDisplayId, firstDisplay] = *mDisplays.begin();
     PhysicalDisplayId newPacesetterId = firstDisplayId;
+    ui::DisplayConnectionType newPacesetterConnectionType = firstDisplay.connectionType;
     // Only assigning the actual refresh rate if the first display is powered on ensures that any
     // other powered-on display will take over the new pacesetter designation regardless of its
     // refresh rate.
@@ -179,24 +180,44 @@ PhysicalDisplayId Scheduler::selectPacesetterDisplayLocked(
         const Fps displayVsyncRate = display.selectorPtr->getActiveMode().modePtr->getVsyncRate();
         if (isStrictlyLess(newPacesetterVsyncRate, displayVsyncRate)) {
             newPacesetterId = id;
+            newPacesetterConnectionType = display.connectionType;
             newPacesetterVsyncRate = displayVsyncRate;
         }
     }
+
+    // The slack in the difference between refresh rate difference to consider them roughly equal
+    // for pacesetter selection purposes. E.g. 59.98 and 60.02Hz Should be considered roughly equal.
+    const auto isVsyncRateApproxEqual = [&](const Display& display, Fps otherFps) -> bool {
+        constexpr float kRefreshRateEpsilon = 0.1f;
+        const Fps displayVsyncRate = display.selectorPtr->getActiveMode().modePtr->getVsyncRate();
+        return std::abs(displayVsyncRate.getValue() - otherFps.getValue()) < kRefreshRateEpsilon;
+    };
 
     // If the current pacesetter display is powered on and its refresh rate is not too far off from
     // the newly selected pacesetter display, prefer to keep the current one to avoid churn.
     if (const auto pacesetterOpt = pacesetterDisplayLocked()) {
         const auto& pacesetter = pacesetterOpt->get();
         if (pacesetter.powerMode == hal::PowerMode::ON) {
-            const Fps currentPacesetterVsyncRate =
-                    pacesetter.selectorPtr->getActiveMode().modePtr->getVsyncRate();
-            const float rateDiff =
-                    newPacesetterVsyncRate.getValue() - currentPacesetterVsyncRate.getValue();
-            constexpr float kRefreshRateEpsilon = 0.1f;
-
-            if (rateDiff < kRefreshRateEpsilon) {
+            if (isVsyncRateApproxEqual(pacesetter, newPacesetterVsyncRate)) {
                 newPacesetterId = pacesetter.displayId;
-                newPacesetterVsyncRate = currentPacesetterVsyncRate;
+                newPacesetterConnectionType = pacesetter.connectionType;
+                newPacesetterVsyncRate =
+                        pacesetter.selectorPtr->getActiveMode().modePtr->getVsyncRate();
+            }
+        }
+    }
+
+    // Prefer external displays as pacesetter, as it is more likely the external display will be the
+    // user's main display.
+    if (newPacesetterConnectionType != ui::DisplayConnectionType::External) {
+        for (const auto& [id, display] : mDisplays) {
+            if (display.powerMode != hal::PowerMode::ON ||
+                display.connectionType != ui::DisplayConnectionType::External) {
+                continue;
+            }
+
+            if (isVsyncRateApproxEqual(display, newPacesetterVsyncRate)) {
+                return id;
             }
         }
     }
