@@ -1193,7 +1193,7 @@ std::optional<hal::HWDisplayId> HWComposer::fromPhysicalDisplayId(
 
 bool HWComposer::shouldIgnoreHotplugConnect(hal::HWDisplayId hwcDisplayId, uint8_t port,
                                             bool hasDisplayIdentificationData) const {
-    if (mActivePorts.contains(port)) {
+    if (mHasMultiDisplaySupport && mActivePorts.contains(port)) {
         ALOGE("Ignoring connection of display %" PRIu64 ". Port %" PRIu8
               " is already in active use.",
               hwcDisplayId, port);
