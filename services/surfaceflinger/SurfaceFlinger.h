@@ -989,7 +989,7 @@ private:
         Gpu,
     };
     base::expected<ScreenshotStrategy, status_t> setScreenshotSnapshotsAndDisplayState(
-            ScreenshotArgs& args);
+            ScreenshotArgs& args, ui::PixelFormat requestedPixelFormat);
 
     void captureScreenCommon(ScreenshotArgs& args, ui::PixelFormat,
                              const sp<IScreenCaptureListener>&);
