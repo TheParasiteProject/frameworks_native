@@ -1286,6 +1286,7 @@ private:
 
     void appendSfConfigString(std::string& result) const;
     void listLayers(std::string& result) const REQUIRES(kMainThreadContext);
+    void captureRenderDocFrame(std::string& result);
     void dumpStats(const DumpArgs& args, std::string& result) const
             REQUIRES(mStateLock, kMainThreadContext);
     void clearStats(const DumpArgs& args, std::string& result) REQUIRES(kMainThreadContext);
