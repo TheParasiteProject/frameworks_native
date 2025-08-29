@@ -63,6 +63,11 @@ public:
                 .WillOnce(DoAll(SetArgPointee<1>(kPort), SetArgPointee<2>(getInternalEdid()),
                                 Return(hal::Error::NONE)));
 
+        EXPECT_CALL(*mComposerHal, getDisplayConnectionType(kHwcDisplayId, _))
+                .WillOnce(DoAll(SetArgPointee<1>(
+                                        hal::IComposerClient::DisplayConnectionType::INTERNAL),
+                                Return(hal::V2_4::Error::NONE)));
+
         EXPECT_CALL(*mComposerHal, setClientTargetSlotCount(kHwcDisplayId));
         EXPECT_CALL(*mComposerHal,
                     setVsyncEnabled(kHwcDisplayId, hal::IComposerClient::Vsync::DISABLE));
