@@ -453,6 +453,7 @@ base::expected<bool, status_t> LayerLifecycleManager::isLayerSecure(
 
     auto const [it, newVisit] = visited.insert(layerId);
     if (!newVisit) {
+        ALOGV("Cycle detected at layer ID %d", layerId);
         return base::unexpected(BAD_VALUE);
     }
 
