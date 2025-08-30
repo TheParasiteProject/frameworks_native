@@ -450,7 +450,7 @@ void DisplayDevice::updateRefreshRateOverlayRate(Fps refreshRate, Fps renderFps,
     SFTRACE_CALL();
     if (mRefreshRateOverlay) {
         if (!mRefreshRateOverlay->isSetByHwc() || setByHwc) {
-            if (mRefreshRateSelector->isVrrDevice() && !mRefreshRateOverlay->isSetByHwc()) {
+            if (mRefreshRateSelector->isVrrDisplay() && !mRefreshRateOverlay->isSetByHwc()) {
                 refreshRate = renderFps;
             }
             mRefreshRateOverlay->changeRefreshRate(refreshRate, renderFps);

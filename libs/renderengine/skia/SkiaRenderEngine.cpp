@@ -871,6 +871,11 @@ void SkiaRenderEngine::drawLayersInternal(
     }
 
     AutoSaveRestore surfaceAutoSaveRestore(canvas);
+
+    if (mRenderDocCaptureNextFrame) {
+        mRenderDoc.startFrameCapture();
+    }
+
     // Clear the entire canvas with a transparent black to prevent ghost images.
     canvas->clear(SK_ColorTRANSPARENT);
     initCanvas(canvas, display);
@@ -1092,8 +1097,9 @@ void SkiaRenderEngine::drawLayersInternal(
 
                 float cornerRadius =
                         roundf(preferredOriginalBounds.radii(SkRRect::kUpperLeft_Corner).fX);
+
                 mBoxShadowUtils.drawBoxShadows(canvas, preferredOriginalBounds.rect(), cornerRadius,
-                                               layer.boxShadowSettings);
+                                               layer.boxShadowSettings, supportsForwardPixelKill());
             }
         }
 
@@ -1359,6 +1365,11 @@ void SkiaRenderEngine::drawLayersInternal(
         }
     }
     resultPromise->set_value(std::move(drawFence));
+
+    if (mRenderDocCaptureNextFrame) {
+        mRenderDoc.endFrameCapture();
+        mRenderDocCaptureNextFrame = false;
+    }
 }
 
 void SkiaRenderEngine::tonemapAndDrawGainmapInternal(
