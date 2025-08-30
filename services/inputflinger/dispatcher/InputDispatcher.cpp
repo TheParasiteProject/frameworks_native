@@ -4365,10 +4365,18 @@ void InputDispatcher::synthesizePointerDownEventsForConnectionLocked(
 std::unique_ptr<MotionEntry> InputDispatcher::splitMotionEvent(
         const MotionEntry& originalMotionEntry, std::bitset<MAX_POINTER_ID + 1> pointerIds,
         nsecs_t splitDownTime) {
-    const auto& [action, pointerProperties, pointerCoords] =
+    const auto& result =
             MotionEvent::split(originalMotionEntry.action, originalMotionEntry.flags,
                                /*historySize=*/0, originalMotionEntry.pointerProperties,
                                originalMotionEntry.pointerCoords, pointerIds);
+    if (!result.ok()) {
+        logDispatchStateLocked();
+        LOG(FATAL) << "Could not split motion: " << originalMotionEntry
+                   << ", pointers: " << pointerIds << " : " << result.error();
+        return nullptr;
+    }
+    const auto& [action, pointerProperties, pointerCoords] = *result;
+
     if (pointerIds.count() != pointerCoords.size()) {
         // TODO(b/329107108): Determine why some IDs in pointerIds were not in originalMotionEntry.
         // This is bad.  We are missing some of the pointers that we expected to deliver.
