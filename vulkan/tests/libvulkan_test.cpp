@@ -781,6 +781,142 @@ TEST_F(AImageReaderVulkanSwapchainTest, StandardPresentTimingCountTest) {
     cleanUpSwapchainForTest();
 }
 
+TEST_F(AImageReaderVulkanSwapchainTest, SharedPresentTimingZeroedTest) {
+    // Verifies that for shared present modes, vkGetPastPresentationTimingGOOGLE
+    // returns a record with zeroed-out timing values, as per the change in
+    // get_num_ready_timings.
+    std::vector<const char*> instanceLayers = {};
+    std::vector<const char*> deviceLayers = {};
+    std::vector<const char*> deviceExtensions = {
+        VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME,
+    };
+
+    createVulkanInstance(instanceLayers);
+    createAImageReader(640, 480, AIMAGE_FORMAT_PRIVATE, 3);
+    getANativeWindowFromReader();
+    createVulkanSurface();
+    pickPhysicalDeviceAndQueueFamily();
+
+    uint32_t extensionCount = 0;
+    vkEnumerateDeviceExtensionProperties(mPhysicalDev, nullptr, &extensionCount,
+                                         nullptr);
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(mPhysicalDev, nullptr, &extensionCount,
+                                         availableExtensions.data());
+
+    bool timingExtSupported = false;
+    for (const auto& extension : availableExtensions) {
+        if (strcmp(extension.extensionName,
+                   VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME) == 0) {
+            timingExtSupported = true;
+            break;
+        }
+    }
+
+    if (!timingExtSupported) {
+        GTEST_SKIP() << "Vulkan extension "
+                     << VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME
+                     << " not supported.";
+    }
+
+    uint32_t presentModeCount = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(mPhysicalDev, mSurface,
+                                              &presentModeCount, nullptr);
+    ASSERT_GT(presentModeCount, 0U);
+    std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(
+        mPhysicalDev, mSurface, &presentModeCount, presentModes.data());
+
+    bool sharedPresentSupported = false;
+    for (const auto& mode : presentModes) {
+        if (mode == VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR) {
+            sharedPresentSupported = true;
+            break;
+        }
+    }
+
+    if (!sharedPresentSupported) {
+        GTEST_SKIP()
+            << "VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR not supported.";
+    }
+
+    createDeviceAndGetQueue(deviceLayers, deviceExtensions);
+
+    VkSurfaceCapabilitiesKHR surfaceCaps{};
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mPhysicalDev, mSurface,
+                                                       &surfaceCaps));
+
+    uint32_t imageCount = 1;
+
+    VkSwapchainCreateInfoKHR swapchainInfo{};
+    swapchainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    swapchainInfo.surface = mSurface;
+    swapchainInfo.minImageCount = imageCount;
+    swapchainInfo.imageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+    swapchainInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    swapchainInfo.imageExtent = surfaceCaps.currentExtent;
+    swapchainInfo.imageArrayLayers = 1;
+    swapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    swapchainInfo.preTransform = surfaceCaps.currentTransform;
+    swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+    swapchainInfo.presentMode = VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR;
+    swapchainInfo.clipped = VK_TRUE;
+
+    VkResult res =
+        vkCreateSwapchainKHR(mDevice, &swapchainInfo, nullptr, &mSwapchain);
+    VK_CHECK(res);
+    ASSERT_NE(mSwapchain, (VkSwapchainKHR)VK_NULL_HANDLE);
+
+    uint32_t imageIndex;
+    res = vkAcquireNextImageKHR(mDevice, mSwapchain, UINT64_MAX, VK_NULL_HANDLE,
+                                VK_NULL_HANDLE, &imageIndex);
+    VK_CHECK(res);
+    ASSERT_EQ(imageIndex, 0U);
+
+    VkPresentTimeGOOGLE presentTime = {123, 456};
+    VkPresentTimesInfoGOOGLE presentTimesInfo = {};
+    presentTimesInfo.sType = VK_STRUCTURE_TYPE_PRESENT_TIMES_INFO_GOOGLE;
+    presentTimesInfo.swapchainCount = 1;
+    presentTimesInfo.pTimes = &presentTime;
+
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.pNext = &presentTimesInfo;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &mSwapchain;
+    presentInfo.pImageIndices = &imageIndex;
+
+    res = vkQueuePresentKHR(mPresentQueue, &presentInfo);
+    VK_CHECK(res);
+
+    auto pfnGetPastPresentationTimingGOOGLE =
+        (PFN_vkGetPastPresentationTimingGOOGLE)vkGetDeviceProcAddr(
+            mDevice, "vkGetPastPresentationTimingGOOGLE");
+    ASSERT_NE(pfnGetPastPresentationTimingGOOGLE,
+              (PFN_vkGetPastPresentationTimingGOOGLE) nullptr);
+
+    uint32_t timingCount = 0;
+    res = pfnGetPastPresentationTimingGOOGLE(mDevice, mSwapchain, &timingCount,
+                                             nullptr);
+    VK_CHECK(res);
+    ASSERT_EQ(timingCount, 1U);
+
+    VkPastPresentationTimingGOOGLE timing;
+    timingCount = 1;
+    res = pfnGetPastPresentationTimingGOOGLE(mDevice, mSwapchain, &timingCount,
+                                             &timing);
+    VK_CHECK(res);
+    ASSERT_EQ(timingCount, 1U);
+
+    // Verify the new behavior: present ID is preserved, but times are zero.
+    EXPECT_EQ(timing.presentID, presentTime.presentID);
+    EXPECT_EQ(timing.actualPresentTime, 0U);
+    EXPECT_EQ(timing.earliestPresentTime, 0U);
+    EXPECT_EQ(timing.presentMargin, 0U);
+
+    cleanUpSwapchainForTest();
+}
+
 }  // namespace libvulkantest
 
 }  // namespace android

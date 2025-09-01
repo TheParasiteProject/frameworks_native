@@ -440,6 +440,14 @@ uint32_t get_num_ready_timings(Swapchain& swapchain) {
             // to the num_ready.
             num_ready++;
             continue;
+        } else if (swapchain.shared) {
+            // We don't currently support timings for shared presentation modes
+            ti.timestamp_desired_present_time_ = 0;
+            ti.timestamp_actual_present_time_ = 0;
+            ti.timestamp_render_complete_time_ = 0;
+            ti.timestamp_composition_latch_time_ = 0;
+            num_ready++;
+            continue;
         }
         // This TimingInfo is not yet ready to be reported to the user,
         // and so we should look for any available timestamps that
