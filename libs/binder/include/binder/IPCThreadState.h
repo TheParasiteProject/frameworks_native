@@ -228,6 +228,7 @@ private:
 
     void processPendingDerefs();
     void processPostWriteDerefs();
+    [[nodiscard]] bool flushIfNeeded(status_t* res);
 
     void clearCaller();
 
