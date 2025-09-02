@@ -3626,7 +3626,7 @@ void InputDispatcher::enqueueDispatchEntryLocked(const std::shared_ptr<Connectio
  */
 void InputDispatcher::processInteractionsLocked(const EventEntry& entry,
                                                 const std::vector<InputTarget>& targets) {
-    int32_t deviceId;
+    DeviceId deviceId;
     nsecs_t eventTime;
     // Skip ACTION_UP events, and all events other than keys and motions
     if (entry.type == EventEntry::Type::KEY) {
@@ -7556,7 +7556,7 @@ ftl::Flags<InputTarget::Flags> InputDispatcher::DispatcherTouchState::getTargetF
 }
 
 bool InputDispatcher::DispatcherTouchState::hasTouchingOrHoveringPointers(
-        ui::LogicalDisplayId displayId, int32_t deviceId) const {
+        ui::LogicalDisplayId displayId, DeviceId deviceId) const {
     bool hasTouchingOrHoveringPointers = false;
     forTouchAndCursorStatesOnDisplay(displayId, [&](const TouchState& state) {
         hasTouchingOrHoveringPointers =

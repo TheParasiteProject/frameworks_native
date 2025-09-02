@@ -1024,7 +1024,7 @@ TEST_F(InputReaderTest, DeviceReset_GenerateIdWithInputReaderSource) {
 }
 
 TEST_F(InputReaderTest, Device_CanDispatchToDisplay) {
-    constexpr int32_t deviceId = END_RESERVED_ID + 1000;
+    constexpr DeviceId deviceId = END_RESERVED_ID + 1000;
     constexpr ftl::Flags<InputDeviceClass> deviceClass = InputDeviceClass::KEYBOARD;
     constexpr int32_t eventHubId = 1;
     const char* DEVICE_LOCATION = "USB1";
@@ -2631,7 +2631,7 @@ protected:
     static const char* DEVICE_NAME;
     static const char* DEVICE_DESCRIPTOR;
     static const char* DEVICE_LOCATION;
-    static const int32_t DEVICE_ID;
+    static const DeviceId DEVICE_ID;
     static const int32_t DEVICE_GENERATION;
     static const int32_t DEVICE_CONTROLLER_NUMBER;
     static const ftl::Flags<InputDeviceClass> DEVICE_CLASSES;
@@ -2671,7 +2671,7 @@ protected:
 const char* InputDeviceTest::DEVICE_NAME = "device";
 const char* InputDeviceTest::DEVICE_DESCRIPTOR = "device_descriptor";
 const char* InputDeviceTest::DEVICE_LOCATION = "USB1";
-const int32_t InputDeviceTest::DEVICE_ID = END_RESERVED_ID + 1000;
+const DeviceId InputDeviceTest::DEVICE_ID = END_RESERVED_ID + 1000;
 const int32_t InputDeviceTest::DEVICE_GENERATION = 2;
 const int32_t InputDeviceTest::DEVICE_CONTROLLER_NUMBER = 0;
 const ftl::Flags<InputDeviceClass> InputDeviceTest::DEVICE_CLASSES =
