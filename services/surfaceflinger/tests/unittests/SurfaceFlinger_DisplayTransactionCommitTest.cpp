@@ -67,9 +67,6 @@ void DisplayTransactionCommitTest::setupCommonPreconditions() {
     // Wide color displays support is configured appropriately
     Case::WideColorSupport::injectConfigChange(this);
 
-    // SurfaceFlinger will use a test-controlled factory for BufferQueues
-    injectFakeBufferQueueFactory();
-
     // SurfaceFlinger will use a test-controlled factory for native window
     // surfaces.
     injectFakeNativeWindowSurfaceFactory();
@@ -86,8 +83,6 @@ template <typename Case>
 void DisplayTransactionCommitTest::setupCommonCallExpectationsForConnectProcessing() {
     Case::Display::setupHwcHotplugCallExpectations(this);
 
-    Case::Display::setupFramebufferConsumerBufferQueueCallExpectations(this);
-    Case::Display::setupFramebufferProducerBufferQueueCallExpectations(this);
     Case::Display::setupNativeWindowSurfaceCreationCallExpectations(this);
     Case::Display::setupHwcGetActiveConfigCallExpectations(this);
 
@@ -191,7 +186,6 @@ void DisplayTransactionCommitTest::processesHotplugConnectCommon() {
     EXPECT_CALL(*mComposer,
                 setVsyncEnabled(Case::Display::HWC_DISPLAY_ID, IComposerClient::Vsync::DISABLE))
             .WillOnce(Return(Error::NONE));
-    EXPECT_CALL(*mConsumer, consumerDisconnect()).WillOnce(Return(NO_ERROR));
 }
 
 template <typename Case>
@@ -351,7 +345,6 @@ TEST_F(DisplayTransactionCommitTest, processesHotplugConnectThenDisconnectPrimar
                             setVsyncEnabled(Case::Display::HWC_DISPLAY_ID,
                                             IComposerClient::Vsync::DISABLE))
                         .WillOnce(Return(Error::NONE));
-                EXPECT_CALL(*mConsumer, consumerDisconnect()).WillOnce(Return(NO_ERROR));
 
                 // --------------------------------------------------------------------
                 // Invocation
@@ -429,7 +422,6 @@ TEST_F(DisplayTransactionCommitTest, processesHotplugDisconnectThenConnectPrimar
                             setVsyncEnabled(Case::Display::HWC_DISPLAY_ID,
                                             IComposerClient::Vsync::DISABLE))
                         .WillOnce(Return(Error::NONE));
-                EXPECT_CALL(*mConsumer, consumerDisconnect()).WillOnce(Return(NO_ERROR));
             }(),
             testing::KilledBySignal(SIGABRT), "Primary display cannot be disconnected.");
 }
@@ -458,8 +450,6 @@ TEST_F(DisplayTransactionCommitTest, processesVirtualDisplayAdded) {
 
     // --------------------------------------------------------------------
     // Call Expectations
-
-    Case::Display::setupFramebufferConsumerBufferQueueCallExpectations(this);
     Case::Display::setupNativeWindowSurfaceCreationCallExpectations(this);
 
     EXPECT_CALL(*surface, query(NATIVE_WINDOW_WIDTH, _))
@@ -473,9 +463,6 @@ TEST_F(DisplayTransactionCommitTest, processesVirtualDisplayAdded) {
             .WillRepeatedly(DoAll(SetArgPointee<1>(0), Return(NO_ERROR)));
 
     EXPECT_CALL(*surface, setAsyncMode(true)).Times(1);
-
-    EXPECT_CALL(*mProducer, connect(_, NATIVE_WINDOW_API_EGL, false, _)).Times(1);
-    EXPECT_CALL(*mProducer, disconnect(_, _)).Times(1);
 
     Case::Display::setupHwcVirtualDisplayCreationCallExpectations(this);
     Case::WideColorSupport::setupComposerCallExpectations(this);
@@ -498,7 +485,6 @@ TEST_F(DisplayTransactionCommitTest, processesVirtualDisplayAdded) {
 
     EXPECT_CALL(*mComposer, destroyVirtualDisplay(Case::Display::HWC_DISPLAY_ID))
             .WillOnce(Return(Error::NONE));
-    EXPECT_CALL(*mConsumer, consumerDisconnect()).WillOnce(Return(NO_ERROR));
 
     // Cleanup
     mFlinger.mutableCurrentState().displays.removeItem(displayToken);
