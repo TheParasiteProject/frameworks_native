@@ -71,8 +71,8 @@ namespace {
 static constexpr nsecs_t ARBITRARY_TIME = 1234;
 
 // An arbitrary device id.
-static constexpr int32_t DEVICE_ID = DEFAULT_DEVICE_ID;
-static constexpr int32_t SECOND_DEVICE_ID = 2;
+static constexpr DeviceId DEVICE_ID = DEFAULT_DEVICE_ID;
+static constexpr DeviceId SECOND_DEVICE_ID = 2;
 
 // An arbitrary display id.
 constexpr ui::LogicalDisplayId DISPLAY_ID = ui::LogicalDisplayId::DEFAULT;
@@ -9189,7 +9189,7 @@ protected:
         mWindow->consumeFocusEvent(true);
     }
 
-    void sendAndConsumeKeyDown(int32_t deviceId) {
+    void sendAndConsumeKeyDown(DeviceId deviceId) {
         NotifyKeyArgs keyArgs =
                 generateKeyArgs(AKEY_EVENT_ACTION_DOWN, ui::LogicalDisplayId::DEFAULT);
         keyArgs.deviceId = deviceId;
@@ -9206,7 +9206,7 @@ protected:
                 AllOf(WithKeyAction(AKEY_EVENT_ACTION_DOWN), WithRepeatCount(repeatCount)));
     }
 
-    void sendAndConsumeKeyUp(int32_t deviceId) {
+    void sendAndConsumeKeyUp(DeviceId deviceId) {
         NotifyKeyArgs keyArgs =
                 generateKeyArgs(AKEY_EVENT_ACTION_UP, ui::LogicalDisplayId::DEFAULT);
         keyArgs.deviceId = deviceId;
