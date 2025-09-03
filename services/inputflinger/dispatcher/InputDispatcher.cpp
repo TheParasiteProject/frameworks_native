@@ -3626,7 +3626,7 @@ void InputDispatcher::enqueueDispatchEntryLocked(const std::shared_ptr<Connectio
  */
 void InputDispatcher::processInteractionsLocked(const EventEntry& entry,
                                                 const std::vector<InputTarget>& targets) {
-    int32_t deviceId;
+    DeviceId deviceId;
     nsecs_t eventTime;
     // Skip ACTION_UP events, and all events other than keys and motions
     if (entry.type == EventEntry::Type::KEY) {
@@ -5393,6 +5393,12 @@ bool InputDispatcher::DispatcherTouchState::canWindowReceiveMotion(
         const sp<android::gui::WindowInfoHandle>& window,
         const android::inputdispatcher::MotionEntry& motionEntry) const {
     const WindowInfo& info = *window->getInfo();
+
+    if (info.touchOcclusionMode == TouchOcclusionMode::USE_OPACITY && info.alpha < 0.5f) {
+        LOG(INFO) << "Not sending motion to " << window->getName() << ", window opacity="
+            << info.alpha << " is below the threshold";
+        return false;
+    }
 
     // Skip spy window targets that are not valid for targeted injection.
     if (const auto err = verifyTargetedInjection(window, motionEntry); err) {
@@ -7567,7 +7573,7 @@ ftl::Flags<InputTarget::Flags> InputDispatcher::DispatcherTouchState::getTargetF
 }
 
 bool InputDispatcher::DispatcherTouchState::hasTouchingOrHoveringPointers(
-        ui::LogicalDisplayId displayId, int32_t deviceId) const {
+        ui::LogicalDisplayId displayId, DeviceId deviceId) const {
     bool hasTouchingOrHoveringPointers = false;
     forTouchAndCursorStatesOnDisplay(displayId, [&](const TouchState& state) {
         hasTouchingOrHoveringPointers =

@@ -21,6 +21,7 @@
 #include <memory>
 
 #include <android/input.h>
+#include <input/Input.h>
 #include <utils/Timers.h>
 
 #include "EventHub.h"
@@ -44,7 +45,7 @@ constexpr std::chrono::nanoseconds TAP_ENABLE_DELAY_NANOS = 400ms;
 class GestureConverter {
 public:
     GestureConverter(InputReaderContext& readerContext, const InputDeviceContext& deviceContext,
-                     int32_t deviceId);
+                     DeviceId deviceId);
 
     std::string dump() const;
 
@@ -104,7 +105,7 @@ private:
     bool mIsHoverCancelled{false};
     nsecs_t mWhenToEnableTapToClick{0};
 
-    const int32_t mDeviceId;
+    const DeviceId mDeviceId;
     InputReaderContext& mReaderContext;
     bool mEnableSystemGestures{true};
 

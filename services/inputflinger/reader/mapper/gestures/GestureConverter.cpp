@@ -79,7 +79,7 @@ bool isGestureNoFocusChange(MotionClassification classification) {
 } // namespace
 
 GestureConverter::GestureConverter(InputReaderContext& readerContext,
-                                   const InputDeviceContext& deviceContext, int32_t deviceId)
+                                   const InputDeviceContext& deviceContext, DeviceId deviceId)
       : mDeviceId(deviceId),
         mReaderContext(readerContext),
         // We can safely assume that ABS_MT_POSITION_X and _Y axes will be available, as EventHub
