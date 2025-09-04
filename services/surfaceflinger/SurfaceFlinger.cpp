@@ -139,8 +139,8 @@
 #include "DisplayHardware/ComposerHal.h"
 #include "DisplayHardware/FramebufferSurface.h"
 #include "DisplayHardware/Hal.h"
-#include "DisplayHardware/VirtualDisplay/VirtualDisplaySurface2.h"
-#include "DisplayHardware/VirtualDisplaySurface.h"
+#include "DisplayHardware/VirtualDisplay/LegacyVirtualDisplaySurface.h"
+#include "DisplayHardware/VirtualDisplay/VirtualDisplaySurface.h"
 #include "Effects/Daltonizer.h"
 #include "FpsReporter.h"
 #include "FrameTracer/FrameTracer.h"
@@ -4295,16 +4295,16 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
             const uid_t creatorUid = 0; // Set to 0 so there's only a single thread for now, while
                                         // we weave this through the codebase.
             auto surface =
-                    sp<VirtualDisplaySurface2>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
-                                                     state.displayName, creatorUid,
-                                                     sp<Surface>::make(state.surface));
+                    sp<VirtualDisplaySurface>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
+                                                    state.displayName, creatorUid,
+                                                    sp<Surface>::make(state.surface));
             displaySurface = surface;
             producer = surface->getCompositionSurface()->getIGraphicBufferProducer();
         } else {
-            auto surface =
-                    sp<VirtualDisplaySurface>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
-                                                    state.surface, bqProducer, bqConsumer,
-                                                    state.displayName);
+            auto surface = sp<LegacyVirtualDisplaySurface>::make(getHwComposer(),
+                                                                 *virtualDisplayIdVariantOpt,
+                                                                 state.surface, bqProducer,
+                                                                 bqConsumer, state.displayName);
             displaySurface = surface;
             producer = std::move(surface);
         }
