@@ -416,9 +416,9 @@ public:
             std::shared_ptr<compositionengine::Display> compositionDisplay,
             const DisplayDeviceState& state,
             const sp<compositionengine::DisplaySurface>& dispSurface,
-            const sp<IGraphicBufferProducer>& producer) NO_THREAD_SAFETY_ANALYSIS {
+            const sp<Surface>& compositionSurface) NO_THREAD_SAFETY_ANALYSIS {
         return mFlinger->setupNewDisplayDeviceInternal(displayToken, compositionDisplay, state,
-                                                       dispSurface, producer);
+                                                       dispSurface, compositionSurface);
     }
 
     void commitTransactionsLocked(uint32_t transactionFlags, bool modeset = false) {
