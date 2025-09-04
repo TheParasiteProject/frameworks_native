@@ -18,7 +18,6 @@
 
 #include <array>
 #include <list>
-#include <memory>
 
 #include <android/input.h>
 #include <input/Input.h>
@@ -42,10 +41,10 @@ using std::chrono_literals::operator""ms;
 constexpr std::chrono::nanoseconds TAP_ENABLE_DELAY_NANOS = 400ms;
 
 // Converts Gesture structs from the gestures library into NotifyArgs.
-class GestureConverter {
+class UncapturedGestureConverter {
 public:
-    GestureConverter(InputReaderContext& readerContext, const InputDeviceContext& deviceContext,
-                     DeviceId deviceId);
+    UncapturedGestureConverter(InputReaderContext& readerContext,
+                               const InputDeviceContext& deviceContext, DeviceId deviceId);
 
     std::string dump() const;
 
