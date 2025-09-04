@@ -129,6 +129,8 @@ private:
     bool isGpuDisplay() const { return std::holds_alternative<GpuVirtualDisplayId>(mDisplayId); };
     bool isHalDisplay() const { return std::holds_alternative<HalVirtualDisplayId>(mDisplayId); };
 
+    uint64_t getRendererUsage() const;
+
     void applyResizeLocked(const ui::Size& size) REQUIRES(mMutex);
 
     void prepareSurfacesLocked() REQUIRES(mMutex);
