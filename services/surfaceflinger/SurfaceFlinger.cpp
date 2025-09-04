@@ -4286,7 +4286,7 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
     sp<IGraphicBufferProducer> producer;
     sp<IGraphicBufferProducer> bqProducer;
     sp<IGraphicBufferConsumer> bqConsumer;
-    getFactory().createBufferQueue(&bqProducer, &bqConsumer, /*consumerIsSurfaceFlinger =*/false);
+    BufferQueue::createBufferQueue(&bqProducer, &bqConsumer, /*consumerIsSurfaceFlinger =*/false);
 
     if (state.isVirtual()) {
         if (FlagManager::getInstance().wb_virtualdisplay2()) {
