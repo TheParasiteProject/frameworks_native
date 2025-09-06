@@ -667,7 +667,7 @@ cc_test {
         "libtrusty",
     ],
 
-    test_suites: ["device-tests"],
+    test_suites: ["general-tests"],
     require_root: true,
 }
 
