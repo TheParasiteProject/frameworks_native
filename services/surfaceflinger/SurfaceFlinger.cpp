@@ -139,8 +139,8 @@
 #include "DisplayHardware/ComposerHal.h"
 #include "DisplayHardware/FramebufferSurface.h"
 #include "DisplayHardware/Hal.h"
-#include "DisplayHardware/VirtualDisplay/VirtualDisplaySurface2.h"
-#include "DisplayHardware/VirtualDisplaySurface.h"
+#include "DisplayHardware/VirtualDisplay/LegacyVirtualDisplaySurface.h"
+#include "DisplayHardware/VirtualDisplay/VirtualDisplaySurface.h"
 #include "Effects/Daltonizer.h"
 #include "FpsReporter.h"
 #include "FrameTracer/FrameTracer.h"
@@ -862,7 +862,9 @@ void SurfaceFlinger::bootFinished() {
 bool shouldUseGraphiteIfSupported() {
     return FlagManager::getInstance().graphite_renderengine() ||
             (FlagManager::getInstance().graphite_renderengine_preview_rollout() &&
-             base::GetBoolProperty(PROPERTY_DEBUG_RENDERENGINE_GRAPHITE_PREVIEW_OPTIN, false));
+             base::GetBoolProperty(PROPERTY_DEBUG_RENDERENGINE_GRAPHITE_PREVIEW_OPTIN, false)) ||
+            (FlagManager::getInstance().graphite_renderengine_desktop_rollout() &&
+             base::GetBoolProperty(PROPERTY_DEBUG_RENDERENGINE_GRAPHITE_DESKTOP_OPTIN, false));
 }
 
 void chooseRenderEngineType(renderengine::RenderEngineCreationArgs::Builder& builder) {
@@ -3098,12 +3100,6 @@ std::future<void> SurfaceFlinger::offloadGpuCompositedDisplays(
     auto offloadedCompositionPromise = std::make_shared<std::promise<void>>();
     auto offloadedCompositionFuture = offloadedCompositionPromise->get_future();
 
-    for (auto& [layer, layerFE] : offloadedLayers) {
-        layer->onPreComposition(offloadedRefreshArgs.refreshStartTime);
-        attachReleaseFenceFutureToLayer(layer, layerFE,
-                                        layerFE->mSnapshot->outputFilter.layerStack);
-    }
-
     BackgroundExecutor::getInstance().sendCallbacks(
             {[offloadedRefreshArgs = std::move(offloadedRefreshArgs),
               promise = std::move(offloadedCompositionPromise), this]() mutable {
@@ -3171,38 +3167,44 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
 
     constexpr bool kCursorOnly = false;
     const auto layers = addLayerSnapshotsToCompositionArgs(mainThreadRefreshArgs, kCursorOnly);
-    setVisibleRegionDirtyIfNeeded(mainThreadRefreshArgs);
+
+    prepareLayersForComposition(mainThreadRefreshArgs, kCursorOnly, layers);
 
     for (auto& [layer, layerFE] : layers) {
-        layer->onPreComposition(mainThreadRefreshArgs.refreshStartTime);
-
         validateForReadback(layerFE);
     }
-
     setupOutputsForReadback(mainThreadRefreshArgs.outputs);
 
-    for (auto& [layer, layerFE] : layers) {
-        attachReleaseFenceFutureToLayer(layer, layerFE,
-                                        layerFE->mSnapshot->outputFilter.layerStack);
-    }
-
-    std::optional<std::future<void>> offloadedCompositionFuture;
     std::vector<std::pair<Layer*, LayerFE*>> offloadedLayers;
     if (optionalOffloadedRefreshArgs) {
-        setVisibleRegionDirtyIfNeeded(*optionalOffloadedRefreshArgs);
-
         offloadedLayers =
                 addLayerSnapshotsToCompositionArgs(*optionalOffloadedRefreshArgs, kCursorOnly);
-        offloadedCompositionFuture =
-                offloadGpuCompositedDisplays(std::move(*optionalOffloadedRefreshArgs),
-                                             offloadedLayers);
+
+        prepareLayersForComposition(*optionalOffloadedRefreshArgs, kCursorOnly, offloadedLayers);
+    }
+
+    std::unordered_set<uint32_t> mainThreadLayerStacks;
+    for (auto& output : mainThreadRefreshArgs.outputs) {
+        mainThreadLayerStacks.insert(output->getState().layerFilter.layerStack.id);
     }
 
     mainThreadRefreshArgs.layersWithQueuedFrames.reserve(mLayersWithQueuedFrames.size());
+    if (optionalOffloadedRefreshArgs) {
+        optionalOffloadedRefreshArgs->layersWithQueuedFrames.reserve(
+                mLayersWithQueuedFrames.size());
+    }
+
     for (auto& [layer, _] : mLayersWithQueuedFrames) {
         if (const auto& layerFE =
                     layer->getCompositionEngineLayerFE({static_cast<uint32_t>(layer->sequence)})) {
-            mainThreadRefreshArgs.layersWithQueuedFrames.push_back(layerFE);
+            if (!optionalOffloadedRefreshArgs ||
+                (layerFE->mSnapshot != nullptr &&
+                 layerFE->mSnapshot->outputFilter.layerStack != ui::UNASSIGNED_LAYER_STACK &&
+                 mainThreadLayerStacks.count(layerFE->mSnapshot->outputFilter.layerStack.id))) {
+                mainThreadRefreshArgs.layersWithQueuedFrames.push_back(layerFE);
+            } else {
+                optionalOffloadedRefreshArgs->layersWithQueuedFrames.push_back(layerFE);
+            }
             // Some layers are not displayed and do not yet have a future release fence
             if (layerFE->getReleaseFencePromiseStatus() ==
                         LayerFE::ReleaseFencePromiseStatus::UNINITIALIZED ||
@@ -3213,6 +3215,13 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
                                                 ui::UNASSIGNED_LAYER_STACK);
             }
         }
+    }
+
+    std::optional<std::future<void>> offloadedCompositionFuture;
+    if (optionalOffloadedRefreshArgs) {
+        offloadedCompositionFuture =
+                offloadGpuCompositedDisplays(std::move(*optionalOffloadedRefreshArgs),
+                                             offloadedLayers);
     }
 
     mCompositionEngine->present(mainThreadRefreshArgs);
@@ -3414,6 +3423,18 @@ CompositeResultsPerDisplay SurfaceFlinger::composite(
     }
 
     return resultsPerDisplay;
+}
+
+void SurfaceFlinger::prepareLayersForComposition(
+        compositionengine::CompositionRefreshArgs& refreshArgs, bool kCursorOnly,
+        const std::vector<std::pair<Layer*, LayerFE*>>& layers) {
+    setVisibleRegionDirtyIfNeeded(refreshArgs);
+
+    for (auto& [layer, layerFE] : layers) {
+        layer->onPreComposition(refreshArgs.refreshStartTime);
+        attachReleaseFenceFutureToLayer(layer, layerFE,
+                                        layerFE->mSnapshot->outputFilter.layerStack);
+    }
 }
 
 void SurfaceFlinger::setForcedClientCompositionLayerStacks(
@@ -4293,16 +4314,16 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
             const uid_t creatorUid = 0; // Set to 0 so there's only a single thread for now, while
                                         // we weave this through the codebase.
             auto surface =
-                    sp<VirtualDisplaySurface2>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
-                                                     state.displayName, creatorUid,
-                                                     sp<Surface>::make(state.surface));
+                    sp<VirtualDisplaySurface>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
+                                                    state.displayName, creatorUid,
+                                                    sp<Surface>::make(state.surface));
             displaySurface = surface;
             producer = surface->getCompositionSurface()->getIGraphicBufferProducer();
         } else {
-            auto surface =
-                    sp<VirtualDisplaySurface>::make(getHwComposer(), *virtualDisplayIdVariantOpt,
-                                                    state.surface, bqProducer, bqConsumer,
-                                                    state.displayName);
+            auto surface = sp<LegacyVirtualDisplaySurface>::make(getHwComposer(),
+                                                                 *virtualDisplayIdVariantOpt,
+                                                                 state.surface, bqProducer,
+                                                                 bqConsumer, state.displayName);
             displaySurface = surface;
             producer = std::move(surface);
         }
