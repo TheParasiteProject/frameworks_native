@@ -1501,7 +1501,7 @@ status_t BufferReleaseReader::readBlocking(ReleaseCallbackId& outId, sp<Fence>& 
     int eventCount;
     do {
         eventCount = epoll_wait(mEpollFd.get(), &event, 1 /*maxevents*/, timeoutMs);
-    } while (eventCount == -1 && errno != EINTR);
+    } while (eventCount == -1 && errno == EINTR);
 
     if (eventCount == -1) {
         ALOGE("epoll_wait error while waiting for buffer release. errno=%d message='%s'", errno,
