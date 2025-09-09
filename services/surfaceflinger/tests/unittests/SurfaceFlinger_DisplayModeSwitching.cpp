@@ -287,38 +287,10 @@ void DisplayModeSwitchingTest::setupScheduler(
 }
 
 TEST_P(DisplayModeSwitchingTest, changeRefreshRateWithRefreshRequired) {
-    SET_FLAG_FOR_TEST(flags::unify_refresh_rate_callbacks, false);
     EXPECT_NO_FATAL_FAILURE(setupChangeRefreshRateTests());
 
     // Verify that the next commit will complete the mode change and send
-    // a onModeChanged event to the framework.
-    EXPECT_CALL(*mAppEventThread,
-                onModeChanged(scheduler::FrameRateMode{90_Hz, ftl::as_non_null(kMode90)}, _));
-
-    mFlinger.commit();
-    Mock::VerifyAndClearExpectations(mAppEventThread);
-
-    EXPECT_THAT(mDisplay, HasActiveMode(&dmc(), kModeId90));
-}
-
-TEST_P(DisplayModeSwitchingTest, changeRefreshRateWithoutRefreshRequired) {
-    SET_FLAG_FOR_TEST(flags::unify_refresh_rate_callbacks, false);
-    EXPECT_NO_FATAL_FAILURE(setupChangeRefreshRateTests(true));
-
-    EXPECT_CALL(*mAppEventThread,
-                onModeChanged(scheduler::FrameRateMode{90_Hz, ftl::as_non_null(kMode90)}, _));
-
-    mFlinger.commit();
-
-    EXPECT_THAT(mDisplay, HasActiveMode(&dmc(), kModeId90));
-}
-
-TEST_P(DisplayModeSwitchingTest, changeRefreshRateWithRefreshRequired_unifyRefreshRateCallbacks) {
-    SET_FLAG_FOR_TEST(flags::unify_refresh_rate_callbacks, true);
-    EXPECT_NO_FATAL_FAILURE(setupChangeRefreshRateTests());
-
-    // Verify that the next commit will complete the mode change and send
-    // a onModeChanged event to the framework.
+    // a onModeAndFrameRateOverridesChanged event to the framework.
     EXPECT_CALL(*mAppEventThread,
                 onModeAndFrameRateOverridesChanged(_,
                                                    scheduler::FrameRateMode{90_Hz,
@@ -332,9 +304,7 @@ TEST_P(DisplayModeSwitchingTest, changeRefreshRateWithRefreshRequired_unifyRefre
     EXPECT_THAT(mDisplay, HasActiveMode(&dmc(), kModeId90));
 }
 
-TEST_P(DisplayModeSwitchingTest,
-       changeRefreshRateWithoutRefreshRequired_unifyRefreshRateCallbacks) {
-    SET_FLAG_FOR_TEST(flags::unify_refresh_rate_callbacks, true);
+TEST_P(DisplayModeSwitchingTest, changeRefreshRateWithoutRefreshRequired) {
     EXPECT_NO_FATAL_FAILURE(setupChangeRefreshRateTests(true));
 
     EXPECT_CALL(*mAppEventThread,
@@ -350,21 +320,6 @@ TEST_P(DisplayModeSwitchingTest,
 }
 
 TEST_P(DisplayModeSwitchingTest, changeRefreshRateOnTwoDisplaysWithoutRefreshRequired) {
-    SET_FLAG_FOR_TEST(flags::unify_refresh_rate_callbacks, false);
-    const auto [innerDisplay, outerDisplay] = injectOuterDisplay();
-    EXPECT_NO_FATAL_FAILURE(setupChangeRefreshRateOnTwoDisplays(innerDisplay, outerDisplay));
-
-    EXPECT_CALL(*mAppEventThread, onModeChanged(_, _)).Times(2);
-
-    mFlinger.commit();
-
-    EXPECT_THAT(innerDisplay, HasActiveMode(&dmc(), kModeId90));
-    EXPECT_THAT(outerDisplay, HasActiveMode(&dmc(), kModeId60));
-}
-
-TEST_P(DisplayModeSwitchingTest,
-       changeRefreshRateOnTwoDisplaysWithoutRefreshRequired_unifyRefreshRateCallbacks) {
-    SET_FLAG_FOR_TEST(flags::unify_refresh_rate_callbacks, true);
     const auto [innerDisplay, outerDisplay] = injectOuterDisplay();
     EXPECT_NO_FATAL_FAILURE(setupChangeRefreshRateOnTwoDisplays(innerDisplay, outerDisplay));
 

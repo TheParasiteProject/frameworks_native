@@ -8623,11 +8623,9 @@ status_t SurfaceFlinger::applyRefreshRateSelectorPolicy(
     const scheduler::RefreshRateSelector::Policy currentPolicy = selector.getCurrentPolicy();
     ALOGV("Setting desired display mode specs: %s", currentPolicy.toString().c_str());
 
-    const auto isPacesetter = FlagManager::getInstance().unify_refresh_rate_callbacks()
-            ? mScheduler->updatePolicyContentRequirements(displayId, selector.getActiveMode(),
-                                                          /*clearContentRequirements*/ true)
-            : mScheduler->onDisplayModeChanged(displayId, selector.getActiveMode(),
-                                               /*clearContentRequirements*/ true);
+    const auto isPacesetter =
+            mScheduler->updatePolicyContentRequirements(displayId, selector.getActiveMode(),
+                                                        /*clearContentRequirements*/ true);
     if (isPacesetter) {
         mDisplayModeController.updateKernelIdleTimer(displayId);
     }
@@ -8650,8 +8648,7 @@ status_t SurfaceFlinger::applyRefreshRateSelectorPolicy(
         return INVALID_OPERATION;
     }
 
-    if (FlagManager::getInstance().unify_refresh_rate_callbacks() &&
-        mScheduler->updateFrameRateOverrides(scheduler::GlobalSignals{}, preferredFps)) {
+    if (mScheduler->updateFrameRateOverrides(scheduler::GlobalSignals{}, preferredFps)) {
         setDesiredMode({preferredMode, .emitEvent = false});
         // Update the frameRateOverride and display mode change.
         mScheduler->onDisplayModeAndFrameRateOverridesChanged(displayId, preferredMode,
