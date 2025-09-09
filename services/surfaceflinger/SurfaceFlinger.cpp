@@ -155,7 +155,6 @@
 #include "LayerProtoHelper.h"
 #include "LayerVector.h"
 #include "MutexUtils.h"
-#include "NativeWindowSurface.h"
 #include "PowerAdvisor/PowerAdvisor.h"
 #include "PowerAdvisor/Workload.h"
 #include "RegionSamplingThread.h"

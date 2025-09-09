@@ -44,8 +44,6 @@ struct WideColorP3ColorimetricSupportedVariant {
     }
 
     static void setupComposerCallExpectations(DisplayTransactionTest* test) {
-        EXPECT_CALL(*test->mNativeWindow, perform(NATIVE_WINDOW_SET_BUFFERS_DATASPACE)).Times(1);
-
         EXPECT_CALL(*test->mComposer,
                     getRenderIntents(Display::HWC_DISPLAY_ID, ColorMode::DISPLAY_P3, _))
                 .WillOnce(DoAll(SetArgPointee<2>(
@@ -214,10 +212,6 @@ void SetupNewDisplayDeviceInternalTest::setupNewDisplayDeviceInternalTest() {
     // The display is setup with the HWC.
     Case::Display::injectHwcDisplay(this);
 
-    // SurfaceFlinger will use a test-controlled factory for native window
-    // surfaces.
-    injectFakeNativeWindowSurfaceFactory();
-
     // A compositionengine::Display has already been created
     auto compositionDisplay = Case::Display::injectCompositionDisplay(this);
 
@@ -225,7 +219,6 @@ void SetupNewDisplayDeviceInternalTest::setupNewDisplayDeviceInternalTest() {
     // Call Expectations
 
     // Various native window calls will be made.
-    Case::Display::setupNativeWindowSurfaceCreationCallExpectations(this);
     Case::Display::setupHwcGetActiveConfigCallExpectations(this);
     Case::Display::setupHwcGetConfigsCallExpectations(this);
     Case::WideColorSupport::setupComposerCallExpectations(this);

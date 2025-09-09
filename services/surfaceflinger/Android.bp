@@ -239,7 +239,6 @@ filegroup {
         "LayerFE.cpp",
         "LayerProtoHelper.cpp",
         "LayerVector.cpp",
-        "NativeWindowSurface.cpp",
         "RefreshRateOverlay.cpp",
         "RegionSamplingThread.cpp",
         "Scheduler/EventThread.cpp",
