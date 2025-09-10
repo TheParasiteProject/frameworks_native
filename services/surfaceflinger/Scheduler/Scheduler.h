@@ -44,6 +44,7 @@
 #include <ui/DisplayMap.h>
 #include <ui/StaticDisplayInfo.h>
 
+#include "../Clock.h"
 #include "DisplayHardware/DisplayMode.h"
 #include "EventThread.h"
 #include "FrameRateOverrideMappings.h"
@@ -687,6 +688,8 @@ private:
     SmallAreaDetectionAllowMappings mSmallAreaDetectionAllowMappings;
 
     std::atomic<std::optional<TimePoint>> mDebugPresentDelay;
+
+    std::unique_ptr<android::Clock> mClock = std::make_unique<SteadyClock>();
 };
 
 } // namespace scheduler

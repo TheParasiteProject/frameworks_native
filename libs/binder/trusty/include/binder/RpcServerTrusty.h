@@ -29,6 +29,7 @@
 #include <vector>
 
 #include <lib/tipc/tipc_srv.h>
+#include <uapi/trusty_peer_id.h>
 
 namespace android {
 
@@ -68,10 +69,16 @@ public:
     }
     void setRootObject(const sp<IBinder>& binder) { mRpcServer->setRootObject(binder); }
     void setRootObjectWeak(const wp<IBinder>& binder) { mRpcServer->setRootObjectWeak(binder); }
+    /*
+     * Assumes the peer (passed via the const void*, size_t pair) is specified
+     * by a UUID. Deprecated. Use the version below that takes a trusty_peer_id.
+     */
+    void setPerSessionRootObject(std::function<sp<IBinder>(wp<RpcSession> session, const void* peer,
+                                                           size_t peer_len)>&& create_session);
     void setPerSessionRootObject(
-            std::function<sp<IBinder>(wp<RpcSession> session, const void*, size_t)>&& object) {
-        mRpcServer->setPerSessionRootObject(std::move(object));
-    }
+            std::function<sp<IBinder>(wp<RpcSession> session, const trusty_peer_id& peer,
+                                      size_t peer_len)>&& create_session);
+
     sp<IBinder> getRootObject() { return mRpcServer->getRootObject(); }
 
     /**
