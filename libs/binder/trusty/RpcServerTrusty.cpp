@@ -16,6 +16,9 @@
 
 #define LOG_TAG "libbinder.RpcServerTrusty"
 
+#include <cinttypes>
+#include <cstring>
+
 #include <binder/Parcel.h>
 #include <binder/RpcServer.h>
 #include <binder/RpcServerTrusty.h>
@@ -96,12 +99,60 @@ RpcServerTrusty::RpcServerTrusty(std::unique_ptr<RpcTransportCtx> ctx, std::stri
     }
 }
 
+void RpcServerTrusty::setPerSessionRootObject(
+        std::function<sp<IBinder>(wp<RpcSession> session, const void* peer, size_t peer_len)>&&
+                create_session) {
+    auto wrap_create_session = [create_session =
+                                        std::move(create_session)](wp<RpcSession> session,
+                                                                   const trusty_peer_id& peer,
+                                                                   size_t peer_len) -> sp<IBinder> {
+        if (peer.kind != TRUSTY_PEER_ID_KIND_UUID) {
+            ALOGE("Creating binder root object, but peer had "
+                  "non-uuid type %" PRIx64 " (expected %" PRIx64 ")",
+                  peer.kind, TRUSTY_PEER_ID_KIND_UUID);
+            return nullptr;
+        }
+        if (peer_len != sizeof(trusty_peer_id_uuid)) {
+            ALOGE("Creating binder root object, but uuid-type peer had unexpected "
+                  "size %zu (expected %zu)",
+                  peer_len, sizeof(trusty_peer_id_uuid));
+            return nullptr;
+        }
+
+        return create_session(std::move(session), &peer.data, sizeof(uuid));
+    };
+    setPerSessionRootObject(std::move(wrap_create_session));
+}
+
+void RpcServerTrusty::setPerSessionRootObject(
+        std::function<sp<IBinder>(wp<RpcSession> session, const trusty_peer_id& peer,
+                                  size_t peer_len)>&& create_session) {
+    auto wrap_create_session =
+            [create_session = std::move(create_session)](wp<RpcSession> session, const void* peer,
+                                                         size_t peer_len) -> sp<IBinder> {
+        if (peer_len > sizeof(trusty_peer_id_storage)) {
+            ALOGE("Creating binder root object, but peer ID (%zu bytes) too "
+                  "big to fit in trusty_peer_id_storage (%zu bytes)",
+                  peer_len, sizeof(trusty_peer_id_storage));
+            return nullptr;
+        }
+
+        /* memcpy because peer isn't guaranteed to be sufficiently aligned */
+        trusty_peer_id_storage peer_obj = TRUSTY_PEER_ID_STORAGE_INITIAL_VALUE();
+        std::memcpy(&peer_obj, peer, peer_len);
+
+        return create_session(std::move(session), reinterpret_cast<const trusty_peer_id&>(peer_obj),
+                              peer_len);
+    };
+    mRpcServer->setPerSessionRootObject(std::move(wrap_create_session));
+}
+
 int RpcServerTrusty::handleConnect(const tipc_port* port, handle_t chan, const uuid* peer,
                                    void** ctx_p) {
     auto* server = reinterpret_cast<RpcServerTrusty*>(const_cast<void*>(port->priv));
-    const void* uuid_ptr = static_cast<const void*>(peer);
-    constexpr size_t uuidLen = sizeof(*peer);
-    return handleConnectInternal(server->mRpcServer.get(), chan, uuid_ptr, uuidLen, ctx_p);
+
+    auto peer_id = trusty_peer_id_uuid{.kind = TRUSTY_PEER_ID_KIND_UUID, .id = *peer};
+    return handleConnectInternal(server->mRpcServer.get(), chan, &peer_id, sizeof(peer_id), ctx_p);
 }
 
 int RpcServerTrusty::handleConnectInternal(RpcServer* rpcServer, handle_t chan,
