@@ -258,6 +258,38 @@ protected:
         EXPECT_SET_ACTIVE_CONFIG(kInnerDisplayHwcId, kModeId90);
         EXPECT_SET_ACTIVE_CONFIG(kOuterDisplayHwcId, kModeId60);
     }
+
+    void setupSyncedResolutionChange() {
+        EXPECT_THAT(mDisplay, HasActiveMode(&dmc(), kModeId60));
+
+        // PrimaryDisplayVariant has a 4K size, so switch to 8K.
+        EXPECT_EQ(NO_ERROR,
+                  mFlinger.setDesiredDisplayModeSpecs(mDisplay->getDisplayToken().promote(),
+                                                      mock::createDisplayModeSpecs(kModeId60_8K,
+                                                                                   60_Hz)));
+
+        EXPECT_THAT(mDisplay, HasDesiredMode(&mFlinger, kModeId60_8K));
+    }
+
+    void expectSyncedResolutionChange() {
+        // Set the display size to match the resolution.
+        DisplayState state;
+        state.what = DisplayState::eDisplaySizeChanged;
+        state.token = mDisplay->getDisplayToken().promote();
+        state.width = static_cast<uint32_t>(mock::kResolution8K.width);
+        state.height = static_cast<uint32_t>(mock::kResolution8K.height);
+
+        // The next commit should set the mode and resize the framebuffer.
+        const VsyncPeriodChangeTimeline timeline{.refreshRequired = false};
+        EXPECT_CALL(*mDisplaySurface, resizeBuffers(mock::kResolution8K));
+        EXPECT_SET_ACTIVE_CONFIG(kInnerDisplayHwcId, kModeId60_8K);
+
+        constexpr bool kModeset = true;
+        mFlinger.setDisplayStateLocked(state);
+        mFlinger.configureAndCommit(kModeset);
+
+        EXPECT_THAT(mDisplay, HasActiveMode(&dmc(), kModeId60_8K));
+    }
 };
 
 void DisplayModeSwitchingTest::setupScheduler(
@@ -441,15 +473,7 @@ TEST_P(DisplayModeSwitchingTest, changeResolutionWithoutRefreshRequired) {
 TEST_P(DisplayModeSwitchingTest, changeResolutionSynced) {
     SET_FLAG_FOR_TEST(flags::synced_resolution_switch, true);
 
-    EXPECT_THAT(mDisplay, HasActiveMode(&dmc(), kModeId60));
-
-    // PrimaryDisplayVariant has a 4K size, so switch to 8K.
-    EXPECT_EQ(NO_ERROR,
-              mFlinger.setDesiredDisplayModeSpecs(mDisplay->getDisplayToken().promote(),
-                                                  mock::createDisplayModeSpecs(kModeId60_8K,
-                                                                               60_Hz)));
-
-    EXPECT_THAT(mDisplay, HasDesiredMode(&mFlinger, kModeId60_8K));
+    EXPECT_NO_FATAL_FAILURE(setupSyncedResolutionChange());
 
     // The mode should not be set until the commit that resizes the display.
     mFlinger.commit();
@@ -457,23 +481,23 @@ TEST_P(DisplayModeSwitchingTest, changeResolutionSynced) {
     mFlinger.commit();
     EXPECT_THAT(mDisplay, HasDesiredMode(&mFlinger, kModeId60_8K));
 
-    // Set the display size to match the resolution.
-    DisplayState state;
-    state.what = DisplayState::eDisplaySizeChanged;
-    state.token = mDisplay->getDisplayToken().promote();
-    state.width = static_cast<uint32_t>(mock::kResolution8K.width);
-    state.height = static_cast<uint32_t>(mock::kResolution8K.height);
+    EXPECT_NO_FATAL_FAILURE(expectSyncedResolutionChange());
+}
 
-    // The next commit should set the mode and resize the framebuffer.
-    const VsyncPeriodChangeTimeline timeline{.refreshRequired = false};
-    EXPECT_CALL(*mDisplaySurface, resizeBuffers(mock::kResolution8K));
-    EXPECT_SET_ACTIVE_CONFIG(kInnerDisplayHwcId, kModeId60_8K);
+TEST_P(DisplayModeSwitchingTest, changeResolutionSyncedDuringBoot) {
+    SET_FLAG_FOR_TEST(flags::synced_resolution_switch, true);
 
-    constexpr bool kModeset = true;
-    mFlinger.setDisplayStateLocked(state);
-    mFlinger.configureAndCommit(kModeset);
+    mFlinger.mutableBootStage() = TestableSurfaceFlinger::BootStage::BOOTANIMATION;
+    EXPECT_NO_FATAL_FAILURE(setupSyncedResolutionChange());
 
-    EXPECT_THAT(mDisplay, HasActiveMode(&dmc(), kModeId60_8K));
+    // The mode should not be set until the boot animation has finished.
+    mFlinger.commit();
+    EXPECT_THAT(mDisplay, HasDesiredMode(&mFlinger, kModeId60_8K));
+    mFlinger.commit();
+    EXPECT_THAT(mDisplay, HasDesiredMode(&mFlinger, kModeId60_8K));
+
+    mFlinger.mutableBootStage() = TestableSurfaceFlinger::BootStage::FINISHED;
+    EXPECT_NO_FATAL_FAILURE(expectSyncedResolutionChange());
 }
 
 TEST_P(DisplayModeSwitchingTest, innerXorOuterDisplay) {
