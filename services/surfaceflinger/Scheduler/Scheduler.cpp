@@ -689,17 +689,11 @@ void Scheduler::onFrameRateOverridesChanged() {
     }();
     auto [pacesetterMode, overrides] = getFrameRateOverrides();
 
-    if (FlagManager::getInstance().unify_refresh_rate_callbacks()) {
-        const auto vsyncConfigSet = getVsyncConfigsForRefreshRate(pacesetterMode.fps);
-        eventThreadFor(Cycle::Render)
-                .onModeAndFrameRateOverridesChanged(pacesetterId, pacesetterMode,
-                                                    std::move(overrides),
-                                                    pacesetterSelectorPtr()
-                                                            ->getSupportedFrameRates(),
-                                                    vsyncConfigSet);
-        return;
-    }
-    eventThreadFor(Cycle::Render).onFrameRateOverridesChanged(pacesetterId, std::move(overrides));
+    const auto vsyncConfigSet = getVsyncConfigsForRefreshRate(pacesetterMode.fps);
+    eventThreadFor(Cycle::Render)
+            .onModeAndFrameRateOverridesChanged(pacesetterId, pacesetterMode, std::move(overrides),
+                                                pacesetterSelectorPtr()->getSupportedFrameRates(),
+                                                vsyncConfigSet);
 }
 
 void Scheduler::onHdcpLevelsChanged(Cycle cycle, PhysicalDisplayId displayId,
@@ -734,16 +728,8 @@ bool Scheduler::updatePolicyContentRequirements(PhysicalDisplayId displayId,
 
 bool Scheduler::onDisplayModeChanged(PhysicalDisplayId displayId, const FrameRateMode& mode,
                                      bool clearContentRequirements) {
-    const bool isPacesetter =
-            updatePolicyContentRequirements(displayId, mode, clearContentRequirements);
-    if (FlagManager::getInstance().unify_refresh_rate_callbacks()) {
-        return onDisplayModeAndFrameRateOverridesChanged(displayId, mode, clearContentRequirements);
-    }
-    if (hasEventThreads()) {
-        const auto vsyncConfigSet = getVsyncConfigsForRefreshRate(mode.fps);
-        eventThreadFor(Cycle::Render).onModeChanged(mode, vsyncConfigSet);
-    }
-    return isPacesetter;
+    updatePolicyContentRequirements(displayId, mode, clearContentRequirements);
+    return onDisplayModeAndFrameRateOverridesChanged(displayId, mode, clearContentRequirements);
 }
 
 bool Scheduler::onDisplayModeAndFrameRateOverridesChanged(PhysicalDisplayId displayId,
@@ -797,17 +783,13 @@ void Scheduler::emitPacesetterModeChangeIfNeeded() {
 
     if (hasEventThreads()) {
         const auto vsyncConfigSet = getVsyncConfigsForRefreshRate(mode.fps);
-        if (FlagManager::getInstance().unify_refresh_rate_callbacks()) {
-            const auto [pacesetterMode, overrides] = getFrameRateOverrides();
-            eventThreadFor(Cycle::Render)
-                    .onModeAndFrameRateOverridesChanged(mode.modePtr->getPhysicalDisplayId(), mode,
-                                                        overrides,
-                                                        pacesetterSelectorPtr()
-                                                                ->getSupportedFrameRates(),
-                                                        vsyncConfigSet);
-        } else {
-            eventThreadFor(Cycle::Render).onModeChanged(mode, vsyncConfigSet);
-        }
+        const auto [pacesetterMode, overrides] = getFrameRateOverrides();
+        eventThreadFor(Cycle::Render)
+                .onModeAndFrameRateOverridesChanged(mode.modePtr->getPhysicalDisplayId(), mode,
+                                                    overrides,
+                                                    pacesetterSelectorPtr()
+                                                            ->getSupportedFrameRates(),
+                                                    vsyncConfigSet);
     }
 }
 
@@ -849,16 +831,8 @@ void Scheduler::reloadPhaseConfiguration(const FrameRateMode& mode, Duration min
         return mVsyncConfiguration->getCurrentConfigs();
     }();
     setVsyncConfig(mVsyncModulator->setVsyncConfigSet(currentConfigs), mode.fps.getPeriod());
-
-    if (FlagManager::getInstance().unify_refresh_rate_callbacks()) {
-        onDisplayModeAndFrameRateOverridesChanged(mode.modePtr->getPhysicalDisplayId(), mode,
-                                                  /*clearContentRequirements*/ false);
-        return;
-    }
-    if (hasEventThreads()) {
-        const auto vsyncConfigSet = getVsyncConfigsForRefreshRate(mode.fps);
-        eventThreadFor(Cycle::Render).onModeChanged(mode, vsyncConfigSet);
-    }
+    onDisplayModeAndFrameRateOverridesChanged(mode.modePtr->getPhysicalDisplayId(), mode,
+                                              /*clearContentRequirements*/ false);
 }
 
 void Scheduler::setActiveDisplayPowerModeForRefreshRateStats(hal::PowerMode powerMode) {
@@ -1353,14 +1327,8 @@ void Scheduler::dumpVsync(std::string& out) const {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-value" // b/369277774
 bool Scheduler::updateFrameRateOverrides(GlobalSignals consideredSignals, Fps displayRefreshRate) {
-    const bool changed = (std::scoped_lock(mPolicyLock),
-                          updateFrameRateOverridesLocked(consideredSignals, displayRefreshRate));
-
-    if (!FlagManager::getInstance().unify_refresh_rate_callbacks()) {
-        onFrameRateOverridesChanged();
-    }
-
-    return changed;
+    std::scoped_lock lock(mPolicyLock);
+    return updateFrameRateOverridesLocked(consideredSignals, displayRefreshRate);
 }
 #pragma clang diagnostic pop
 
@@ -1637,18 +1605,11 @@ auto Scheduler::applyPolicy(S Policy::* statePtr, T&& newState,
         modeRequests.reserve(modeChoices.size());
         emitModeChangedEvents.reserve(modeChoices.size());
         for (auto& [id, choice] : modeChoices) {
-            if (FlagManager::getInstance().unify_refresh_rate_callbacks()) {
-                modeRequests.emplace_back(display::DisplayModeRequest{.mode = choice.mode});
-                emitModeChangedEvents.emplace_back(
-                        display::DisplayModeRequest{.mode = choice.mode,
-                                                    .emitEvent = choice.consideredSignals
-                                                                         .shouldEmitEvent()});
-            } else {
-                modeRequests.emplace_back(
-                        display::DisplayModeRequest{.mode = choice.mode,
-                                                    .emitEvent = choice.consideredSignals
-                                                                         .shouldEmitEvent()});
-            }
+            modeRequests.emplace_back(display::DisplayModeRequest{.mode = choice.mode});
+            emitModeChangedEvents.emplace_back(
+                    display::DisplayModeRequest{.mode = choice.mode,
+                                                .emitEvent = choice.consideredSignals
+                                                                     .shouldEmitEvent()});
         }
 
         const bool followerRefreshRateSelection =
@@ -1706,10 +1667,6 @@ auto Scheduler::applyPolicy(S Policy::* statePtr, T&& newState,
         frameRateOverridesChanged =
                 updateFrameRateOverridesLocked(consideredSignals,
                                                mPolicy.modeOpt[getPacesetterDisplayId()]->fps);
-    }
-    if (frameRateOverridesChanged && !FlagManager::getInstance().unify_refresh_rate_callbacks()) {
-        onFrameRateOverridesChanged();
-        return consideredSignals;
     }
 
     for (auto displayModeRequest : emitModeChangedEvents) {
