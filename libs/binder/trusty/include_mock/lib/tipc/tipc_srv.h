@@ -38,6 +38,9 @@ struct tipc_srv_ops {
     int (*on_connect)(const struct tipc_port* port, handle_t chan, const struct uuid* peer,
                       void** ctx_p);
 
+    int (*on_connect_peer_id)(const struct tipc_port* port, handle_t chan,
+                              const struct trusty_peer_id* peer, size_t peer_len, void** ctx_p);
+
     int (*on_message)(const struct tipc_port* port, handle_t chan, void* ctx);
 
     void (*on_disconnect)(const struct tipc_port* port, handle_t chan, void* ctx);

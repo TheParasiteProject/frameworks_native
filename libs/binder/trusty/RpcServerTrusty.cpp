@@ -149,14 +149,10 @@ void RpcServerTrusty::setPerSessionRootObjectInternal(
     server->setPerSessionRootObject(std::move(wrap_create_session));
 }
 
-int RpcServerTrusty::handleConnect(const tipc_port* port, handle_t chan, const uuid* peer,
-                                   void** ctx_p) {
+int RpcServerTrusty::handleConnect(const tipc_port* port, handle_t chan, const trusty_peer_id* peer,
+                                   size_t peer_len, void** ctx_p) {
     auto* server = reinterpret_cast<RpcServerTrusty*>(const_cast<void*>(port->priv));
-
-    auto peer_id = trusty_peer_id_uuid{.kind = TRUSTY_PEER_ID_KIND_UUID, .id = *peer};
-    return handleConnectInternal(server->mRpcServer.get(), chan,
-                                 reinterpret_cast<const trusty_peer_id&>(peer_id), sizeof(peer_id),
-                                 ctx_p);
+    return handleConnectInternal(server->mRpcServer.get(), chan, *peer, peer_len, ctx_p);
 }
 
 int RpcServerTrusty::handleConnectInternal(RpcServer* rpcServer, handle_t chan,
