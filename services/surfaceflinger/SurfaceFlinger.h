@@ -80,6 +80,7 @@
 #include "DisplayHardware/HWComposer.h"
 #include "DisplayIdGenerator.h"
 #include "Effects/Daltonizer.h"
+#include "FrontEnd/Caching/MergeableHierarchyManager.h"
 #include "FrontEnd/DisplayInfo.h"
 #include "FrontEnd/LayerCreationArgs.h"
 #include "FrontEnd/LayerLifecycleManager.h"
@@ -1640,6 +1641,8 @@ private:
     frontend::LayerLifecycleManager mLayerLifecycleManager GUARDED_BY(kMainThreadContext);
     frontend::LayerHierarchyBuilder mLayerHierarchyBuilder GUARDED_BY(kMainThreadContext);
     frontend::LayerSnapshotBuilder mLayerSnapshotBuilder GUARDED_BY(kMainThreadContext);
+    frontend::caching::MergeableHierarchyManager mMergeableHierarchyManager
+            GUARDED_BY(kMainThreadContext);
 
     mutable std::mutex mCreatedLayersLock;
     std::vector<sp<Layer>> mCreatedLayers GUARDED_BY(mCreatedLayersLock);
