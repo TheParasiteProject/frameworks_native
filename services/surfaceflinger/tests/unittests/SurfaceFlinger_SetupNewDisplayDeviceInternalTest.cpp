@@ -18,6 +18,8 @@
 #define LOG_TAG "LibSurfaceFlingerUnittests"
 
 #include <ftl/fake_guard.h>
+#include <gui/BufferItemConsumer.h>
+#include <gui/Surface.h>
 #include <ui/ScreenPartStatus.h>
 
 #include "DisplayHardware/DisplayMode.h"
@@ -200,7 +202,8 @@ void SetupNewDisplayDeviceInternalTest::setupNewDisplayDeviceInternalTest() {
     const sp<BBinder> displayToken = sp<BBinder>::make();
     const sp<compositionengine::mock::DisplaySurface> displaySurface =
             sp<compositionengine::mock::DisplaySurface>::make();
-    const auto producer = sp<mock::GraphicBufferProducer>::make();
+    const auto [consumer, surface] =
+            BufferItemConsumer::create(AHARDWAREBUFFER_USAGE_CPU_READ_RARELY);
 
     // --------------------------------------------------------------------
     // Preconditions
@@ -276,7 +279,7 @@ void SetupNewDisplayDeviceInternalTest::setupNewDisplayDeviceInternalTest() {
     state.flags = Case::Display::DISPLAY_FLAGS;
 
     auto device = mFlinger.setupNewDisplayDeviceInternal(displayToken, compositionDisplay, state,
-                                                         displaySurface, producer);
+                                                         displaySurface, surface);
 
     // --------------------------------------------------------------------
     // Postconditions

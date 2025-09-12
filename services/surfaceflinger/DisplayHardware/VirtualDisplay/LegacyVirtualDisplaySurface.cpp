@@ -28,6 +28,7 @@
 #include <gui/BufferItem.h>
 #include <gui/BufferQueue.h>
 #include <gui/IProducerListener.h>
+#include <gui/Surface.h>
 #include <system/window.h>
 
 #include "DisplayHardware/HWComposer.h"
@@ -44,11 +45,11 @@
 
 namespace android {
 
-LegacyVirtualDisplaySurface::LegacyVirtualDisplaySurface(
-        HWComposer& hwc, VirtualDisplayIdVariant virtualIdVariant,
-        const sp<IGraphicBufferProducer>& sink, const sp<IGraphicBufferProducer>& bqProducer,
-        const sp<IGraphicBufferConsumer>& bqConsumer, const std::string& name)
-      : ConsumerBase(bqProducer, bqConsumer),
+LegacyVirtualDisplaySurface::LegacyVirtualDisplaySurface(HWComposer& hwc,
+                                                         VirtualDisplayIdVariant virtualIdVariant,
+                                                         const sp<IGraphicBufferProducer>& sink,
+                                                         const std::string& name)
+      : ConsumerBase(),
         mHwc(hwc),
         mVirtualIdVariant(virtualIdVariant),
         mDisplayName(name),
@@ -68,7 +69,7 @@ LegacyVirtualDisplaySurface::LegacyVirtualDisplaySurface(
         mOutputProducerSlot(BufferQueue::INVALID_BUFFER_SLOT),
         mForceHwcCopy(SurfaceFlinger::useHwcForRgbToYuv) {
     mSource[SOURCE_SINK] = sink;
-    mSource[SOURCE_SCRATCH] = bqProducer;
+    mSource[SOURCE_SCRATCH] = mSurface->getIGraphicBufferProducer();
 
     resetPerFrameState();
 

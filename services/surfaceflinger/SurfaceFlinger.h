@@ -130,11 +130,11 @@ class FlagManager;
 class FpsReporter;
 class TunnelModeEnabledReporter;
 class HdrLayerInfoReporter;
-class IGraphicBufferProducer;
 class Layer;
 class MessageBase;
 class RefreshRateOverlay;
 class RegionSamplingThread;
+class Surface;
 class TimeStats;
 class FrameTracer;
 class ScreenCapturer;
@@ -631,10 +631,10 @@ private:
             const sp<IBinder>& displayToken,
             std::optional<aidl::android::hardware::graphics::common::DisplayDecorationSupport>*
                     outSupport) const;
-    status_t setFrameRate(const sp<IGraphicBufferProducer>& surface, float frameRate,
-                          int8_t compatibility, int8_t changeFrameRateStrategy);
+    status_t setFrameRate(const sp<Surface>& surface, float frameRate, int8_t compatibility,
+                          int8_t changeFrameRateStrategy);
 
-    status_t setFrameTimelineInfo(const sp<IGraphicBufferProducer>& surface,
+    status_t setFrameTimelineInfo(const sp<Surface>& surface,
                                   const gui::FrameTimelineInfo& frameTimelineInfo);
 
     status_t setGameModeFrameRateOverride(uid_t uid, float frameRate);
@@ -1187,7 +1187,7 @@ private:
             std::shared_ptr<compositionengine::Display> compositionDisplay,
             const DisplayDeviceState& state,
             const sp<compositionengine::DisplaySurface>& displaySurface,
-            const sp<IGraphicBufferProducer>& producer) REQUIRES(mStateLock);
+            const sp<Surface>& compositionSurface) REQUIRES(mStateLock);
     void processDisplayChangesLocked() REQUIRES(mStateLock, kMainThreadContext);
     void processDisplayAdded(const wp<IBinder>& displayToken, const DisplayDeviceState&)
             REQUIRES(mStateLock, kMainThreadContext);
