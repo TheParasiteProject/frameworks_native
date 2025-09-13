@@ -90,10 +90,7 @@ public:
 
 private:
     LegacyVirtualDisplaySurface(HWComposer&, VirtualDisplayIdVariant,
-                                const sp<IGraphicBufferProducer>& sink,
-                                const sp<IGraphicBufferProducer>& bqProducer,
-                                const sp<IGraphicBufferConsumer>& bqConsumer,
-                                const std::string& name);
+                                const sp<IGraphicBufferProducer>& sink, const std::string& name);
 
     friend class sp<LegacyVirtualDisplaySurface>;
 

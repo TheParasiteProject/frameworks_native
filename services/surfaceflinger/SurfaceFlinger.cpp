@@ -2727,8 +2727,10 @@ bool SurfaceFlinger::updateLayerSnapshots(VsyncId vsyncId, nsecs_t frameTimeNs,
                      .supportedLayerGenericMetadata =
                              getHwComposer().getSupportedLayerGenericMetadata(),
                      .genericLayerMetadataKeyMap = getGenericLayerMetadataKeyMap(),
-                     .skipRoundCornersWhenProtected =
-                             !getRenderEngine().supportsProtectedContent()};
+                     .skipRoundCornersWhenProtected = !getRenderEngine().supportsProtectedContent(),
+                     .mergeableHierarchyManager = FlagManager::getInstance().frontend_caching_v0()
+                             ? &mMergeableHierarchyManager
+                             : nullptr};
         mLayerSnapshotBuilder.update(args);
     }
 
@@ -4153,7 +4155,7 @@ sp<DisplayDevice> SurfaceFlinger::setupNewDisplayDeviceInternal(
         std::shared_ptr<compositionengine::Display> compositionDisplay,
         const DisplayDeviceState& state,
         const sp<compositionengine::DisplaySurface>& displaySurface,
-        const sp<IGraphicBufferProducer>& producer) {
+        const sp<Surface>& compositionSurface) {
     DisplayDeviceCreationArgs creationArgs(sp<SurfaceFlinger>::fromExisting(this), getHwComposer(),
                                            displayToken, compositionDisplay);
     creationArgs.sequenceId = state.sequenceId;
@@ -4192,8 +4194,8 @@ sp<DisplayDevice> SurfaceFlinger::setupNewDisplayDeviceInternal(
         creationArgs.supportedPerFrameMetadata = getHwComposer().getSupportedPerFrameMetadata(*id);
     }
 
-    auto nativeWindowSurface = getFactory().createNativeWindowSurface(producer);
-    auto nativeWindow = nativeWindowSurface->getNativeWindow();
+    compositionSurface->allocateBuffers();
+    sp<ANativeWindow> nativeWindow = compositionSurface;
     creationArgs.nativeWindow = nativeWindow;
 
     // Make sure that composition can never be stalled by a virtual display
@@ -4213,8 +4215,6 @@ sp<DisplayDevice> SurfaceFlinger::setupNewDisplayDeviceInternal(
     creationArgs.requestedRefreshRate = state.requestedRefreshRate;
 
     sp<DisplayDevice> display = getFactory().createDisplayDevice(creationArgs);
-
-    nativeWindowSurface->preallocateBuffers();
 
     ui::ColorMode defaultColorMode = ui::ColorMode::NATIVE;
     Dataspace defaultDataSpace = Dataspace::UNKNOWN;
@@ -4309,10 +4309,7 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
     compositionDisplay->setLayerCachingEnabled(mLayerCachingEnabled);
 
     sp<compositionengine::DisplaySurface> displaySurface;
-    sp<IGraphicBufferProducer> producer;
-    sp<IGraphicBufferProducer> bqProducer;
-    sp<IGraphicBufferConsumer> bqConsumer;
-    BufferQueue::createBufferQueue(&bqProducer, &bqConsumer, /*consumerIsSurfaceFlinger =*/false);
+    sp<Surface> compositionSurface;
 
     if (state.isVirtual()) {
         if (FlagManager::getInstance().wb_virtualdisplay2()) {
@@ -4323,14 +4320,13 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
                                                     state.displayName, creatorUid,
                                                     sp<Surface>::make(state.surface));
             displaySurface = surface;
-            producer = surface->getCompositionSurface()->getIGraphicBufferProducer();
+            compositionSurface = surface->getCompositionSurface();
         } else {
             auto surface = sp<LegacyVirtualDisplaySurface>::make(getHwComposer(),
                                                                  *virtualDisplayIdVariantOpt,
-                                                                 state.surface, bqProducer,
-                                                                 bqConsumer, state.displayName);
+                                                                 state.surface, state.displayName);
             displaySurface = surface;
-            producer = std::move(surface);
+            compositionSurface = sp<Surface>::make(std::move(surface));
         }
     } else {
         ALOGE_IF(state.surface != nullptr,
@@ -4338,17 +4334,16 @@ void SurfaceFlinger::processDisplayAdded(const wp<IBinder>& displayToken,
                  "surface is provided (%p), ignoring it",
                  state.surface.get());
         const auto frameBufferSurface =
-                sp<FramebufferSurface>::make(getHwComposer(), state.physical->id, bqProducer,
-                                             bqConsumer,
+                sp<FramebufferSurface>::make(getHwComposer(), state.physical->id,
                                              state.physical->activeMode->getResolution(),
                                              ui::Size(maxGraphicsWidth, maxGraphicsHeight));
         displaySurface = frameBufferSurface;
-        producer = frameBufferSurface->getSurface()->getIGraphicBufferProducer();
+        compositionSurface = frameBufferSurface->getSurface();
     }
 
     LOG_FATAL_IF(!displaySurface);
     auto display = setupNewDisplayDeviceInternal(displayToken, std::move(compositionDisplay), state,
-                                                 displaySurface, producer);
+                                                 displaySurface, compositionSurface);
 
     if (mScheduler && !display->isVirtual()) {
         // For hotplug reconnect, renew the registration since display modes have been reloaded.
@@ -6685,6 +6680,8 @@ void SurfaceFlinger::dumpVisibleFrontEnd(std::string& result) {
     out << "\nLayer Hierarchy\n"
         << mLayerHierarchyBuilder.getHierarchy() << "\nOffscreen Hierarchy\n"
         << mLayerHierarchyBuilder.getOffscreenHierarchy() << "\n\n";
+
+    out << mMergeableHierarchyManager.dump() << "\n\n";
     result = out.str();
     dumpHwcLayersMinidump(result);
 }

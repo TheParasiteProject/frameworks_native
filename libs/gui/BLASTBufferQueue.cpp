@@ -51,7 +51,6 @@ using namespace std::chrono_literals;
 
 namespace {
 
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BUFFER_RELEASE_CHANNEL)
 template <class Mutex>
 class UnlockGuard {
 public:
@@ -65,7 +64,6 @@ public:
 private:
     Mutex& mLock;
 };
-#endif
 
 inline const char* boolToString(bool b) {
     return b ? "true" : "false";
@@ -287,9 +285,7 @@ void BLASTBufferQueue::update(const sp<SurfaceControl>& surface, uint32_t width,
     SurfaceComposerClient::Transaction t;
     bool applyTransaction = false;
     if (surfaceControlChanged) {
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BUFFER_RELEASE_CHANNEL)
         updateBufferReleaseProducer();
-#endif
         t.setFlags(mSurfaceControl, layer_state_t::eEnableBackpressure,
                    layer_state_t::eEnableBackpressure);
         // Migrate the picture profile handle to the new surface control.
@@ -467,9 +463,7 @@ ReleaseBufferCallback BLASTBufferQueue::makeReleaseBufferCallbackThunk() {
             return;
         }
         bbq->releaseBufferCallback(id, releaseFence, currentMaxAcquiredBufferCount);
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BUFFER_RELEASE_CHANNEL)
         bbq->drainBufferReleaseConsumer();
-#endif
     };
 }
 
@@ -1150,8 +1144,6 @@ public:
 #endif
 };
 
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BUFFER_RELEASE_CHANNEL)
-
 // BufferReleaseReader is used to do blocking but interruptible reads from the buffer
 // release channel. To implement this, BufferReleaseReader owns an epoll file descriptor that
 // is configured to wake up when either the BufferReleaseReader::ConsumerEndpoint or an eventfd
@@ -1196,23 +1188,16 @@ public:
 private:
     std::shared_ptr<BufferReleaseReader> mBufferReleaseReader;
 };
-#endif
 
 // Extends the BufferQueueProducer to create a wrapper around the listener so the listener calls
 // can be non-blocking when the producer is in the client process.
 class BBQBufferQueueProducer : public BufferQueueProducer {
 public:
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BUFFER_RELEASE_CHANNEL)
     BBQBufferQueueProducer(const sp<BufferQueueCore>& core, const wp<BLASTBufferQueue>& bbq,
                            std::shared_ptr<BufferReleaseReader> bufferReleaseReader)
           : BufferQueueProducer(core, false /* consumerIsSurfaceFlinger*/),
             mBLASTBufferQueue(bbq),
             mBufferReleaseReader(std::move(bufferReleaseReader)) {}
-#else
-    BBQBufferQueueProducer(const sp<BufferQueueCore>& core, const wp<BLASTBufferQueue>& bbq)
-          : BufferQueueProducer(core, false /* consumerIsSurfaceFlinger*/),
-            mBLASTBufferQueue(bbq) {}
-#endif
 
     status_t connect(const sp<IProducerListener>& listener, int api, bool producerControlledByApp,
                      QueueBufferOutput* output) override {
@@ -1257,7 +1242,6 @@ public:
         return BufferQueueProducer::query(what, value);
     }
 
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BUFFER_RELEASE_CHANNEL)
     status_t waitForBufferRelease(std::unique_lock<std::mutex>& bufferQueueLock,
                                   nsecs_t timeout) const override {
         ATRACE_CALL();
@@ -1298,7 +1282,6 @@ public:
 
         return OK;
     }
-#endif
 
 private:
     const wp<BLASTBufferQueue> mBLASTBufferQueue;
@@ -1314,24 +1297,15 @@ void BLASTBufferQueue::createBufferQueue(sp<IGraphicBufferProducer>* outProducer
     LOG_ALWAYS_FATAL_IF(outProducer == nullptr, "BLASTBufferQueue: outProducer must not be NULL");
     LOG_ALWAYS_FATAL_IF(outConsumer == nullptr, "BLASTBufferQueue: outConsumer must not be NULL");
 
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BUFFER_RELEASE_CHANNEL)
     std::unique_ptr<gui::BufferReleaseChannel::ConsumerEndpoint> bufferReleaseConsumer;
     gui::BufferReleaseChannel::open(mName, bufferReleaseConsumer, mBufferReleaseProducer);
     mBufferReleaseReader = std::make_shared<BufferReleaseReader>(std::move(bufferReleaseConsumer));
 
     auto core = sp<BBQBufferQueueCore>::make(mBufferReleaseReader);
-#else
-    auto core = sp<BufferQueueCore>::make();
-#endif
     LOG_ALWAYS_FATAL_IF(core == nullptr, "BLASTBufferQueue: failed to create BufferQueueCore");
 
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BUFFER_RELEASE_CHANNEL)
     auto producer = sp<BBQBufferQueueProducer>::make(core, wp<BLASTBufferQueue>::fromExisting(this),
                                                      mBufferReleaseReader);
-#else
-    auto producer =
-            sp<BBQBufferQueueProducer>::make(core, wp<BLASTBufferQueue>::fromExisting(this));
-#endif
     LOG_ALWAYS_FATAL_IF(producer == nullptr,
                         "BLASTBufferQueue: failed to create BBQBufferQueueProducer");
 
@@ -1419,8 +1393,6 @@ std::function<void(const nsecs_t)> BLASTBufferQueue::getWaitForBufferReleaseCall
     std::lock_guard _lock{mWaitForBufferReleaseMutex};
     return mWaitForBufferReleaseCallback;
 }
-
-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BUFFER_RELEASE_CHANNEL)
 
 void BLASTBufferQueue::updateBufferReleaseProducer() {
     // SELinux policy may prevent this process from sending the BufferReleaseChannel's file
@@ -1534,7 +1506,5 @@ void BufferReleaseReader::clearInterrupts() {
         ALOGE("error while reading from eventfd. errno=%d message='%s'", errno, strerror(errno));
     }
 }
-
-#endif
 
 } // namespace android
